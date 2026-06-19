@@ -5,8 +5,8 @@ export function InstitutionalMark({ compact = false }: { compact?: boolean }) {
     <div className="flex items-center gap-3">
       <div className="relative size-12 shrink-0 overflow-hidden rounded-md border border-white/20 bg-white p-1 shadow-sm">
         <Image
-          src="/sigj-emblem.svg"
-          alt="Emblema ficticio del portal SIGJ"
+          src="/escudo-institucional.png"
+          alt="Escudo institucional"
           fill
           sizes="48px"
           className="object-contain p-1"
