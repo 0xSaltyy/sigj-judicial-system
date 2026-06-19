@@ -1,5 +1,6 @@
 import { AdminSidebar, AdminTopbar } from "@/components/admin-sidebar";
 import { requireInternalUser } from "@/lib/auth/authorization";
+export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { supabase, profile } = await requireInternalUser();

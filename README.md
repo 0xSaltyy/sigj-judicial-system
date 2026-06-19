@@ -1,12 +1,12 @@
 # Palacio Judicial — Sistema Integral de Gestión Judicial (SIGJ)
 
-Aplicación ficticia multiinstitucional construida con Next.js 15, TypeScript, Tailwind CSS, shadcn/ui y Supabase. Representa flujos académicos de una corte suprema, un tribunal superior, juzgados, salas especializadas, secretarías, radicación, reparto y archivo.
+Aplicación multiinstitucional construida con Next.js 15, TypeScript, Tailwind CSS, shadcn/ui y Supabase. Integra flujos de una corte suprema, un tribunal superior, juzgados, salas especializadas, secretarías, radicación, reparto y archivo.
 
-> **Aviso:** no corresponde a una autoridad judicial o gubernamental real, no es un sitio oficial y no produce efectos jurídicos. No cargue datos personales, expedientes ni documentos reales.
+> Proyecto académico de referencia. No cargue datos personales, expedientes ni documentos reales.
 
 ## Alcance funcional
 
-- Portal público limitado a consulta por radicado, providencias publicadas, estados, audiencias, comunicados e instituciones ficticias.
+- Portal público limitado a consulta por radicado, providencias publicadas, estados, audiencias, comunicados e instituciones.
 - Flujo: entrada y radicación, validación, reparto, asignación, avocamiento, instrucción, pruebas, traslados, estados, audiencias, providencias, notificaciones, constancias y archivo.
 - Corte Suprema, Tribunal Superior, Juzgados de Circuito, Juzgados Municipales, salas Civil, Penal, Laboral, Familia y Constitucional/Tutelas.
 - Secretaría General, Oficina de Radicación, Oficina de Reparto y Archivo Judicial.
@@ -23,7 +23,7 @@ Aplicación ficticia multiinstitucional construida con Next.js 15, TypeScript, T
 - Usuarios, correos, perfiles, roles, auditoría y asignaciones institucionales no tienen políticas públicas de lectura.
 - Los administradores institucionales no pueden listar usuarios ni modificar al propietario.
 - Cada invitación, cambio de rol, activación/desactivación, cambio institucional y recuperación de contraseña registra actor, objetivo, fecha y valores anterior/nuevo.
-- El panel `/admin` no tiene bypass ni modo de acceso demostrativo cuando Supabase está ausente.
+- El panel `/admin` no tiene bypass ni acceso alterno cuando Supabase está ausente.
 
 ## Requisitos
 
@@ -40,7 +40,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-El portal público puede mostrar datos ficticios locales sin Supabase. El panel interno siempre exige Supabase y una sesión autorizada.
+El portal público y el panel interno consultan Supabase. Sin variables válidas se muestra un estado vacío o un error controlado; no se simulan mutaciones.
 
 ## Variables de entorno
 
@@ -68,7 +68,7 @@ OWNER_EMAIL=owner@example.com
    npx supabase db push
    ```
 
-3. La migración `supabase/migrations/202606190001_initial_sigj.sql` crea:
+3. Las migraciones crean el sistema en orden. `202606190001_initial_sigj.sql` contiene el esquema base y `202606190002_functional_admin.sql` añade metadatos de documentos, numeración, vistas públicas, auditoría y políticas requeridas por los flujos administrativos.
    - `profiles`, roles y permisos;
    - instituciones/cortes/oficinas (`dependencies`);
    - `cases`, `radications`, `case_actions`, `proceedings`, `hearings`, `notifications`, `documents` y `certificates`;

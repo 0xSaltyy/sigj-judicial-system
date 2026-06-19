@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: { default: "SIGJ | Sistema Integral de Gestión Judicial", template: "%s | SIGJ" },
-  description: "Portal demostrativo de gestión judicial de la República Judicial.",
+  description: "Portal institucional del Sistema Integral de Gestión Judicial.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
