@@ -43,3 +43,6 @@ next-env.d.ts
 
 # Codex scratch artifacts
 /work/
+
+# Supabase local CLI state
+/supabase/.temp/
