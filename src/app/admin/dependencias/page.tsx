@@ -1,6 +1,8 @@
-import { Building2, Plus } from "lucide-react";
+import { Building2, GitBranch } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin-page";
-import { Button } from "@/components/ui/button";
-import { dependencies } from "@/lib/demo-data";
 import { Badge } from "@/components/ui/badge";
-export default function DependenciesPage() { return <><AdminPageHeader title="Dependencias" description="Estructura organizacional de salas, juzgados y oficinas administrativas." action={<Button className="gap-2 bg-[#153b5c]"><Plus className="size-4" /> Nueva dependencia</Button>} /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{dependencies.map((name, i) => <article key={name} className="rounded-lg border bg-white p-5"><div className="flex items-start justify-between"><div className="grid size-10 place-items-center rounded bg-[#edf2f6] text-[#183d61]"><Building2 className="size-5" /></div><Badge className="bg-emerald-50 text-emerald-800">Activa</Badge></div><h2 className="mt-4 text-sm font-semibold text-[#153553]">{name}</h2><p className="mono-number mt-2 text-xs text-muted-foreground">Código: {i < 5 ? `TSJ-0${i+1}` : `DEP-${String(i+1).padStart(2,"0")}`}</p><p className="mt-1 text-xs text-muted-foreground">Distrito Capital Simulado · República Judicial</p></article>)}</div></>; }
+import { institutions } from "@/lib/demo-data";
+
+export default function DependenciesPage() {
+  return <><AdminPageHeader title="Instituciones y competencias" description="Cortes, tribunales, juzgados, salas, secretarías y oficinas que operan dentro del Palacio Judicial ficticio." /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{institutions.map((institution) => <article key={institution.code} className="rounded-lg border bg-white p-5"><div className="flex items-start justify-between"><div className="grid size-10 place-items-center rounded bg-[#edf2f6] text-[#183d61]"><Building2 className="size-5" /></div><div className="flex gap-2"><Badge variant="outline" className="mono-number">{institution.code}</Badge><Badge className="bg-emerald-50 text-emerald-800">Activa</Badge></div></div><h2 className="mt-4 text-sm font-semibold text-[#153553]">{institution.name}</h2><p className="mt-2 text-xs leading-5 text-muted-foreground">{institution.competence}</p><div className="mt-4 flex gap-2 rounded border bg-slate-50 p-3"><GitBranch className="mt-0.5 size-4 shrink-0 text-[#8b6829]" /><p className="text-xs leading-5 text-slate-700">{institution.workflow}</p></div></article>)}</div></>;
+}

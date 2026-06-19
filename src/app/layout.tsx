@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "SIGJ | Sistema Integrado de Gestión Judicial", template: "%s | SIGJ" },
+  title: { default: "SIGJ | Sistema Integral de Gestión Judicial", template: "%s | SIGJ" },
   description: "Portal demostrativo de gestión judicial de la República Judicial.",
 };
 

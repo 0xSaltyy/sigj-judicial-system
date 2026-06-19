@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "owner:bootstrap": "node --env-file=.env.local scripts/bootstrap-owner.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

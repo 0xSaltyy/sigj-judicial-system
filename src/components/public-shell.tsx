@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const links = [
-  ["Inicio", "/"], ["Consulta de expedientes", "/consulta"], ["Comunicados", "/comunicados"],
+  ["Inicio", "/"], ["Instituciones", "/instituciones"], ["Consulta de expedientes", "/consulta"], ["Comunicados", "/comunicados"],
   ["Audiencias", "/audiencias"], ["Estados judiciales", "/estados"], ["Providencias", "/providencias"],
 ];
 
@@ -46,10 +46,10 @@ export function InstitutionalFooter() {
     <footer className="no-print mt-auto bg-[#0b2238] text-slate-300">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.35fr_1fr_1fr] lg:px-8">
         <div><InstitutionalMark /><p className="mt-5 max-w-md text-sm leading-6 text-slate-400">Plataforma académica para demostrar flujos de radicación, trámite y consulta judicial. Toda la información visible es ficticia.</p></div>
-        <div><h2 className="text-xs font-semibold uppercase tracking-[.18em] text-[#cdb374]">Servicios</h2><div className="mt-4 grid gap-2 text-sm"><Link href="/consulta">Consulta de procesos</Link><Link href="/estados">Estados judiciales</Link><Link href="/audiencias">Agenda pública</Link><Link href="/providencias">Relatoría</Link></div></div>
+        <div><h2 className="text-xs font-semibold uppercase tracking-[.18em] text-[#cdb374]">Servicios</h2><div className="mt-4 grid gap-2 text-sm"><Link href="/instituciones">Instituciones y competencias</Link><Link href="/consulta">Consulta de procesos</Link><Link href="/estados">Estados judiciales</Link><Link href="/audiencias">Agenda pública</Link><Link href="/providencias">Relatoría</Link></div></div>
         <div><h2 className="text-xs font-semibold uppercase tracking-[.18em] text-[#cdb374]">Información</h2><p className="mt-4 text-sm leading-6">Atención demostrativa<br />Lunes a viernes · 8:00–17:00<br />República Judicial ficticia</p></div>
       </div>
-      <div className="border-t border-white/10"><p className="mx-auto max-w-7xl px-4 py-5 text-center text-xs leading-5 text-slate-400 sm:px-6">Sistema ficticio de demostración académica. No corresponde a una autoridad judicial real ni produce efectos jurídicos.</p></div>
+      <div className="border-t border-white/10"><p className="mx-auto max-w-7xl px-4 py-5 text-center text-xs leading-5 text-slate-400 sm:px-6">Sistema ficticio de demostración académica. No corresponde a una autoridad judicial real ni produce efectos jurídicos. Este no es un sitio oficial gubernamental o judicial.</p></div>
     </footer>
   );
 }

@@ -14,12 +14,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <article className="paper min-h-[850px] border p-10 sm:p-16">
         <header className="flex items-center gap-4 border-b-2 border-[#153553] pb-7">
           <div className="relative size-[72px] shrink-0 overflow-hidden rounded-md border border-slate-200 bg-white p-1">
-            <Image src="/escudo-institucional.png" alt="Emblema institucional SIGJ" fill sizes="72px" className="object-contain p-1" priority />
+            <Image src="/sigj-emblem.svg" alt="Emblema ficticio SIGJ" fill sizes="72px" className="object-contain p-1" priority />
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-[.14em] text-[#98712b]">República Judicial</p>
             <h1 className="mt-1 text-xl font-bold text-[#102d49]">Constancia de radicación</h1>
-            <p className="text-xs text-muted-foreground">Sistema Integrado de Gestión Judicial — SIGJ</p>
+            <p className="text-xs text-muted-foreground">Sistema Integral de Gestión Judicial — SIGJ</p>
           </div>
         </header>
         <div className="my-10 rounded border-2 border-[#153553] p-6 text-center">

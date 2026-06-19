@@ -14,9 +14,9 @@ export default async function ProceedingDetail({ params }: { params: Promise<{ i
       <article className="paper min-h-[1000px] border px-8 py-12 sm:px-16">
         <header className="border-b-2 border-[#153553] pb-7 text-center">
           <div className="relative mx-auto mb-4 size-[72px] overflow-hidden rounded-md border border-slate-200 bg-white p-1">
-            <Image src="/escudo-institucional.png" alt="Emblema institucional SIGJ" fill sizes="72px" className="object-contain p-1" priority />
+            <Image src="/sigj-emblem.svg" alt="Emblema ficticio SIGJ" fill sizes="72px" className="object-contain p-1" priority />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#98712b]">Tribunal Superior de Justicia</p>
+          <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#98712b]">{item.chamber} · Palacio Judicial</p>
           <h1 className="mt-3 text-xl font-bold uppercase text-[#102d49]">{item.title}</h1>
           <p className="mono-number mt-2 text-sm">{item.number}</p>
         </header>
