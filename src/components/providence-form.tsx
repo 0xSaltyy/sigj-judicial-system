@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText, Upload } from "lucide-react";
 import { createProceeding } from "@/app/actions/proceedings";
 import { DraftForm } from "@/components/draft-form";
 import { MarkdownEditor } from "@/components/markdown-editor";
@@ -19,6 +20,10 @@ type Proceeding = {
   content_markdown: string;
   status: string;
   visibility: string;
+  creation_mode?: "editor" | "pdf" | "mixed";
+  providence_date?: string | null;
+  requires_signature?: boolean;
+  pdf_original_name?: string | null;
 };
 
 export function ProvidenceForm({
@@ -32,6 +37,7 @@ export function ProvidenceForm({
 }) {
   const names = Object.keys(templates);
   const [selected, setSelected] = useState(proceeding?.type ?? names[0]);
+  const [mode, setMode] = useState(proceeding?.creation_mode ?? "editor");
   const initialContent = proceeding?.content_markdown ?? templates[selected];
   return (
     <DraftForm
@@ -40,6 +46,34 @@ export function ProvidenceForm({
       className="space-y-5"
     >
       {proceeding && <input type="hidden" name="id" value={proceeding.id} />}
+      <div className="rounded-lg border bg-white p-6">
+        <Label className="mb-3 block">Modo de creación</Label>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {(
+            [
+              ["editor", "Redactar en el sistema", FileText],
+              ["pdf", "Subir PDF existente", Upload],
+              ["mixed", "Metadata + PDF + resumen", FileText],
+            ] as const
+          ).map(([value, label, Icon]) => (
+            <label
+              key={value}
+              className={`cursor-pointer rounded-lg border p-4 ${mode === value ? "border-[#8a6a2c] bg-amber-50" : ""}`}
+            >
+              <input
+                type="radio"
+                name="creation_mode"
+                value={value}
+                checked={mode === value}
+                onChange={() => setMode(value)}
+                className="sr-only"
+              />
+              <Icon className="mb-2 size-5" />
+              <span className="text-sm font-semibold">{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
       <div className="rounded-lg border bg-white p-6">
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Expediente *">
@@ -61,7 +95,7 @@ export function ProvidenceForm({
             <select
               name="type"
               value={selected}
-              onChange={(event) => setSelected(event.target.value)}
+              onChange={(e) => setSelected(e.target.value)}
               className="h-9 w-full rounded-md border px-3 text-sm"
             >
               {names.map((name) => (
@@ -69,10 +103,18 @@ export function ProvidenceForm({
               ))}
             </select>
           </Field>
-          <Field label="Número">
-            <Input disabled placeholder="Se genera al guardar" />
+          <Field label="Fecha de providencia *">
+            <Input
+              type="date"
+              name="providence_date"
+              defaultValue={
+                proceeding?.providence_date ??
+                new Date().toISOString().slice(0, 10)
+              }
+              required
+            />
           </Field>
-          <Field label="Sala o despacho">
+          <Field label="Sala o despacho *">
             <Input
               name="chamber"
               defaultValue={
@@ -80,25 +122,29 @@ export function ProvidenceForm({
                 cases.find((item) => item.id === initialCaseId)?.chamber ??
                 "Despacho judicial"
               }
+              required
             />
           </Field>
-          <Field label="Título">
+          <Field label="Título *">
             <Input
               key={proceeding?.id ?? selected}
               name="title"
               defaultValue={proceeding?.title ?? selected}
+              required
             />
           </Field>
           <Field label="Estado">
             <select
               name="status"
-              defaultValue={proceeding?.status ?? "Borrador"}
+              defaultValue={
+                proceeding?.status === "En revisión"
+                  ? "En revisión"
+                  : "Borrador"
+              }
               className="h-9 w-full rounded-md border px-3 text-sm"
             >
               <option>Borrador</option>
               <option>En revisión</option>
-              <option>Firmado</option>
-              <option>Publicado</option>
             </select>
           </Field>
           <Field label="Visibilidad">
@@ -112,15 +158,64 @@ export function ProvidenceForm({
               <option value="reserved">Reservada</option>
             </select>
           </Field>
+          <label className="flex items-center gap-2 rounded-lg border p-3 text-sm">
+            <input
+              type="checkbox"
+              name="requires_signature"
+              value="true"
+              defaultChecked={proceeding?.requires_signature ?? true}
+            />
+            Requiere firma antes de publicar
+          </label>
         </div>
       </div>
-      <div className="rounded-lg border bg-white p-6">
-        <Label className="mb-3 block">Contenido</Label>
-        <MarkdownEditor
-          key={`${proceeding?.id ?? "new"}-${selected}`}
-          initialValue={proceeding ? initialContent : templates[selected]}
+      {mode !== "editor" && (
+        <div className="rounded-lg border bg-white p-6">
+          <Label htmlFor="pdf_file">
+            Archivo PDF{" "}
+            {proceeding?.pdf_original_name
+              ? "(opcional para conservar el actual)"
+              : "*"}
+          </Label>
+          {proceeding?.pdf_original_name && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Actual: {proceeding.pdf_original_name}
+            </p>
+          )}
+          <Input
+            id="pdf_file"
+            name="pdf_file"
+            type="file"
+            accept="application/pdf,.pdf"
+            required={!proceeding?.pdf_original_name}
+            className="mt-3"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            PDF privado, máximo 50 MB. Si el guardado falla, deberá volver a
+            seleccionarlo.
+          </p>
+        </div>
+      )}{" "}
+      {(mode === "editor" || mode === "mixed") && (
+        <div className="rounded-lg border bg-white p-6">
+          <Label className="mb-3 block">
+            {mode === "mixed"
+              ? "Resumen o texto complementario (opcional)"
+              : "Contenido *"}
+          </Label>
+          <MarkdownEditor
+            key={`${proceeding?.id ?? "new"}-${selected}`}
+            initialValue={proceeding ? initialContent : templates[selected]}
+          />
+        </div>
+      )}{" "}
+      {mode === "pdf" && (
+        <input
+          type="hidden"
+          name="content_markdown"
+          value="# Documento PDF adjunto"
         />
-      </div>
+      )}
       <div className="flex justify-end">
         <SubmitButton pendingLabel="Guardando…">
           {proceeding ? "Guardar cambios" : "Guardar providencia"}
@@ -129,7 +224,6 @@ export function ProvidenceForm({
     </DraftForm>
   );
 }
-
 function Field({
   label,
   children,

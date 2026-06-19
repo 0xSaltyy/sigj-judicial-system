@@ -6,197 +6,85 @@ import { z } from "zod";
 import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
-const schema = z
-  .object({
-    id: dbUuid.optional().or(z.literal("")),
-    case_id: dbUuid,
-    type: z.string().trim().min(2),
-    title: z.string().trim().max(180),
-    chamber: z.string().trim().max(180),
-    content_markdown: z.string().trim().max(100000),
-    status: z.enum(["Borrador", "En revisión", "Firmado", "Publicado"]),
-    visibility: z.enum(["public", "internal", "reserved"]),
-  })
-  .superRefine((value, context) => {
-    if (value.status !== "Borrador") {
-      if (value.title.length < 3)
-        context.addIssue({
-          code: "custom",
-          path: ["title"],
-          message: "El título es obligatorio para revisar o firmar",
-        });
-      if (value.chamber.length < 2)
-        context.addIssue({
-          code: "custom",
-          path: ["chamber"],
-          message: "El despacho es obligatorio para revisar o firmar",
-        });
-      if (value.content_markdown.length < 20)
-        context.addIssue({
-          code: "custom",
-          path: ["content_markdown"],
-          message: "La providencia debe tener al menos 20 caracteres",
-        });
-    }
-  });
+const schema = z.object({
+  id: dbUuid.optional().or(z.literal("")), case_id: dbUuid, type: z.string().trim().min(2),
+  title: z.string().trim().max(180), chamber: z.string().trim().max(180), content_markdown: z.string().trim().max(100000),
+  status: z.enum(["Borrador", "En revisión"]), visibility: z.enum(["public", "internal", "reserved"]),
+  creation_mode: z.enum(["editor", "pdf", "mixed"]), providence_date: z.string().optional(), requires_signature: z.string().optional(),
+}).superRefine((value, context) => {
+  if (value.status !== "Borrador" && (value.title.length < 3 || value.chamber.length < 2)) context.addIssue({ code: "custom", message: "Título y despacho son obligatorios para enviar a revisión" });
+  if (value.creation_mode === "editor" && value.content_markdown.length < 20) context.addIssue({ code: "custom", path: ["content_markdown"], message: "La providencia redactada debe tener al menos 20 caracteres" });
+});
+
+function fail(path: string, message: string): never { redirect(`${path}?error=${encodeURIComponent(message)}`); }
 
 export async function createProceeding(formData: FormData) {
   const parsed = schema.safeParse(Object.fromEntries(formData));
-  const errorPath =
-    parsed.success && parsed.data.id
-      ? `/admin/providencias/${parsed.data.id}/editar`
-      : "/admin/providencias/nueva";
-  if (!parsed.success)
-    redirect(
-      `/admin/providencias/nueva?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
-    );
-  const { supabase, user } = await requireCaseAccess(
-    parsed.data.case_id,
-    RESOURCE_ROLES.proceedingsWrite,
-  );
-  const { data: caseRecord } = await supabase
-    .from("cases")
-    .select("confidentiality_level,public_visibility,archived_at")
-    .eq("id", parsed.data.case_id)
-    .maybeSingle();
-  if (!caseRecord || caseRecord.archived_at)
-    redirect(`${errorPath}?error=El%20expediente%20no%20está%20disponible`);
-  if (
-    parsed.data.visibility === "public" &&
-    (caseRecord.confidentiality_level !== "Público" ||
-      !caseRecord.public_visibility)
-  )
-    redirect(
-      `${errorPath}?error=Un%20expediente%20reservado%20no%20puede%20tener%20providencias%20públicas`,
-    );
-  const now = new Date().toISOString();
+  const rawId = String(formData.get("id") || "");
+  const errorPath = rawId ? `/admin/providencias/${rawId}/editar` : "/admin/providencias/nueva";
+  if (!parsed.success) fail(errorPath, parsed.error.issues[0].message);
+  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.proceedingsWrite);
+  const [{ data: caseRecord }, { data: existing }] = await Promise.all([
+    supabase.from("cases").select("confidentiality_level,public_visibility,archived_at").eq("id", parsed.data.case_id).maybeSingle(),
+    parsed.data.id ? supabase.from("proceedings").select("id,status,pdf_path,case_id").eq("id", parsed.data.id).eq("case_id", parsed.data.case_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  if (!caseRecord || caseRecord.archived_at) fail(errorPath, "El expediente no está disponible");
+  if (parsed.data.id && (!existing || !["Borrador", "En revisión"].includes(existing.status))) fail(errorPath, "Sólo puede reemplazar un borrador o documento en revisión");
+  if (parsed.data.visibility === "public" && (caseRecord.confidentiality_level !== "Público" || !caseRecord.public_visibility)) fail(errorPath, "Un expediente reservado no puede tener providencias públicas");
+
+  const file = formData.get("pdf_file");
+  const pdf = file instanceof File && file.size > 0 ? file : null;
+  if (pdf && (pdf.type !== "application/pdf" || pdf.size > 50 * 1024 * 1024)) fail(errorPath, "Seleccione un PDF válido de hasta 50 MB");
+  if (!parsed.data.id && parsed.data.creation_mode === "pdf" && !pdf) fail(errorPath, "Seleccione el PDF de la providencia");
+  if (parsed.data.creation_mode !== "editor" && !pdf && !existing?.pdf_path) fail(errorPath, "El modo PDF requiere un archivo adjunto");
+
+  const id = parsed.data.id || crypto.randomUUID();
+  let newPath: string | null = null;
+  if (pdf) {
+    const safeName = pdf.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]/g, "_");
+    newPath = `${parsed.data.case_id}/${id}/${crypto.randomUUID()}-${safeName}`;
+    const { error } = await supabase.storage.from("providence-files").upload(newPath, pdf, { contentType: "application/pdf", upsert: false });
+    if (error) fail(errorPath, error.message);
+  }
   const payload = {
-    case_id: parsed.data.case_id,
-    type: parsed.data.type,
-    title: parsed.data.title || "Providencia sin título",
-    chamber: parsed.data.chamber || "Despacho por definir",
-    content_markdown: parsed.data.content_markdown || "# Borrador\n",
-    status: parsed.data.status,
-    visibility: parsed.data.visibility,
-    signed_at: ["Firmado", "Publicado"].includes(parsed.data.status)
-      ? now
-      : null,
-    published_at: parsed.data.status === "Publicado" ? now : null,
-    signed_by: ["Firmado", "Publicado"].includes(parsed.data.status)
-      ? user.id
-      : null,
+    case_id: parsed.data.case_id, type: parsed.data.type, title: parsed.data.title || "Providencia sin título",
+    chamber: parsed.data.chamber || "Despacho por definir", content_markdown: parsed.data.content_markdown || "# Documento PDF adjunto\n",
+    status: parsed.data.status, visibility: parsed.data.visibility, creation_mode: parsed.data.creation_mode,
+    providence_date: parsed.data.providence_date || new Date().toISOString().slice(0, 10), requires_signature: parsed.data.requires_signature === "true",
+    ...(pdf ? { pdf_path: newPath, pdf_original_name: pdf.name, pdf_size_bytes: pdf.size } : {}),
   };
   let result;
-  if (parsed.data.id) {
-    result = await supabase
-      .from("proceedings")
-      .update(payload)
-      .eq("id", parsed.data.id)
-      .eq("case_id", parsed.data.case_id)
-      .is("archived_at", null)
-      .select("id")
-      .single();
-  } else {
-    const { data: number, error: numberError } = await supabase.rpc(
-      "generate_providence_number",
-      { p_prefix: parsed.data.type.slice(0, 3).toUpperCase() },
-    );
-    if (numberError || !number)
-      redirect(
-        `/admin/providencias/nueva?error=${encodeURIComponent(numberError?.message ?? "No fue posible generar el número")}`,
-      );
-    result = await supabase
-      .from("proceedings")
-      .insert({
-        ...payload,
-        providence_number: number,
-        judge_id: user.id,
-        created_by: user.id,
-      })
-      .select("id")
-      .single();
+  if (parsed.data.id) result = await supabase.from("proceedings").update(payload).eq("id", id).eq("case_id", parsed.data.case_id).is("archived_at", null).select("id").single();
+  else {
+    const { data: number, error: numberError } = await supabase.rpc("generate_providence_number", { p_prefix: parsed.data.type.slice(0, 3).toUpperCase() });
+    if (numberError || !number) { if (newPath) await supabase.storage.from("providence-files").remove([newPath]); fail(errorPath, numberError?.message ?? "No fue posible generar el número"); }
+    result = await supabase.from("proceedings").insert({ id, ...payload, providence_number: number, judge_id: user.id, created_by: user.id }).select("id").single();
   }
-  const { data, error } = result;
-  if (error || !data)
-    redirect(
-      `${errorPath}?error=${encodeURIComponent(error?.message ?? "No fue posible guardar")}`,
-    );
-  revalidatePath("/admin/providencias");
-  revalidatePath(`/admin/expedientes/${parsed.data.case_id}`);
-  redirect(
-    `/admin/providencias/${data.id}?success=${encodeURIComponent("Providencia guardada")}`,
-  );
+  if (result.error || !result.data) { if (newPath) await supabase.storage.from("providence-files").remove([newPath]); fail(errorPath, result.error?.message ?? "No fue posible guardar"); }
+  if (newPath && existing?.pdf_path && existing.pdf_path !== newPath) await supabase.storage.from("providence-files").remove([existing.pdf_path]);
+  await supabase.rpc("log_security_event", { p_action: pdf ? (existing?.pdf_path ? "PROVIDENCE_PDF_REPLACED" : "PROVIDENCE_PDF_UPLOADED") : "PROVIDENCE_SAVED", p_table: "proceedings", p_record_id: id, p_description: "Providencia guardada", p_metadata: { creation_mode: parsed.data.creation_mode, has_pdf: Boolean(newPath || existing?.pdf_path), requires_signature: parsed.data.requires_signature === "true" } });
+  revalidatePath("/admin/providencias"); revalidatePath(`/admin/expedientes/${parsed.data.case_id}`);
+  redirect(`/admin/providencias/${id}?success=${encodeURIComponent("Providencia guardada")}`);
 }
 
 export async function publishProceeding(formData: FormData) {
-  const parsed = z
-    .object({ id: dbUuid, case_id: dbUuid })
-    .safeParse(Object.fromEntries(formData));
-  if (!parsed.success)
-    redirect("/admin/providencias?error=Providencia%20no%20válida");
-  const { supabase, user } = await requireCaseAccess(
-    parsed.data.case_id,
-    RESOURCE_ROLES.proceedingsWrite,
-  );
+  const parsed = z.object({ id: dbUuid, case_id: dbUuid }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/admin/providencias?error=Providencia%20no%20válida");
+  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.proceedingsWrite);
   const [{ data: proceeding }, { data: caseRecord }] = await Promise.all([
-    supabase
-      .from("proceedings")
-      .select("id,title,chamber,content_markdown,visibility,archived_at")
-      .eq("id", parsed.data.id)
-      .eq("case_id", parsed.data.case_id)
-      .maybeSingle(),
-    supabase
-      .from("cases")
-      .select("confidentiality_level,public_visibility,archived_at")
-      .eq("id", parsed.data.case_id)
-      .maybeSingle(),
+    supabase.from("proceedings").select("id,title,chamber,content_markdown,visibility,archived_at,creation_mode,pdf_path,requires_signature,providence_date").eq("id", parsed.data.id).eq("case_id", parsed.data.case_id).maybeSingle(),
+    supabase.from("cases").select("confidentiality_level,public_visibility,archived_at").eq("id", parsed.data.case_id).maybeSingle(),
   ]);
-  if (
-    !proceeding ||
-    proceeding.archived_at ||
-    !caseRecord ||
-    caseRecord.archived_at
-  ) {
-    redirect(
-      `/admin/providencias/${parsed.data.id}?error=${encodeURIComponent("La providencia o su expediente no están disponibles")}`,
-    );
-  }
-  if (
-    proceeding.title.trim().length < 3 ||
-    proceeding.chamber.trim().length < 2 ||
-    proceeding.content_markdown.trim().length < 20
-  ) {
-    redirect(
-      `/admin/providencias/${parsed.data.id}/editar?error=${encodeURIComponent("Complete el título, despacho y contenido antes de publicar")}`,
-    );
-  }
-  if (
-    proceeding.visibility === "public" &&
-    (caseRecord.confidentiality_level !== "Público" ||
-      !caseRecord.public_visibility)
-  ) {
-    redirect(
-      `/admin/providencias/${parsed.data.id}?error=${encodeURIComponent("Una providencia reservada no puede publicarse en el portal público")}`,
-    );
-  }
+  const path = `/admin/providencias/${parsed.data.id}`;
+  if (!proceeding || proceeding.archived_at || !caseRecord || caseRecord.archived_at) fail(path, "La providencia o su expediente no están disponibles");
+  if (proceeding.title.trim().length < 3 || proceeding.chamber.trim().length < 2 || !proceeding.providence_date || (proceeding.creation_mode === "editor" && proceeding.content_markdown.trim().length < 20) || (proceeding.creation_mode !== "editor" && !proceeding.pdf_path)) fail(`${path}/editar`, "Complete título, fecha, despacho y contenido o PDF antes de publicar");
+  if (proceeding.visibility === "public" && (caseRecord.confidentiality_level !== "Público" || !caseRecord.public_visibility)) fail(path, "Una providencia reservada no puede publicarse en el portal público");
+  const { count } = await supabase.from("signatures").select("id", { count: "exact", head: true }).eq("target_type", "proceeding").eq("target_id", parsed.data.id).eq("status", "signed");
+  if (proceeding.requires_signature && !count) fail(path, "Esta providencia requiere al menos una firma antes de publicarse");
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("proceedings")
-    .update({
-      status: "Publicado",
-      published_at: now,
-      signed_at: now,
-      signed_by: user.id,
-    })
-    .eq("id", parsed.data.id)
-    .eq("case_id", parsed.data.case_id)
-    .is("archived_at", null);
-  if (error)
-    redirect(
-      `/admin/providencias/${parsed.data.id}?error=${encodeURIComponent(error.message)}`,
-    );
-  revalidatePath("/admin/providencias");
-  redirect(
-    `/admin/providencias/${parsed.data.id}?success=${encodeURIComponent("Providencia publicada")}`,
-  );
+  const { error } = await supabase.from("proceedings").update({ status: "Publicado", published_at: now, signed_at: count ? now : null, signed_by: count ? user.id : null }).eq("id", parsed.data.id).eq("case_id", parsed.data.case_id).is("archived_at", null);
+  if (error) fail(path, error.message);
+  await supabase.rpc("log_security_event", { p_action: "PROVIDENCE_PUBLISHED", p_table: "proceedings", p_record_id: parsed.data.id, p_description: "Providencia publicada después de validar metadatos y firmas", p_metadata: { signature_count: count ?? 0, visibility: proceeding.visibility } });
+  revalidatePath("/admin/providencias"); revalidatePath(`/providencias/${parsed.data.id}`);
+  redirect(`${path}?success=${encodeURIComponent("Providencia publicada")}`);
 }

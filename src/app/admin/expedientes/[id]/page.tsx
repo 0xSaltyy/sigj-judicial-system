@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarPlus, FilePlus2, Printer, Upload } from "lucide-react";
+import { CalendarPlus, FilePlus2, Pencil, Printer, Share2, Upload } from "lucide-react";
 import { generateCertificate, updateCase } from "@/app/actions/cases";
 import { uploadCaseDocuments } from "@/app/actions/documents";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { CaseTimeline, type TimelineItem } from "@/components/case-timeline";
+import { ClearDrafts } from "@/components/clear-drafts";
 import {
   DocumentPreview,
   type SavedDocument,
@@ -152,11 +153,14 @@ export default async function CaseDetailPage({
   ]);
   return (
     <>
+      {query.success && <ClearDrafts storageKeys={[`case-edit:${id}`]} />}
       <AdminPageHeader
         title={item.internal_number}
         description={item.title}
         action={
           <div className="flex gap-2">
+            {hasPermission(profile, RESOURCE_ROLES.casesEdit) && (!item.archived_at || profile.is_owner) && <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/editar`}><Pencil className="size-4" /> Editar expediente</Link></Button>}
+            <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/compartir`}><Share2 className="size-4" /> Compartir</Link></Button>
             <Button asChild variant="outline">
               <Link href={`/admin/expedientes/${id}/constancia`}>
                 <Printer className="size-4" /> Constancia

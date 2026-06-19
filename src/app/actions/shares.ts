@@ -6,6 +6,12 @@ import { z } from "zod";
 import { requireCaseAccess } from "@/lib/auth/permissions";
 import { APP_ROLES, type AppRole } from "@/lib/user-management";
 import { dbUuid } from "@/lib/validation";
+import {
+  appUrl,
+  createSecureToken,
+  hashSecret,
+  maskEmail,
+} from "@/lib/secure-tokens";
 
 const shareRoles: AppRole[] = [
   "SUPER_ADMIN",
@@ -91,7 +97,9 @@ export async function shareResource(formData: FormData) {
       .neq("role", "CONSULTA_PUBLICA")
       .maybeSingle();
     if (!profile)
-      redirect(`${parsed.data.destination}?error=Usuario%20destino%20no%20válido`);
+      redirect(
+        `${parsed.data.destination}?error=Usuario%20destino%20no%20válido`,
+      );
   }
   if (target.target_dependency_id) {
     const { data: dependency } = await supabase
@@ -102,7 +110,9 @@ export async function shareResource(formData: FormData) {
       .is("archived_at", null)
       .maybeSingle();
     if (!dependency)
-      redirect(`${parsed.data.destination}?error=Dependencia%20destino%20no%20válida`);
+      redirect(
+        `${parsed.data.destination}?error=Dependencia%20destino%20no%20válida`,
+      );
   }
 
   const { error } = await supabase.from("record_shares").insert({
@@ -133,5 +143,109 @@ export async function shareResource(formData: FormData) {
   revalidatePath(parsed.data.destination);
   redirect(
     `${parsed.data.destination}?success=${encodeURIComponent("Acceso compartido y auditado")}`,
+  );
+}
+
+const externalShareSchema = z.object({
+  case_id: dbUuid,
+  label: z.string().trim().min(3).max(160),
+  external_name: z.string().trim().max(160).optional(),
+  external_email: z.string().trim().email().optional().or(z.literal("")),
+  expires_minutes: z.coerce.number().int().min(15).max(10080),
+  custom_expires_minutes: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.coerce.number().int().min(15).max(10080).optional(),
+  ),
+  include_documents: z.string().optional(),
+  include_proceedings: z.string().optional(),
+  include_hearings: z.string().optional(),
+  include_parties: z.string().optional(),
+  actions_scope: z.enum(["public", "all"]),
+});
+
+export async function createExternalShare(formData: FormData) {
+  const parsed = externalShareSchema.safeParse(Object.fromEntries(formData));
+  const caseId = String(formData.get("case_id") || "");
+  if (!parsed.success)
+    redirect(
+      `/admin/expedientes/${caseId}/compartir?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
+    );
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    shareRoles,
+  );
+  const { token, hash } = createSecureToken();
+  const email = parsed.data.external_email || null;
+  const expiresMinutes =
+    parsed.data.custom_expires_minutes ?? parsed.data.expires_minutes;
+  const { error } = await supabase
+    .from("share_links")
+    .insert({
+      case_id: parsed.data.case_id,
+      label: parsed.data.label,
+      external_name: parsed.data.external_name || null,
+      external_email_masked: maskEmail(email),
+      external_email_hash: email ? hashSecret(email.toLowerCase()) : null,
+      token_hash: hash,
+      include_documents: parsed.data.include_documents === "true",
+      include_proceedings: parsed.data.include_proceedings === "true",
+      include_hearings: parsed.data.include_hearings === "true",
+      include_parties: parsed.data.include_parties === "true",
+      actions_scope: parsed.data.actions_scope,
+      expires_at: new Date(
+        Date.now() + expiresMinutes * 60000,
+      ).toISOString(),
+      created_by: user.id,
+    });
+  if (error)
+    redirect(
+      `/admin/expedientes/${parsed.data.case_id}/compartir?error=${encodeURIComponent(error.message)}`,
+    );
+  await supabase.rpc("log_security_event", {
+    p_action: "EXTERNAL_SHARE_CREATED",
+    p_table: "share_links",
+    p_record_id: parsed.data.case_id,
+    p_description: "Enlace externo acotado creado",
+    p_metadata: {
+      expires_minutes: expiresMinutes,
+      include_documents: parsed.data.include_documents === "true",
+      include_proceedings: parsed.data.include_proceedings === "true",
+      include_hearings: parsed.data.include_hearings === "true",
+      include_parties: parsed.data.include_parties === "true",
+    },
+  });
+  revalidatePath(`/admin/expedientes/${parsed.data.case_id}/compartir`);
+  redirect(
+    `/admin/expedientes/${parsed.data.case_id}/compartir?success=Enlace%20seguro%20creado&shareLink=${encodeURIComponent(appUrl(`/compartir/${token}`))}`,
+  );
+}
+
+export async function revokeExternalShare(formData: FormData) {
+  const parsed = z
+    .object({ share_id: dbUuid, case_id: dbUuid })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success)
+    redirect("/admin/expedientes?error=Enlace%20no%20válido");
+  const { supabase } = await requireCaseAccess(parsed.data.case_id, shareRoles);
+  const { error } = await supabase
+    .from("share_links")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", parsed.data.share_id)
+    .eq("case_id", parsed.data.case_id)
+    .is("revoked_at", null);
+  if (error)
+    redirect(
+      `/admin/expedientes/${parsed.data.case_id}/compartir?error=${encodeURIComponent(error.message)}`,
+    );
+  await supabase.rpc("log_security_event", {
+    p_action: "EXTERNAL_SHARE_REVOKED",
+    p_table: "share_links",
+    p_record_id: parsed.data.share_id,
+    p_description: "Enlace externo revocado",
+    p_metadata: {},
+  });
+  revalidatePath(`/admin/expedientes/${parsed.data.case_id}/compartir`);
+  redirect(
+    `/admin/expedientes/${parsed.data.case_id}/compartir?success=Enlace%20revocado`,
   );
 }

@@ -7,7 +7,7 @@ import { requireInternalUser } from "@/lib/auth/authorization";
 export default async function EditProceedingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const [{ id }, query, { supabase }] = await Promise.all([params, searchParams, requireInternalUser()]);
   const [{ data: proceeding }, { data: cases }] = await Promise.all([
-    supabase.from("proceedings").select("id,case_id,type,title,chamber,content_markdown,status,visibility,archived_at").eq("id", id).maybeSingle(),
+    supabase.from("proceedings").select("id,case_id,type,title,chamber,content_markdown,status,visibility,archived_at,creation_mode,providence_date,requires_signature,pdf_original_name").eq("id", id).maybeSingle(),
     supabase.from("cases").select("id,internal_number,chamber").is("archived_at", null).order("filed_at", { ascending: false }),
   ]);
   if (!proceeding || proceeding.archived_at) notFound();

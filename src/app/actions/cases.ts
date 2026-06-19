@@ -233,6 +233,91 @@ export async function updateCase(formData: FormData) {
   );
 }
 
+const fullUpdateSchema = z.object({
+  case_id: dbUuid,
+  title: z.string().trim().min(3).max(240),
+  authority_type: z.string().trim().min(2).max(160),
+  chamber: z.string().trim().min(2).max(180),
+  process_type: z.string().trim().min(2).max(160),
+  process_subtype: z.string().trim().min(2).max(160),
+  claimant_name: z.string().trim().min(2).max(180),
+  defendant_name: z.string().trim().min(2).max(180),
+  summary: z.string().trim().min(20).max(12000),
+  claims: z.string().trim().min(2).max(12000),
+  department: z.string().trim().min(2).max(120),
+  municipality: z.string().trim().min(2).max(120),
+  reception_method: z.string().trim().min(2).max(120),
+  confidentiality_level: z.enum(["Público", "Reservado", "Confidencial"]),
+  public_visibility: z.string().optional(),
+  assigned_judge_id: dbUuid.optional().or(z.literal("")),
+  dependency_id: dbUuid,
+  status: z.string().trim().min(2).max(100),
+  observations: z.string().trim().max(4000).optional(),
+  declassification_confirmation: z.string().optional(),
+});
+
+export async function updateCaseFull(formData: FormData) {
+  const parsed = fullUpdateSchema.safeParse(Object.fromEntries(formData));
+  const caseId = String(formData.get("case_id") || "");
+  if (!parsed.success) redirect(`/admin/expedientes/${caseId}/editar?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+  const { supabase } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.casesEdit);
+  const payload = {
+    title: parsed.data.title, authority_type: parsed.data.authority_type, chamber: parsed.data.chamber,
+    process_type: parsed.data.process_type, process_subtype: parsed.data.process_subtype,
+    claimant_name: parsed.data.claimant_name, defendant_name: parsed.data.defendant_name,
+    summary: parsed.data.summary, claims: parsed.data.claims, department: parsed.data.department,
+    municipality: parsed.data.municipality, reception_method: parsed.data.reception_method,
+    confidentiality_level: parsed.data.confidentiality_level,
+    public_visibility: parsed.data.confidentiality_level === "Público" && parsed.data.public_visibility === "true",
+    assigned_judge_id: parsed.data.assigned_judge_id || "", dependency_id: parsed.data.dependency_id,
+    status: parsed.data.status, observations: parsed.data.observations || "",
+  };
+  const { error } = await supabase.rpc("update_case_secure", { p_case_id: parsed.data.case_id, p_payload: payload, p_declassification_confirmation: parsed.data.declassification_confirmation || null });
+  if (error) redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/admin/expedientes/${parsed.data.case_id}`);
+  redirect(`/admin/expedientes/${parsed.data.case_id}?success=${encodeURIComponent("Expediente actualizado y auditado")}`);
+}
+
+const partySchema = z.object({
+  party_id: dbUuid.optional().or(z.literal("")), case_id: dbUuid,
+  name: z.string().trim().min(2).max(180), party_type: z.string().trim().min(2).max(120),
+  document_type: z.string().trim().max(60).optional(), document_number: z.string().trim().max(80).optional(),
+  email: z.string().trim().email().optional().or(z.literal("")), phone: z.string().trim().max(60).optional(),
+  address: z.string().trim().max(300).optional(), is_confidential: z.string().optional(),
+});
+
+export async function saveCaseParty(formData: FormData) {
+  const parsed = partySchema.safeParse(Object.fromEntries(formData));
+  const caseId = String(formData.get("case_id") || "");
+  if (!parsed.success) redirect(`/admin/expedientes/${caseId}/editar?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+  const { supabase } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.casesEdit);
+  const payload = { case_id: parsed.data.case_id, name: parsed.data.name, party_type: parsed.data.party_type, document_type: parsed.data.document_type || null, document_number: parsed.data.document_number || null, email: parsed.data.email || null, phone: parsed.data.phone || null, address: parsed.data.address || null, is_confidential: parsed.data.is_confidential === "true" };
+  const result = parsed.data.party_id
+    ? await supabase.from("case_parties").update(payload).eq("id", parsed.data.party_id).eq("case_id", parsed.data.case_id).is("archived_at", null)
+    : await supabase.from("case_parties").insert(payload);
+  if (result.error) redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=${encodeURIComponent(result.error.message)}`);
+  await supabase.rpc("log_security_event", { p_action: parsed.data.party_id ? "CASE_PARTY_UPDATED" : "CASE_PARTY_CREATED", p_table: "case_parties", p_record_id: parsed.data.party_id || parsed.data.case_id, p_description: "Parte procesal actualizada", p_metadata: { case_id: parsed.data.case_id } });
+  revalidatePath(`/admin/expedientes/${parsed.data.case_id}/editar`);
+  redirect(`/admin/expedientes/${parsed.data.case_id}/editar?success=Parte%20procesal%20guardada`);
+}
+
+export async function manageCaseParty(formData: FormData) {
+  const parsed = z.object({ party_id: dbUuid, case_id: dbUuid, operation: z.enum(["archive", "restore", "delete"]), confirmation: z.string().optional() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/admin/expedientes?error=Parte%20procesal%20no%20válida");
+  const { supabase, user, profile } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.casesEdit);
+  if (parsed.data.operation !== "archive" && !profile.is_owner) redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=Solo%20SUPER_ADMIN%20puede%20restaurar%20o%20eliminar%20partes`);
+  if (parsed.data.operation === "delete" && parsed.data.confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=Confirmación%20de%20eliminación%20incorrecta`);
+  const result = parsed.data.operation === "archive"
+    ? await supabase.from("case_parties").update({ archived_at: new Date().toISOString(), archived_by: user.id }).eq("id", parsed.data.party_id).eq("case_id", parsed.data.case_id).is("archived_at", null)
+    : parsed.data.operation === "restore"
+      ? await supabase.from("case_parties").update({ archived_at: null, archived_by: null }).eq("id", parsed.data.party_id).eq("case_id", parsed.data.case_id)
+      : await supabase.from("case_parties").delete().eq("id", parsed.data.party_id).eq("case_id", parsed.data.case_id);
+  if (result.error) redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=${encodeURIComponent(result.error.message)}`);
+  await supabase.rpc("log_security_event", { p_action: `CASE_PARTY_${parsed.data.operation.toUpperCase()}`, p_table: "case_parties", p_record_id: parsed.data.party_id, p_description: "Ciclo de vida de parte procesal", p_metadata: { operation: parsed.data.operation } });
+  revalidatePath(`/admin/expedientes/${parsed.data.case_id}/editar`);
+  redirect(`/admin/expedientes/${parsed.data.case_id}/editar?success=Parte%20procesal%20actualizada`);
+}
+
 export async function generateCertificate(formData: FormData) {
   const caseId = dbUuid.safeParse(formData.get("case_id"));
   if (!caseId.success)

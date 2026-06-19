@@ -3,8 +3,86 @@ import { shareResource } from "@/app/actions/shares";
 import { SubmitButton } from "@/components/submit-button";
 import { APP_ROLES, ROLE_DESCRIPTIONS } from "@/lib/user-management";
 
-type Option = { id: string; name: string };
+type Option = { id: string; name?: string; full_name?: string };
 
-export function ShareAccessForm({ resourceType, resourceId, caseId, destination, users = [], dependencies = [] }: { resourceType: "case" | "proceeding" | "document"; resourceId: string; caseId: string; destination: string; users?: Option[]; dependencies?: Option[] }) {
-  return <details className="rounded-lg border bg-white p-4 no-print"><summary className="cursor-pointer text-sm font-semibold text-[#153553]"><Share2 className="mr-2 inline size-4" />Compartir acceso interno</summary><form action={shareResource} className="mt-4 grid gap-3 sm:grid-cols-[1fr_160px_auto]"><input type="hidden" name="resource_type" value={resourceType} /><input type="hidden" name="resource_id" value={resourceId} /><input type="hidden" name="case_id" value={caseId} /><input type="hidden" name="destination" value={destination} /><select name="target" required className="h-9 rounded-md border bg-white px-3 text-sm"><option value="">Seleccione usuario, rol o dependencia…</option>{users.length > 0 && <optgroup label="Usuarios">{users.map((user) => <option key={user.id} value={`user:${user.id}`}>{user.name}</option>)}</optgroup>}<optgroup label="Roles">{APP_ROLES.filter((role) => role !== "CONSULTA_PUBLICA").map((role) => <option key={role} value={`role:${role}`}>{ROLE_DESCRIPTIONS[role].label}</option>)}</optgroup><optgroup label="Dependencias">{dependencies.map((dependency) => <option key={dependency.id} value={`dependency:${dependency.id}`}>{dependency.name}</option>)}</optgroup></select><select name="expires_hours" defaultValue="24" className="h-9 rounded-md border bg-white px-3 text-sm"><option value="1">1 hora</option><option value="8">8 horas</option><option value="24">24 horas</option><option value="168">7 días</option><option value="720">30 días</option></select><SubmitButton pendingLabel="Compartiendo…">Compartir</SubmitButton></form><p className="mt-3 text-xs text-muted-foreground">El acceso vence automáticamente y queda registrado en auditoría. No modifica la clasificación pública del expediente.</p></details>;
+export function ShareAccessForm({
+  resourceType,
+  resourceId,
+  caseId,
+  destination,
+  users = [],
+  dependencies = [],
+}: {
+  resourceType: "case" | "proceeding" | "document";
+  resourceId: string;
+  caseId: string;
+  destination: string;
+  users?: Option[];
+  dependencies?: Option[];
+}) {
+  return (
+    <details className="rounded-lg border bg-white p-4 no-print">
+      <summary className="cursor-pointer text-sm font-semibold text-[#153553]">
+        <Share2 className="mr-2 inline size-4" />
+        Compartir acceso interno
+      </summary>
+      <form
+        action={shareResource}
+        className="mt-4 grid gap-3 sm:grid-cols-[1fr_160px_auto]"
+      >
+        <input type="hidden" name="resource_type" value={resourceType} />
+        <input type="hidden" name="resource_id" value={resourceId} />
+        <input type="hidden" name="case_id" value={caseId} />
+        <input type="hidden" name="destination" value={destination} />
+        <select
+          name="target"
+          required
+          className="h-9 rounded-md border bg-white px-3 text-sm"
+        >
+          <option value="">Seleccione usuario, rol o dependencia…</option>
+          {users.length > 0 && (
+            <optgroup label="Usuarios">
+              {users.map((user) => (
+                <option key={user.id} value={`user:${user.id}`}>
+                  {user.name ?? user.full_name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          <optgroup label="Roles">
+            {APP_ROLES.filter((role) => role !== "CONSULTA_PUBLICA").map(
+              (role) => (
+                <option key={role} value={`role:${role}`}>
+                  {ROLE_DESCRIPTIONS[role].label}
+                </option>
+              ),
+            )}
+          </optgroup>
+          <optgroup label="Dependencias">
+            {dependencies.map((dependency) => (
+              <option key={dependency.id} value={`dependency:${dependency.id}`}>
+                {dependency.name}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+        <select
+          name="expires_hours"
+          defaultValue="24"
+          className="h-9 rounded-md border bg-white px-3 text-sm"
+        >
+          <option value="1">1 hora</option>
+          <option value="8">8 horas</option>
+          <option value="24">24 horas</option>
+          <option value="168">7 días</option>
+          <option value="720">30 días</option>
+        </select>
+        <SubmitButton pendingLabel="Compartiendo…">Compartir</SubmitButton>
+      </form>
+      <p className="mt-3 text-xs text-muted-foreground">
+        El acceso vence automáticamente y queda registrado en auditoría. No
+        modifica la clasificación pública del expediente.
+      </p>
+    </details>
+  );
 }

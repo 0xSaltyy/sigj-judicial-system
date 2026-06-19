@@ -1,14 +1,14 @@
 import Image from "next/image";
 
-export function InstitutionalMark({ compact = false }: { compact?: boolean }) {
+export function InstitutionalMark({ compact = false, size = 48 }: { compact?: boolean; size?: number }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="relative size-12 shrink-0 overflow-hidden rounded-md border border-white/20 bg-white p-1 shadow-sm">
+      <div style={{ width: size, height: size }} className="relative shrink-0 overflow-hidden rounded-md border border-white/20 bg-white p-1 shadow-sm">
         <Image
           src="/escudo-institucional.png"
           alt="Escudo institucional de Colombia"
           fill
-          sizes="48px"
+          sizes={`${size}px`}
           className="object-contain p-1"
           priority
         />
