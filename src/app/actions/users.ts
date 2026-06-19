@@ -15,7 +15,7 @@ const inviteSchema = z.object({
   role: z.enum(APP_ROLES),
   dependency_id: optionalUuid,
   position_title: z.string().trim().max(120).optional(),
-  creation_method: z.enum(["invite", "temporary_password"]),
+  creation_method: z.literal("temporary_password"),
   temporary_password: z.string().optional(),
   is_active: z.enum(["true", "false"]),
 });
@@ -83,16 +83,6 @@ export async function inviteUser(formData: FormData) {
       "Falta SUPABASE_SERVICE_ROLE_KEY",
       "/admin/usuarios/nuevo",
     );
-  if (
-    parsed.data.creation_method === "invite" &&
-    !process.env.NEXT_PUBLIC_APP_URL
-  )
-    usersRedirect(
-      "error",
-      "Falta NEXT_PUBLIC_APP_URL",
-      "/admin/usuarios/nuevo",
-    );
-
   if (parsed.data.dependency_id) {
     const { data: institution } = await supabase
       .from("dependencies")
@@ -110,31 +100,24 @@ export async function inviteUser(formData: FormData) {
 
   const email = parsed.data.email.toLowerCase();
   if (
-    parsed.data.creation_method === "temporary_password" &&
-    (!parsed.data.temporary_password ||
-      parsed.data.temporary_password.length < 8)
+    !parsed.data.temporary_password ||
+    parsed.data.temporary_password.length < 8
   )
     usersRedirect(
       "error",
       "La contraseña temporal debe tener al menos 8 caracteres",
       "/admin/usuarios/nuevo",
     );
-  const { data, error } =
-    parsed.data.creation_method === "temporary_password"
-      ? await admin.auth.admin.createUser({
-          email,
-          password: parsed.data.temporary_password!,
-          email_confirm: true,
-          user_metadata: { full_name: parsed.data.full_name },
-        })
-      : await admin.auth.admin.inviteUserByEmail(email, {
-          data: { full_name: parsed.data.full_name },
-          redirectTo: passwordRedirectUrl(),
-        });
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password: parsed.data.temporary_password,
+    email_confirm: true,
+    user_metadata: { full_name: parsed.data.full_name },
+  });
   if (error || !data.user)
     usersRedirect(
       "error",
-      error?.message ?? "No fue posible enviar la invitación",
+      error?.message ?? "No fue posible crear el usuario",
       "/admin/usuarios/nuevo",
     );
 
@@ -160,12 +143,8 @@ export async function inviteUser(formData: FormData) {
       supabase,
       user.id,
       data.user.id,
-      parsed.data.creation_method === "invite"
-        ? "USER_INVITED"
-        : "USER_CREATED",
-      parsed.data.creation_method === "invite"
-        ? "Usuario creado mediante invitación del propietario"
-        : "Usuario creado con contraseña temporal",
+      "USER_CREATED",
+      "Usuario activo creado con contraseña temporal",
       null,
       {
         role: profile.role,
@@ -183,12 +162,7 @@ export async function inviteUser(formData: FormData) {
     );
   }
   revalidatePath("/admin/usuarios");
-  usersRedirect(
-    "success",
-    parsed.data.creation_method === "invite"
-      ? "Invitación enviada correctamente"
-      : "Usuario creado con contraseña temporal",
-  );
+  usersRedirect("success", "Usuario activo creado con contraseña temporal");
 }
 
 export async function updateManagedUser(formData: FormData) {
