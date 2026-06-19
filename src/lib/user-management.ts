@@ -37,5 +37,7 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, { label: string; scope: string; 
 export function maskEmail(email: string) {
   const [local, domain] = email.split("@");
   if (!domain) return "••••••••";
-  return `${local.slice(0, 1)}${"•".repeat(Math.max(4, local.length - 1))}@${domain}`;
+  const [domainName, ...suffixParts] = domain.split(".");
+  const suffix = suffixParts.length ? `.${suffixParts.join(".")}` : "";
+  return `${local.slice(0, 1)}${"•".repeat(Math.max(5, local.length - 1))}@${domainName.slice(0, 1)}${"•".repeat(Math.max(4, domainName.length - 1))}${suffix}`;
 }

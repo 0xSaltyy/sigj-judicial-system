@@ -12,7 +12,7 @@ import { APP_ROLES, ROLE_DESCRIPTIONS, maskEmail, type AppRole } from "@/lib/use
 type Query = { error?: string; success?: string };
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<Query> }) {
-  const [{ supabase, profile: viewer }, query] = await Promise.all([requireOwner(), searchParams]);
+  const [{ supabase }, query] = await Promise.all([requireOwner(), searchParams]);
   const [{ data: profiles, error }, { data: dependencies }] = await Promise.all([
     supabase.from("profiles").select("id,full_name,email,role,dependency_id,position_title,is_active,is_owner,last_access_at,created_at").order("is_owner", { ascending: false }).order("full_name"),
     supabase.from("dependencies").select("id,name").eq("is_active", true).order("name"),
@@ -30,7 +30,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         <TableHeader><TableRow className="bg-slate-50"><TableHead>Identidad privada</TableHead><TableHead>Rol e institución</TableHead><TableHead>Estado</TableHead><TableHead>Gestión</TableHead></TableRow></TableHeader>
         <TableBody>{(profiles ?? []).map((item) => {
           const role = item.role as AppRole;
-          const email = viewer.is_owner ? item.email : maskEmail(item.email);
+          const email = item.is_owner ? "Correo protegido" : maskEmail(item.email);
           return <TableRow key={item.id}>
             <TableCell className="min-w-64 align-top"><div className="flex items-center gap-2"><p className="text-sm font-semibold text-[#153553]">{item.is_owner ? "Propietario del Sistema" : item.full_name}</p>{item.is_owner && <Badge className="gap-1 bg-amber-50 text-amber-900"><LockKeyhole className="size-3" /> Protegida</Badge>}</div><p className="mt-1 text-xs text-muted-foreground">{email}</p><p className="mt-2 text-xs text-muted-foreground">{item.position_title || "Sin cargo registrado"}</p></TableCell>
             <TableCell className="min-w-72 align-top"><Badge variant="outline" className="mono-number bg-slate-50 text-[10px]">{role}</Badge><p className="mt-2 text-xs font-medium text-slate-700">{ROLE_DESCRIPTIONS[role]?.label ?? role}</p><p className="mt-1 text-xs text-muted-foreground">{item.dependency_id ? institutionNames.get(item.dependency_id) ?? "Institución no disponible" : "Sin institución asignada"}</p></TableCell>

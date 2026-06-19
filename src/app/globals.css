@@ -46,7 +46,28 @@
 }
 
 @media print {
+  @page { size: A4; margin: 16mm 15mm 18mm; }
   .no-print { display: none !important; }
-  body { background: white; }
-  .paper { box-shadow: none; }
+  html, body { background: white !important; color: #111827 !important; font-size: 10.5pt; }
+  body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .paper, .print-document, .judicial-document { position: relative; width: 100% !important; max-width: none !important; min-height: auto !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; overflow: visible !important; }
+  .judicial-document { font-family: Georgia, "Times New Roman", serif; line-height: 1.55; }
+  .judicial-document .mono-number, .judicial-header { font-family: Arial, Helvetica, sans-serif; }
+  .judicial-header { break-inside: avoid; }
+  .judicial-metadata > div { break-inside: avoid; }
+  .judicial-document h1, .judicial-document h2, .judicial-document h3 { break-after: avoid; }
+  .judicial-document p, .judicial-document li, .judicial-document table, .judicial-signature { orphans: 3; widows: 3; }
+  .judicial-document table { width: 100%; border-collapse: collapse; }
+  .judicial-document thead { display: table-header-group; }
+  .judicial-document tr, .judicial-document img, .judicial-signature { break-inside: avoid; }
+  .judicial-document a { color: inherit !important; text-decoration: none !important; }
+  .judicial-watermark { display: block !important; position: fixed; inset: 36% auto auto 50%; z-index: -1; transform: translate(-50%, -50%) rotate(-28deg); font: 700 92pt Arial, sans-serif; letter-spacing: .18em; color: rgba(21, 59, 92, .035); }
+  .judicial-print-footer { break-inside: avoid; font-family: Arial, Helvetica, sans-serif; }
+  .print-page-number::after { content: "Página " counter(page); }
+  .page-break-before { break-before: page; }
+  .avoid-page-break { break-inside: avoid; }
+}
+
+@media screen {
+  .judicial-watermark { display: none; }
 }

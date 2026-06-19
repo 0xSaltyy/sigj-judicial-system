@@ -68,17 +68,20 @@ OWNER_EMAIL=owner@example.com
    npx supabase db push
    ```
 
-3. Las migraciones crean el sistema en orden. `202606190001_initial_sigj.sql` contiene el esquema base y `202606190002_functional_admin.sql` añade metadatos de documentos, numeración, vistas públicas, auditoría y políticas requeridas por los flujos administrativos.
+3. Las migraciones crean el sistema en orden. `202606190001_initial_sigj.sql` contiene el esquema base; `202606190002_functional_admin.sql` añade los flujos administrativos; y las migraciones `003` a `007` completan branding, ciclo de vida auditado, compartición temporal, normalización de documentos, compatibilidad de Storage con los identificadores históricos y validación de destinos internos.
    - `profiles`, roles y permisos;
    - instituciones/cortes/oficinas (`dependencies`);
    - `cases`, `radications`, `case_actions`, `proceedings`, `hearings`, `notifications`, `documents` y `certificates`;
    - vistas públicas de columnas limitadas;
-   - auditoría, funciones, triggers, RLS y buckets de Storage;
+   - archivo/restauración, borrado permanente exclusivo del propietario y auditoría de intentos fallidos;
+   - compartición interna por usuario, rol o dependencia con vencimiento;
+   - auditoría, funciones, triggers, RLS y buckets privados de Storage;
    - el trigger `handle_new_auth_user`, que crea un perfil mínimo por cada usuario de Supabase Auth.
 4. En **Authentication → URL Configuration** establezca:
    - Site URL: `https://palaciodejusticia.fyi`
-   - Redirect URL: `https://palaciodejusticia.fyi/actualizar-password`
-   - Redirect URL local: `http://localhost:3000/actualizar-password`
+   - Redirect URL: `https://palaciodejusticia.fyi/auth/callback**`
+   - Redirect URL local: `http://localhost:3000/auth/callback**`
+   - Para previews de Vercel, agregue únicamente los dominios de preview que vaya a utilizar o un patrón controlado de su equipo.
 5. Mantenga deshabilitado el registro público. Después del propietario, cree cuentas únicamente desde `/admin/usuarios/nuevo`.
 
 ## Create the owner account
@@ -146,7 +149,7 @@ No use esa reparación sobre una base con datos reales sin una copia de segurida
 2. Añada las cinco variables anteriores en **Settings → Environment Variables** para Production y Preview.
 3. Use exactamente `NEXT_PUBLIC_APP_URL=https://palaciodejusticia.fyi`.
 4. Vincule `palaciodejusticia.fyi` en **Settings → Domains**.
-5. Aplique la migración Supabase y configure las URLs de Auth antes de invitar usuarios.
+5. Ejecute `npx supabase db push --dry-run` y `npx supabase db push`; después configure las URLs de Auth antes de invitar usuarios.
 6. Despliegue y valide `/`, `/instituciones`, `/consulta`, `/login` y, con el propietario, `/admin/usuarios`.
 
 ## Comandos

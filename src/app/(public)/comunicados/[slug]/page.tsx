@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
+import { JudicialDocumentHeader, JudicialPrintFooter, JudicialWatermark } from "@/components/judicial-document";
 import { MarkdownViewer } from "@/components/markdown-editor";
 import { PrintButton } from "@/components/print-button";
 import { Badge } from "@/components/ui/badge";
@@ -12,5 +12,5 @@ export default async function NoticeDetail({ params }: { params: Promise<{ slug:
   if (!supabase) notFound();
   const { data: notice } = await supabase.from("public_notices").select("*").eq("slug", slug).eq("status", "Publicado").maybeSingle();
   if (!notice) notFound();
-  return <div className="mx-auto max-w-4xl px-4 py-12"><article className="paper rounded-lg border p-10"><div className="flex items-start justify-between gap-4"><div className="flex items-center gap-4"><Image src="/escudo-institucional.png" alt="Escudo institucional de Colombia" width={64} height={64} className="size-16 object-contain" /><Badge variant="outline">{notice.category}</Badge></div><PrintButton /></div><h1 className="mt-8 text-3xl font-semibold">{notice.title}</h1><p className="mt-4 border-y py-4 text-sm text-muted-foreground">{notice.issuing_entity} · {formatDate(notice.published_at)}</p><div className="mt-8"><MarkdownViewer content={notice.content_markdown} /></div></article></div>;
+  return <div className="mx-auto max-w-4xl px-4 py-12"><div className="mb-5 flex items-center justify-between no-print"><Badge variant="outline">{notice.category}</Badge><PrintButton /></div><article className="paper judicial-document rounded-lg border p-10"><JudicialWatermark /><JudicialDocumentHeader documentType="Comunicado institucional" title={notice.title} dependency={notice.issuing_entity} metadata={[{ label: "Categoría", value: notice.category }, { label: "Publicación", value: formatDate(notice.published_at) }, { label: "Entidad", value: notice.issuing_entity }, { label: "Referencia", value: notice.slug }]} /><div className="mt-8"><MarkdownViewer content={notice.content_markdown} /></div><JudicialPrintFooter verification={`Comunicado institucional: ${notice.slug}.`} /></article></div>;
 }
