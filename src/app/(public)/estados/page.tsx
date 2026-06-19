@@ -1,0 +1,7 @@
+import { Download, FileText } from "lucide-react";
+import { PageHero } from "@/components/page-hero";
+import { judicialStates, formatDate } from "@/lib/demo-data";
+import { Button } from "@/components/ui/button";
+import { CaseStatusBadge } from "@/components/status-badges";
+export const metadata = { title: "Estados judiciales" };
+export default function StatesPage() { return <><PageHero title="Estados judiciales" description="Consulte las actuaciones públicas fijadas por las salas y juzgados de la República Judicial ficticia." /><div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16"><div className="overflow-hidden rounded-lg border bg-white"><div className="border-b bg-slate-50 px-5 py-4 text-sm font-semibold text-[#153553]">Publicaciones recientes</div><div className="divide-y">{judicialStates.map((item) => <article key={item.id} className="flex flex-col justify-between gap-5 p-5 sm:flex-row sm:items-center"><div className="flex gap-4"><div className="grid size-11 shrink-0 place-items-center rounded bg-[#edf2f6] text-[#183d61]"><FileText className="size-5" /></div><div><div className="flex flex-wrap items-center gap-3"><h2 className="mono-number text-sm font-semibold text-[#153553]">{item.number}</h2><CaseStatusBadge status={item.status} /></div><p className="mt-1.5 text-sm text-muted-foreground">{item.court} · {formatDate(item.date)} · {item.items} actuaciones</p></div></div><Button variant="outline" size="sm" className="gap-2"><Download className="size-4" /> Vista imprimible</Button></article>)}</div></div></div></>; }

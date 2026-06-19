@@ -1,0 +1,11 @@
+"use client";
+import { useState } from "react";
+import { templates } from "@/lib/demo-data";
+import { MarkdownEditor } from "@/components/markdown-editor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Save } from "lucide-react";
+
+export function ProvidenceForm() { const names = Object.keys(templates); const [selected, setSelected] = useState(names[0]); return <form className="space-y-5" onSubmit={(e) => e.preventDefault()}><div className="rounded-lg border bg-white p-6"><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"><Field label="Expediente"><select className="h-9 w-full rounded-md border px-3 text-sm" required><option>TSJ-SP-2026-000001</option><option>TSJ-SC-2026-000002</option></select></Field><Field label="Tipo / plantilla"><select value={selected} onChange={(e) => setSelected(e.target.value)} className="h-9 w-full rounded-md border px-3 text-sm">{names.map((name) => <option key={name}>{name}</option>)}</select></Field><Field label="Número de providencia"><Input placeholder="Se genera al guardar" /></Field><Field label="Sala"><Input defaultValue="Sala Penal" /></Field><Field label="Título"><Input defaultValue={selected} /></Field><Field label="Magistratura / Juzgado"><Input defaultValue="Magistratura 02" /></Field><Field label="Estado"><select className="h-9 w-full rounded-md border px-3 text-sm"><option>Borrador</option><option>En revisión</option><option>Firmado</option><option>Publicado</option></select></Field><Field label="Visibilidad"><select className="h-9 w-full rounded-md border px-3 text-sm"><option>Interna</option><option>Pública</option><option>Reservada</option></select></Field></div></div><div className="rounded-lg border bg-white p-6"><Label className="mb-3 block">Contenido de la providencia</Label><MarkdownEditor key={selected} initialValue={templates[selected]} /></div><div className="flex justify-end"><Button className="gap-2 bg-[#153b5c]"><Save className="size-4" /> Guardar borrador</Button></div></form>; }
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="space-y-2"><Label>{label}</Label>{children}</div>; }

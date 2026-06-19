@@ -1,0 +1,6 @@
+import { Building2, Plus } from "lucide-react";
+import { AdminPageHeader } from "@/components/admin-page";
+import { Button } from "@/components/ui/button";
+import { dependencies } from "@/lib/demo-data";
+import { Badge } from "@/components/ui/badge";
+export default function DependenciesPage() { return <><AdminPageHeader title="Dependencias" description="Estructura organizacional de salas, juzgados y oficinas administrativas." action={<Button className="gap-2 bg-[#153b5c]"><Plus className="size-4" /> Nueva dependencia</Button>} /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{dependencies.map((name, i) => <article key={name} className="rounded-lg border bg-white p-5"><div className="flex items-start justify-between"><div className="grid size-10 place-items-center rounded bg-[#edf2f6] text-[#183d61]"><Building2 className="size-5" /></div><Badge className="bg-emerald-50 text-emerald-800">Activa</Badge></div><h2 className="mt-4 text-sm font-semibold text-[#153553]">{name}</h2><p className="mono-number mt-2 text-xs text-muted-foreground">Código: {i < 5 ? `TSJ-0${i+1}` : `DEP-${String(i+1).padStart(2,"0")}`}</p><p className="mt-1 text-xs text-muted-foreground">Distrito Capital Simulado · República Judicial</p></article>)}</div></>; }

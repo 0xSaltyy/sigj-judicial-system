@@ -1,0 +1,2 @@
+import { ShieldX } from "lucide-react";
+export function UnauthorizedState({ description }: { description: string }) { return <div className="grid min-h-64 place-items-center text-center"><div><div className="mx-auto grid size-14 place-items-center rounded-full bg-red-50 text-red-700"><ShieldX className="size-7" /></div><h2 className="mt-4 text-lg font-semibold text-[#153553]">Acceso no autorizado</h2><p className="mt-2 max-w-md text-sm text-muted-foreground">{description}</p></div></div>; }
