@@ -2,6 +2,11 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import { requireInternalUser } from "@/lib/auth/authorization";
+import {
+  defaultRoleCan,
+  type PermissionAction,
+  type PermissionResource,
+} from "@/lib/permissions/catalog";
 import type { AppRole } from "@/lib/user-management";
 
 export const RESOURCE_ROLES = {
@@ -16,9 +21,112 @@ export const RESOURCE_ROLES = {
   dependenciesWrite: ["SUPER_ADMIN"] as AppRole[],
 } as const;
 
-export async function requirePermission(allowed: readonly AppRole[]) {
+export const PERMISSIONS = {
+  casesCreate: { resource: "expedientes", action: "create" },
+  casesEdit: { resource: "expedientes", action: "edit" },
+  actionsCreate: { resource: "actuaciones", action: "create" },
+  hearingsCreate: { resource: "audiencias", action: "create" },
+  hearingsEdit: { resource: "audiencias", action: "edit" },
+  minutesCreate: { resource: "actas", action: "create" },
+  minutesEdit: { resource: "actas", action: "edit" },
+  minutesPublish: { resource: "actas", action: "publish" },
+  proceedingsCreate: { resource: "providencias", action: "create" },
+  proceedingsEdit: { resource: "providencias", action: "edit" },
+  proceedingsPublish: { resource: "providencias", action: "publish" },
+  documentsCreate: { resource: "documentos", action: "create" },
+  noticesCreate: { resource: "comunicados", action: "create" },
+  noticesEdit: { resource: "comunicados", action: "edit" },
+  noticesPublish: { resource: "comunicados", action: "publish" },
+  statesCreate: { resource: "estados", action: "create" },
+  statesEdit: { resource: "estados", action: "edit" },
+  statesPublish: { resource: "estados", action: "publish" },
+  linksShare: { resource: "enlaces", action: "share" },
+  linksManage: { resource: "enlaces", action: "manage" },
+  signaturesSign: { resource: "firmas", action: "sign" },
+  signaturesManage: { resource: "firmas", action: "manage" },
+  usersManage: { resource: "usuarios", action: "manage" },
+  rolesManage: { resource: "roles", action: "manage" },
+  settingsManage: { resource: "configuracion", action: "manage" },
+} as const satisfies Record<string, PermissionRequirement>;
+
+export type PermissionRequirement = {
+  resource: PermissionResource;
+  action: PermissionAction;
+};
+
+type PermissionContext = {
+  supabase: Awaited<ReturnType<typeof requireInternalUser>>["supabase"];
+};
+
+function isPermissionRequirement(
+  value: readonly AppRole[] | PermissionRequirement,
+): value is PermissionRequirement {
+  return !Array.isArray(value) && "resource" in value && "action" in value;
+}
+
+export async function can(
+  profile: { id: string; is_owner: boolean; role: AppRole },
+  action: PermissionAction,
+  resource: PermissionResource,
+  context: PermissionContext,
+) {
+  if (profile.is_owner && profile.role === "SUPER_ADMIN") return true;
+
+  const [{ data: override, error: overrideError }, { data: roleRule, error: roleError }] =
+    await Promise.all([
+      context.supabase
+        .from("user_permission_overrides")
+        .select("effect")
+        .eq("user_id", profile.id)
+        .eq("resource", resource)
+        .eq("action", action)
+        .maybeSingle(),
+      context.supabase
+        .from("role_permission_rules")
+        .select("allowed")
+        .eq("role", profile.role)
+        .eq("resource", resource)
+        .eq("action", action)
+        .maybeSingle(),
+    ]);
+
+  if (!overrideError && override?.effect === "deny") return false;
+  if (!overrideError && override?.effect === "allow") return true;
+  if (!roleError && typeof roleRule?.allowed === "boolean") return roleRule.allowed;
+  return defaultRoleCan(profile.role, resource, action);
+}
+
+export async function requirePermission(allowed: readonly AppRole[] | PermissionRequirement) {
   const session = await requireInternalUser();
-  if (!session.profile.is_owner && !allowed.includes(session.profile.role)) redirect("/no-autorizado");
+  const requirement = isPermissionRequirement(allowed) ? allowed : null;
+  const granted = requirement
+    ? await can(session.profile, requirement.action, requirement.resource, { supabase: session.supabase })
+    : session.profile.is_owner || (allowed as readonly AppRole[]).includes(session.profile.role);
+  if (!granted) {
+    await session.supabase.rpc("log_security_event", {
+      p_action: "PERMISSION_DENIED",
+      p_table: requirement?.resource ?? "authorization",
+      p_record_id: null,
+      p_description: "Intento de operación sin permiso efectivo",
+      p_metadata: requirement ?? { role: session.profile.role },
+    });
+    redirect("/no-autorizado");
+  }
+  return session;
+}
+
+export async function requireOwnerPermission(requirement: PermissionRequirement) {
+  const session = await requirePermission(requirement);
+  if (!session.profile.is_owner || session.profile.role !== "SUPER_ADMIN") {
+    await session.supabase.rpc("log_security_event", {
+      p_action: "OWNER_PROTECTION_DENIED",
+      p_table: requirement.resource,
+      p_record_id: null,
+      p_description: "Se impidió una operación reservada a la cuenta propietaria",
+      p_metadata: requirement,
+    });
+    redirect("/no-autorizado");
+  }
   return session;
 }
 
@@ -26,7 +134,7 @@ export function hasPermission(profile: { is_owner: boolean; role: AppRole }, all
   return profile.is_owner || allowed.includes(profile.role);
 }
 
-export async function requireCaseAccess(caseId: string, allowed: readonly AppRole[]) {
+export async function requireCaseAccess(caseId: string, allowed: readonly AppRole[] | PermissionRequirement) {
   const session = await requirePermission(allowed);
   const { data: record } = await session.supabase
     .from("cases")

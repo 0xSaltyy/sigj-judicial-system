@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 const targetSchema = z.object({ case_id: dbUuid });
@@ -31,11 +31,10 @@ export async function uploadCaseDocuments(formData: FormData) {
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect("/admin/expedientes?error=Expediente%20no%20válido");
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, [
-    ...RESOURCE_ROLES.actionsWrite,
-    ...RESOURCE_ROLES.casesEdit,
-    ...RESOURCE_ROLES.archive,
-  ]);
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.documentsCreate,
+  );
   const files = formData
     .getAll("attachments")
     .filter((value): value is File => value instanceof File && value.size > 0);

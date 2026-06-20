@@ -6,7 +6,7 @@ import { z } from "zod";
 import {
   requireCaseAccess,
   requirePermission,
-  RESOURCE_ROLES,
+  PERMISSIONS,
 } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
@@ -59,7 +59,7 @@ export async function createCase(formData: FormData) {
   if (!parsed.success)
     errorRedirect("/admin/expedientes/nuevo", parsed.error.issues[0].message);
   const { supabase, user } = await requirePermission(
-    RESOURCE_ROLES.casesCreate,
+    PERMISSIONS.casesCreate,
   );
   const { data: dependency } = await supabase
     .from("dependencies")
@@ -214,7 +214,7 @@ export async function updateCase(formData: FormData) {
     );
   const { supabase } = await requireCaseAccess(
     parsed.data.case_id,
-    RESOURCE_ROLES.casesEdit,
+    PERMISSIONS.casesEdit,
   );
   const { error } = await supabase
     .from("cases")
@@ -260,7 +260,7 @@ export async function updateCaseFull(formData: FormData) {
   const parsed = fullUpdateSchema.safeParse(Object.fromEntries(formData));
   const caseId = String(formData.get("case_id") || "");
   if (!parsed.success) redirect(`/admin/expedientes/${caseId}/editar?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.casesEdit);
+  const { supabase } = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.casesEdit);
   const payload = {
     title: parsed.data.title, authority_type: parsed.data.authority_type, chamber: parsed.data.chamber,
     process_type: parsed.data.process_type, process_subtype: parsed.data.process_subtype,
@@ -290,7 +290,7 @@ export async function saveCaseParty(formData: FormData) {
   const parsed = partySchema.safeParse(Object.fromEntries(formData));
   const caseId = String(formData.get("case_id") || "");
   if (!parsed.success) redirect(`/admin/expedientes/${caseId}/editar?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.casesEdit);
+  const { supabase } = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.casesEdit);
   const payload = { case_id: parsed.data.case_id, name: parsed.data.name, party_type: parsed.data.party_type, document_type: parsed.data.document_type || null, document_number: parsed.data.document_number || null, email: parsed.data.email || null, phone: parsed.data.phone || null, address: parsed.data.address || null, is_confidential: parsed.data.is_confidential === "true" };
   const result = parsed.data.party_id
     ? await supabase.from("case_parties").update(payload).eq("id", parsed.data.party_id).eq("case_id", parsed.data.case_id).is("archived_at", null)
@@ -304,7 +304,7 @@ export async function saveCaseParty(formData: FormData) {
 export async function manageCaseParty(formData: FormData) {
   const parsed = z.object({ party_id: dbUuid, case_id: dbUuid, operation: z.enum(["archive", "restore", "delete"]), confirmation: z.string().optional() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/admin/expedientes?error=Parte%20procesal%20no%20válida");
-  const { supabase, user, profile } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.casesEdit);
+  const { supabase, user, profile } = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.casesEdit);
   if (parsed.data.operation !== "archive" && !profile.is_owner) redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=Solo%20SUPER_ADMIN%20puede%20restaurar%20o%20eliminar%20partes`);
   if (parsed.data.operation === "delete" && parsed.data.confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=Confirmación%20de%20eliminación%20incorrecta`);
   const result = parsed.data.operation === "archive"
@@ -322,10 +322,10 @@ export async function generateCertificate(formData: FormData) {
   const caseId = dbUuid.safeParse(formData.get("case_id"));
   if (!caseId.success)
     redirect("/admin/expedientes?error=Expediente%20no%20válido");
-  const { supabase, user } = await requireCaseAccess(caseId.data, [
-    ...RESOURCE_ROLES.secretarialWrite,
-    ...RESOURCE_ROLES.archive,
-  ]);
+  const { supabase, user } = await requireCaseAccess(
+    caseId.data,
+    PERMISSIONS.documentsCreate,
+  );
   const { data: record } = await supabase
     .from("cases")
     .select("internal_number,judicial_number,filed_at")

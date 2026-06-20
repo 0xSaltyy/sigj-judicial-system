@@ -6,7 +6,7 @@ import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ClearDrafts } from "@/components/clear-drafts";
 import { HearingForm } from "@/components/hearing-form";
 import { Input } from "@/components/ui/input";
-import { requirePermission, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 export default async function EditHearing({
   params,
   searchParams,
@@ -17,7 +17,7 @@ export default async function EditHearing({
   const [{ id }, query, { supabase }] = await Promise.all([
     params,
     searchParams,
-    requirePermission(RESOURCE_ROLES.hearingsWrite),
+    requirePermission(PERMISSIONS.hearingsEdit),
   ]);
   const [{ data: hearing }, { data: cases }] = await Promise.all([
     supabase.from("hearings").select("*").eq("id", id).maybeSingle(),

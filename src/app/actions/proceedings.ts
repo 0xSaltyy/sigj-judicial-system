@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { TEMPLATE_STYLES } from "@/lib/document-templates";
 import { dbUuid } from "@/lib/validation";
 
@@ -36,7 +36,10 @@ export async function createProceeding(formData: FormData) {
   const rawId = String(formData.get("id") || "");
   const errorPath = rawId ? `/admin/providencias/${rawId}/editar` : "/admin/providencias/nueva";
   if (!parsed.success) fail(errorPath, parsed.error.issues[0].message);
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.proceedingsWrite);
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    parsed.data.id ? PERMISSIONS.proceedingsEdit : PERMISSIONS.proceedingsCreate,
+  );
   const [{ data: caseRecord }, { data: existing }] = await Promise.all([
     supabase.from("cases").select("confidentiality_level,public_visibility,archived_at").eq("id", parsed.data.case_id).maybeSingle(),
     parsed.data.id ? supabase.from("proceedings").select("id,status,pdf_path,case_id").eq("id", parsed.data.id).eq("case_id", parsed.data.case_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -105,7 +108,10 @@ export async function createProceeding(formData: FormData) {
 export async function publishProceeding(formData: FormData) {
   const parsed = z.object({ id: dbUuid, case_id: dbUuid }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/admin/providencias?error=Providencia%20no%20válida");
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.proceedingsWrite);
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.proceedingsPublish,
+  );
   const [{ data: proceeding }, { data: caseRecord }] = await Promise.all([
     supabase.from("proceedings").select("id,title,chamber,content_markdown,visibility,archived_at,creation_mode,pdf_path,requires_signature,providence_date").eq("id", parsed.data.id).eq("case_id", parsed.data.case_id).maybeSingle(),
     supabase.from("cases").select("confidentiality_level,public_visibility,archived_at").eq("id", parsed.data.case_id).maybeSingle(),

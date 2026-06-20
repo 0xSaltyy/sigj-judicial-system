@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { requirePermission, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
 export const metadata = { title: "Nueva radicación" };
 const authorities = ["Corte Suprema de Justicia", "Tribunal Superior de Justicia", "Juzgado de Circuito", "Juzgado Municipal"];
@@ -21,7 +21,7 @@ const processTypes = ["Civil", "Penal", "Laboral", "Administrativo", "Constituci
 const subtypes = ["Tutela", "Apelación", "Recurso extraordinario", "Nulidad", "Responsabilidad", "Ejecutivo", "Declarativo", "Control de legalidad", "Consulta", "Avocamiento"];
 
 export default async function NewCasePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const [{ supabase }, query] = await Promise.all([requirePermission(RESOURCE_ROLES.casesCreate), searchParams]);
+  const [{ supabase }, query] = await Promise.all([requirePermission(PERMISSIONS.casesCreate), searchParams]);
   const { data: dependencies } = await supabase.from("dependencies").select("id,name").eq("is_active", true).order("name");
   return <>
     <AdminPageHeader title="Radicar nuevo expediente" description="Complete la información de recepción. Los números se generan de forma transaccional." />

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requirePermission, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 export async function createJudicialState(formData: FormData) {
@@ -33,7 +33,7 @@ export async function createJudicialState(formData: FormData) {
       `/admin/estados/nuevo?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
   const { supabase, user } = await requirePermission(
-    RESOURCE_ROLES.secretarialWrite,
+    parsed.data.status === "Publicado" ? PERMISSIONS.statesPublish : PERMISSIONS.statesCreate,
   );
   if (parsed.data.status === "Publicado" && parsed.data.case_id) {
     const { data: caseRecord } = await supabase
@@ -114,7 +114,7 @@ export async function addJudicialStateItem(formData: FormData) {
     redirect(
       `/admin/estados?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase } = await requirePermission(RESOURCE_ROLES.secretarialWrite);
+  const { supabase } = await requirePermission(PERMISSIONS.statesEdit);
   const { data: state } = await supabase
     .from("judicial_states")
     .select("id,status,archived_at")
@@ -142,7 +142,7 @@ export async function addJudicialStateItem(formData: FormData) {
 export async function publishJudicialState(formData: FormData) {
   const stateId = dbUuid.safeParse(formData.get("state_id"));
   if (!stateId.success) redirect("/admin/estados?error=Estado%20no%20válido");
-  const { supabase } = await requirePermission(RESOURCE_ROLES.secretarialWrite);
+  const { supabase } = await requirePermission(PERMISSIONS.statesPublish);
   const { data: items } = await supabase
     .from("judicial_state_items")
     .select(

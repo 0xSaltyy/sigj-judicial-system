@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { JudicialDocumentHeader, JudicialPrintFooter, JudicialWatermark } from "@/components/judicial-document";
 import { PrintButton } from "@/components/print-button";
-import { requireInternalUser } from "@/lib/auth/authorization";
+import { requirePermission } from "@/lib/auth/permissions";
 
 export default async function CasePrint({ params }: { params: Promise<{ id: string }> }) {
-  const [{ id }, { supabase }] = await Promise.all([params, requireInternalUser()]);
+  const [{ id }, { supabase }] = await Promise.all([params, requirePermission({ resource: "expedientes", action: "view" })]);
   const [{ data: caseRecord }, { data: actions }, { data: hearings }, { data: proceedings }, { data: documents }] = await Promise.all([
     supabase.from("cases").select("*").eq("id", id).maybeSingle(),
     supabase.from("case_actions").select("*").eq("case_id", id),

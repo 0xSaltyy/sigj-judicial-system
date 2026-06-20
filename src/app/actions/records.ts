@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireInternalUser } from "@/lib/auth/authorization";
+import { requirePermission } from "@/lib/auth/permissions";
+import type { PermissionAction, PermissionResource } from "@/lib/permissions/catalog";
 import { dbUuid } from "@/lib/validation";
 
 const schema = z.object({
@@ -30,7 +31,26 @@ export async function manageRecordLifecycle(formData: FormData) {
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect("/admin/dashboard?error=Solicitud%20de%20archivo%20no%20válida");
-  const { supabase } = await requireInternalUser();
+  const permissionResources: Record<z.infer<typeof schema>["resource"], PermissionResource> = {
+    cases: "expedientes",
+    radications: "expedientes",
+    case_actions: "actuaciones",
+    documents: "documentos",
+    hearings: "audiencias",
+    proceedings: "providencias",
+    public_notices: "comunicados",
+    judicial_states: "estados",
+    dependencies: "configuracion",
+  };
+  const permissionActions: Record<z.infer<typeof schema>["operation"], PermissionAction> = {
+    archive: "archive",
+    restore: "restore",
+    delete: "hard_delete",
+  };
+  const { supabase } = await requirePermission({
+    resource: permissionResources[parsed.data.resource],
+    action: permissionActions[parsed.data.operation],
+  });
   let storagePath: string | null = null;
 
   if (

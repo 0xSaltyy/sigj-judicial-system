@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { requirePermission, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
 export default async function StateDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; success?: string }> }) {
-  const [{ id }, query, { supabase, profile }] = await Promise.all([params, searchParams, requirePermission(RESOURCE_ROLES.secretarialWrite)]);
+  const [{ id }, query, { supabase, profile }] = await Promise.all([params, searchParams, requirePermission(PERMISSIONS.statesEdit)]);
   const [{ data: state }, { data: items }, { data: cases }] = await Promise.all([
     supabase.from("judicial_states").select("*,dependency:dependencies(name)").eq("id", id).maybeSingle(),
     supabase.from("judicial_state_items").select("id,description,case_id,case:cases(internal_number)").eq("judicial_state_id", id).order("created_at"),

@@ -22,7 +22,7 @@ import {
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { requireInternalUser } from "@/lib/auth/authorization";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
 export default async function HearingMinutes({
   params,
@@ -38,7 +38,7 @@ export default async function HearingMinutes({
   const [{ id }, query, { supabase, profile }] = await Promise.all([
     params,
     searchParams,
-    requireInternalUser(),
+    requirePermission(PERMISSIONS.minutesEdit),
   ]);
   const [{ data: hearing }, { data: minute }] = await Promise.all([
     supabase

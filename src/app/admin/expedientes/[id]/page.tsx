@@ -24,8 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { requireInternalUser } from "@/lib/auth/authorization";
-import { hasPermission, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { can, requirePermission } from "@/lib/auth/permissions";
 import { formatDate } from "@/lib/demo-data";
 
 export default async function CaseDetailPage({
@@ -38,7 +37,7 @@ export default async function CaseDetailPage({
   const [{ id }, query, session] = await Promise.all([
     params,
     searchParams,
-    requireInternalUser(),
+    requirePermission({ resource: "expedientes", action: "view" }),
   ]);
   const { supabase, profile } = session;
   const [
@@ -122,6 +121,21 @@ export default async function CaseDetailPage({
       : Promise.resolve({ data: [] }),
   ]);
   if (!item) notFound();
+  const [canEdit, canAct, canHear, canProceed, canArchive, canRestore, canHardDelete, canUpload, canDocumentArchive, canDocumentRestore, canDocumentHardDelete, canDocumentShare, canShare] = await Promise.all([
+    can(profile, "edit", "expedientes", { supabase }),
+    can(profile, "create", "actuaciones", { supabase }),
+    can(profile, "create", "audiencias", { supabase }),
+    can(profile, "create", "providencias", { supabase }),
+    can(profile, "archive", "expedientes", { supabase }),
+    can(profile, "restore", "expedientes", { supabase }),
+    can(profile, "hard_delete", "expedientes", { supabase }),
+    can(profile, "create", "documentos", { supabase }),
+    can(profile, "archive", "documentos", { supabase }),
+    can(profile, "restore", "documentos", { supabase }),
+    can(profile, "hard_delete", "documentos", { supabase }),
+    can(profile, "share", "documentos", { supabase }),
+    can(profile, "share", "expedientes", { supabase }),
+  ]);
   const signedDocuments: SavedDocument[] = await Promise.all(
     (documents ?? []).map(async (doc) => {
       const { data } = await supabase.storage
@@ -130,27 +144,14 @@ export default async function CaseDetailPage({
       return {
         ...doc,
         signedUrl: doc.archived_at ? null : (data?.signedUrl ?? null),
-        canArchive:
-          profile.is_owner ||
-          doc.uploaded_by === profile.id ||
-          hasPermission(profile, [
-            ...RESOURCE_ROLES.actionsWrite,
-            ...RESOURCE_ROLES.archive,
-          ]),
-        canRestore: profile.is_owner,
-        canHardDelete: profile.is_owner,
+        canArchive: canDocumentArchive,
+        canRestore: canDocumentRestore,
+        canHardDelete: canDocumentHardDelete,
+        canShare: canDocumentShare,
       };
     }),
   );
-  const canEdit = hasPermission(profile, RESOURCE_ROLES.casesEdit);
-  const canAct = hasPermission(profile, RESOURCE_ROLES.actionsWrite);
-  const canHear = hasPermission(profile, RESOURCE_ROLES.hearingsWrite);
-  const canProceed = hasPermission(profile, RESOURCE_ROLES.proceedingsWrite);
-  const canArchive = hasPermission(profile, RESOURCE_ROLES.archive);
-  const canCertificate = hasPermission(profile, [
-    ...RESOURCE_ROLES.secretarialWrite,
-    ...RESOURCE_ROLES.archive,
-  ]);
+  const canCertificate = canUpload;
   return (
     <>
       {query.success && <ClearDrafts storageKeys={[`case-edit:${id}`]} />}
@@ -159,8 +160,8 @@ export default async function CaseDetailPage({
         description={item.title}
         action={
           <div className="flex gap-2">
-            {hasPermission(profile, RESOURCE_ROLES.casesEdit) && (!item.archived_at || profile.is_owner) && <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/editar`}><Pencil className="size-4" /> Editar expediente</Link></Button>}
-            <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/compartir`}><Share2 className="size-4" /> Compartir</Link></Button>
+            {canEdit && (!item.archived_at || profile.is_owner) && <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/editar`}><Pencil className="size-4" /> Editar expediente</Link></Button>}
+            {canShare ? <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/compartir`}><Share2 className="size-4" /> Compartir</Link></Button> : <Button variant="outline" disabled title="No tiene permiso para compartir expedientes"><Share2 className="size-4" /> Compartir</Button>}
             <Button asChild variant="outline">
               <Link href={`/admin/expedientes/${id}/constancia`}>
                 <Printer className="size-4" /> Constancia
@@ -346,8 +347,8 @@ export default async function CaseDetailPage({
           destination="/admin/expedientes"
                     archived={Boolean(item.archived_at)}
                     canArchive={canArchive}
-                    canRestore={profile.is_owner}
-                    canHardDelete={profile.is_owner}
+                    canRestore={canRestore}
+                    canHardDelete={canHardDelete}
                   />
                 </div>
               </section>
@@ -389,7 +390,7 @@ export default async function CaseDetailPage({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <form action={uploadCaseDocuments} className="space-y-4">
+                {canUpload ? <form action={uploadCaseDocuments} className="space-y-4">
                   <input type="hidden" name="case_id" value={id} />
                   <DocumentUploader />
                   <select
@@ -403,7 +404,7 @@ export default async function CaseDetailPage({
                   <SubmitButton pendingLabel="Subiendo…">
                     Subir documentos
                   </SubmitButton>
-                </form>
+                </form> : <p className="rounded border bg-slate-50 p-4 text-sm text-muted-foreground">No tiene permiso para cargar documentos en este expediente.</p>}
               </CardContent>
             </Card>
             <div className="grid gap-4 xl:grid-cols-2">

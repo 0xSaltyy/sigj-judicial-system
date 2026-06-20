@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import {
   appUrl,
   createSecureToken,
@@ -97,10 +97,10 @@ export async function requestSignature(formData: FormData) {
     redirect(
       `/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, [
-    ...RESOURCE_ROLES.proceedingsWrite,
-    ...RESOURCE_ROLES.hearingsWrite,
-  ]);
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.signaturesManage,
+  );
   if (
     !(await targetExists(
       supabase,
@@ -158,10 +158,10 @@ export async function assignInternalSignature(formData: FormData) {
   const parsed = internalAssignmentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, [
-    ...RESOURCE_ROLES.proceedingsWrite,
-    ...RESOURCE_ROLES.hearingsWrite,
-  ]);
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.signaturesManage,
+  );
   if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
     redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
   const admin = createAdminClient();
@@ -210,10 +210,10 @@ export async function signNow(formData: FormData) {
   const parsed = directSignatureSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase, user, profile } = await requireCaseAccess(parsed.data.case_id, [
-    ...RESOURCE_ROLES.proceedingsWrite,
-    ...RESOURCE_ROLES.hearingsWrite,
-  ]);
+  const { supabase, user, profile } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.signaturesSign,
+  );
   if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
     redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
   const admin = createAdminClient();
@@ -256,10 +256,10 @@ export async function completeInternalSignature(formData: FormData) {
   const parsed = pendingInternalSignatureSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, [
-    ...RESOURCE_ROLES.proceedingsWrite,
-    ...RESOURCE_ROLES.hearingsWrite,
-  ]);
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.signaturesSign,
+  );
   if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
     redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
   const admin = createAdminClient();
@@ -296,10 +296,10 @@ export async function revokeSignatureRequest(formData: FormData) {
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect("/admin/dashboard?error=Solicitud%20no%20válida");
-  const { supabase } = await requireCaseAccess(parsed.data.case_id, [
-    ...RESOURCE_ROLES.proceedingsWrite,
-    ...RESOURCE_ROLES.hearingsWrite,
-  ]);
+  const { supabase } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.signaturesManage,
+  );
   const { error } = await supabase
     .from("signature_requests")
     .update({ status: "revoked", revoked_at: new Date().toISOString() })
@@ -333,7 +333,7 @@ export async function revokeCompletedSignature(formData: FormData) {
     redirect("/admin/dashboard?error=Firma%20no%20válida");
   const { supabase, profile } = await requireCaseAccess(
     parsed.data.case_id,
-    [...RESOURCE_ROLES.proceedingsWrite, ...RESOURCE_ROLES.hearingsWrite],
+    PERMISSIONS.signaturesManage,
   );
   const { data: signature } = await supabase
     .from("signatures")

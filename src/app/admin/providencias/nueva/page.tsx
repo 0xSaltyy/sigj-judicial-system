@@ -1,10 +1,10 @@
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { ProvidenceForm, type CaseOption } from "@/components/providence-form";
-import { requirePermission, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
 export default async function NewProceedingPage({ searchParams }: { searchParams: Promise<{ caseId?: string; error?: string }> }) {
-  const [{ supabase }, query] = await Promise.all([requirePermission(RESOURCE_ROLES.proceedingsWrite), searchParams]);
+  const [{ supabase }, query] = await Promise.all([requirePermission(PERMISSIONS.proceedingsCreate), searchParams]);
   const { data: rows } = await supabase
     .from("cases")
     .select("id,internal_number,judicial_number,chamber,authority_type,claimant_name,defendant_name,municipality,dependency:dependencies(name)")

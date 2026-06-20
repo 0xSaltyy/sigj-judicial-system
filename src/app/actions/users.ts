@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireOwner } from "@/lib/auth/authorization";
+import { PERMISSIONS, requireOwnerPermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_ROLES } from "@/lib/user-management";
 import { dbUuid } from "@/lib/validation";
@@ -43,7 +43,7 @@ function passwordRedirectUrl() {
 }
 
 async function writeAudit(
-  supabase: Awaited<ReturnType<typeof requireOwner>>["supabase"],
+  supabase: Awaited<ReturnType<typeof requireOwnerPermission>>["supabase"],
   actorId: string,
   targetId: string,
   action: string,
@@ -74,7 +74,7 @@ export async function inviteUser(formData: FormData) {
       parsed.error.issues[0].message,
       "/admin/usuarios/nuevo",
     );
-  const { supabase, user } = await requireOwner();
+  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersManage);
   const admin = createAdminClient();
   if (!admin)
     usersRedirect(
@@ -167,18 +167,26 @@ export async function inviteUser(formData: FormData) {
 export async function updateManagedUser(formData: FormData) {
   const parsed = updateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) usersRedirect("error", parsed.error.issues[0].message);
-  const { supabase, user } = await requireOwner();
+  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersManage);
   const { data: current, error: currentError } = await supabase
     .from("profiles")
     .select("id,full_name,role,dependency_id,position_title,is_active,is_owner")
     .eq("id", parsed.data.target_id)
     .maybeSingle();
   if (currentError || !current) usersRedirect("error", "El usuario no existe");
-  if (current.is_owner)
+  if (current.is_owner) {
+    await supabase.rpc("log_security_event", {
+      p_action: "OWNER_PROTECTION_DENIED",
+      p_table: "profiles",
+      p_record_id: current.id,
+      p_description: "Se impidió modificar la cuenta propietaria protegida",
+      p_metadata: { requested_role: parsed.data.role, requested_active: parsed.data.is_active },
+    });
     usersRedirect(
       "error",
       "La cuenta propietaria está protegida y no puede modificarse desde esta operación",
     );
+  }
 
   if (parsed.data.dependency_id) {
     const { data: institution } = await supabase
@@ -219,7 +227,7 @@ export async function updateManagedUser(formData: FormData) {
 export async function sendPasswordSetup(formData: FormData) {
   const parsed = targetSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) usersRedirect("error", "Usuario no válido");
-  const { supabase, user } = await requireOwner();
+  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersManage);
   const admin = createAdminClient();
   if (!admin) usersRedirect("error", "Falta SUPABASE_SERVICE_ROLE_KEY");
   const { data: target } = await supabase

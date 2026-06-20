@@ -14,8 +14,7 @@ import {
   SignaturePanel,
 } from "@/components/signature-panel";
 import { Button } from "@/components/ui/button";
-import { requireInternalUser } from "@/lib/auth/authorization";
-import { hasPermission, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { can, requirePermission } from "@/lib/auth/permissions";
 
 export default async function ProceedingDetail({
   params,
@@ -31,7 +30,7 @@ export default async function ProceedingDetail({
   const [{ id }, query, { supabase, profile }] = await Promise.all([
     params,
     searchParams,
-    requireInternalUser(),
+    requirePermission({ resource: "providencias", action: "view" }),
   ]);
   const [{ data: proceeding }, { data: dependencies }, { data: users }] =
     await Promise.all([
@@ -57,7 +56,15 @@ export default async function ProceedingDetail({
         : Promise.resolve({ data: [] }),
     ]);
   if (!proceeding) notFound();
-  const canWrite = hasPermission(profile, RESOURCE_ROLES.proceedingsWrite);
+  const [canWrite, canPublish, canShare, canManageSignatures, canArchive, canRestore, canHardDelete] = await Promise.all([
+    can(profile, "edit", "providencias", { supabase }),
+    can(profile, "publish", "providencias", { supabase }),
+    can(profile, "share", "providencias", { supabase }),
+    can(profile, "manage", "firmas", { supabase }),
+    can(profile, "archive", "providencias", { supabase }),
+    can(profile, "restore", "providencias", { supabase }),
+    can(profile, "hard_delete", "providencias", { supabase }),
+  ]);
   const caseRecord = Array.isArray(proceeding.case)
     ? proceeding.case[0]
     : proceeding.case;
@@ -102,12 +109,12 @@ export default async function ProceedingDetail({
                   </Link>
                 </Button>
               )}
-            <Button asChild variant="outline">
+            {canManageSignatures ? <Button asChild variant="outline">
               <Link href={`/admin/providencias/${id}/firmas`}>
                 <PenLine className="size-4" />
                 Firmas
               </Link>
-            </Button>
+            </Button> : <Button variant="outline" disabled title="No tiene permiso para administrar firmas"><PenLine className="size-4" /> Firmas</Button>}
             <PrintButton label="Imprimir providencia" />
             {combinedPdfUrl && (
               <Button asChild>
@@ -131,7 +138,7 @@ export default async function ProceedingDetail({
         />
       </div>
       <div className="mt-4 space-y-4 no-print">
-        <ShareAccessForm
+        {canShare && <ShareAccessForm
           resourceType="proceeding"
           resourceId={id}
           caseId={proceeding.case_id}
@@ -144,18 +151,18 @@ export default async function ProceedingDetail({
             id: dependency.id,
             name: dependency.name,
           }))}
-        />
+        />}
         <LifecycleActions
           resource="proceedings"
           recordId={id}
           recordLabel={proceeding.providence_number}
           destination="/admin/providencias"
           archived={Boolean(proceeding.archived_at)}
-          canArchive={canWrite}
-          canRestore={profile.is_owner}
-          canHardDelete={profile.is_owner}
+          canArchive={canArchive}
+          canRestore={canRestore}
+          canHardDelete={canHardDelete}
         />
-        {proceeding.status !== "Publicado" && !proceeding.archived_at && (
+        {canPublish && proceeding.status !== "Publicado" && !proceeding.archived_at && (
           <form action={publishProceeding}>
             <input type="hidden" name="id" value={proceeding.id} />
             <input type="hidden" name="case_id" value={proceeding.case_id} />

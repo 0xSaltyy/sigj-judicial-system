@@ -1,11 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import type { AuthenticatedProfile } from "@/lib/auth/authorization";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   if (!supabase) return NextResponse.json({ error: "Supabase no está configurado" }, { status: 503 });
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Autenticación requerida" }, { status: 401 });
+  const { data: profile } = await supabase.from("profiles").select("id,full_name,email,role,dependency_id,position_title,is_active,is_owner").eq("id", user.id).maybeSingle();
+  if (!profile?.is_active || !(await can(profile as AuthenticatedProfile, "share", "documentos", { supabase }))) {
+    await supabase.rpc("log_security_event", { p_action: "PERMISSION_DENIED", p_table: "documents", p_record_id: null, p_description: "Intento de generar enlace de documento sin permiso", p_metadata: { action: "share" } });
+    return NextResponse.json({ error: "No tiene permiso para compartir documentos" }, { status: 403 });
+  }
   const { id } = await params;
   const body = await request.json().catch(() => ({})) as { expiresIn?: number };
   const expiresIn = Math.min(3600, Math.max(300, Number(body.expiresIn) || 900));

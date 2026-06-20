@@ -10,22 +10,8 @@ import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { requireCaseAccess } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { formatDate } from "@/lib/demo-data";
-import type { AppRole } from "@/lib/user-management";
-
-const roles: AppRole[] = [
-  "SUPER_ADMIN",
-  "ADMIN_INSTITUCIONAL",
-  "MAGISTRADO_CORTE_SUPREMA",
-  "MAGISTRADO_TRIBUNAL",
-  "JUEZ_CIRCUITO",
-  "JUEZ_MUNICIPAL",
-  "SECRETARIO_GENERAL",
-  "SECRETARIO_DESPACHO",
-  "OFICIAL_MAYOR",
-  "ARCHIVO",
-];
 
 export default async function ShareCasePage({
   params,
@@ -39,7 +25,7 @@ export default async function ShareCasePage({
   }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const { supabase } = await requireCaseAccess(id, roles);
+  const { supabase } = await requireCaseAccess(id, PERMISSIONS.linksShare);
   const [
     { data: item },
     { data: links },

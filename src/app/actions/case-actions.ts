@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 const schema = z.object({
@@ -24,7 +24,7 @@ export async function createCaseAction(formData: FormData) {
   }
   const { supabase, user } = await requireCaseAccess(
     parsed.data.case_id,
-    RESOURCE_ROLES.actionsWrite,
+    PERMISSIONS.actionsCreate,
   );
   const { error } = await supabase
     .from("case_actions")

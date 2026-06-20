@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireCaseAccess } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { APP_ROLES, type AppRole } from "@/lib/user-management";
+import type { PermissionResource } from "@/lib/permissions/catalog";
 import { dbUuid } from "@/lib/validation";
 import {
   appUrl,
@@ -13,18 +14,6 @@ import {
   maskEmail,
 } from "@/lib/secure-tokens";
 
-const shareRoles: AppRole[] = [
-  "SUPER_ADMIN",
-  "ADMIN_INSTITUCIONAL",
-  "MAGISTRADO_CORTE_SUPREMA",
-  "MAGISTRADO_TRIBUNAL",
-  "JUEZ_CIRCUITO",
-  "JUEZ_MUNICIPAL",
-  "SECRETARIO_GENERAL",
-  "SECRETARIO_DESPACHO",
-  "OFICIAL_MAYOR",
-  "ARCHIVO",
-];
 const schema = z.object({
   resource_type: z.enum(["case", "proceeding", "document"]),
   resource_id: dbUuid,
@@ -38,10 +27,15 @@ export async function shareResource(formData: FormData) {
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect("/admin/dashboard?error=Datos%20de%20compartición%20no%20válidos");
-  const { supabase, user } = await requireCaseAccess(
-    parsed.data.case_id,
-    shareRoles,
-  );
+  const resourcePermissions: Record<typeof parsed.data.resource_type, PermissionResource> = {
+    case: "expedientes",
+    proceeding: "providencias",
+    document: "documentos",
+  };
+  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, {
+    resource: resourcePermissions[parsed.data.resource_type],
+    action: "share",
+  });
 
   if (
     parsed.data.resource_type === "case" &&
@@ -172,7 +166,7 @@ export async function createExternalShare(formData: FormData) {
     );
   const { supabase, user } = await requireCaseAccess(
     parsed.data.case_id,
-    shareRoles,
+    PERMISSIONS.linksShare,
   );
   const { token, hash } = createSecureToken();
   const email = parsed.data.external_email || null;
@@ -226,7 +220,10 @@ export async function revokeExternalShare(formData: FormData) {
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect("/admin/expedientes?error=Enlace%20no%20válido");
-  const { supabase } = await requireCaseAccess(parsed.data.case_id, shareRoles);
+  const { supabase } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.linksManage,
+  );
   const { error } = await supabase
     .from("share_links")
     .update({ revoked_at: new Date().toISOString() })

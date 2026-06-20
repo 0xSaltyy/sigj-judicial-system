@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 const schema = z.object({
@@ -41,7 +41,7 @@ export async function saveHearing(formData: FormData) {
   }
   const { supabase, user } = await requireCaseAccess(
     parsed.data.case_id,
-    RESOURCE_ROLES.hearingsWrite,
+    parsed.data.hearing_id ? PERMISSIONS.hearingsEdit : PERMISSIONS.hearingsCreate,
   );
   const payload = {
     case_id: parsed.data.case_id,
@@ -99,7 +99,7 @@ export async function cancelHearing(formData: FormData) {
     redirect("/admin/audiencias?error=Datos%20de%20cancelación%20inválidos");
   const { supabase } = await requireCaseAccess(
     parsed.data.case_id,
-    RESOURCE_ROLES.hearingsWrite,
+    PERMISSIONS.hearingsEdit,
   );
   const { error } = await supabase
     .from("hearings")
@@ -125,7 +125,10 @@ export async function saveHearingMinutes(formData: FormData) {
   const parsed = minutesSchema.safeParse(Object.fromEntries(formData));
   const hearingId = String(formData.get("hearing_id") || "");
   if (!parsed.success) redirect(`/admin/audiencias/${hearingId}/acta?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.hearingsWrite);
+  const { supabase, user } = await requireCaseAccess(
+    parsed.data.case_id,
+    parsed.data.minute_id ? PERMISSIONS.minutesEdit : PERMISSIONS.minutesCreate,
+  );
   const { data: hearing } = await supabase.from("hearings").select("id").eq("id", parsed.data.hearing_id).eq("case_id", parsed.data.case_id).is("archived_at", null).maybeSingle();
   if (!hearing) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Audiencia%20no%20disponible`);
   const payload = { hearing_id: parsed.data.hearing_id, case_id: parsed.data.case_id, started_at: parsed.data.started_at ? new Date(parsed.data.started_at).toISOString() : null, ended_at: parsed.data.ended_at ? new Date(parsed.data.ended_at).toISOString() : null, chamber: parsed.data.chamber || null, interveners: parsed.data.interveners || null, attendees: parsed.data.attendees || null, absences: parsed.data.absences || null, development_markdown: parsed.data.development_markdown || "", decisions_markdown: parsed.data.decisions_markdown || "", evidence_markdown: parsed.data.evidence_markdown || "", records_markdown: parsed.data.records_markdown || "", observations_markdown: parsed.data.observations_markdown || "", closing_markdown: parsed.data.closing_markdown || "", secretary_signature_required: parsed.data.secretary_signature_required === "true", judge_signature_required: parsed.data.judge_signature_required === "true" };
@@ -138,7 +141,10 @@ export async function saveHearingMinutes(formData: FormData) {
 export async function finalizeHearingMinutes(formData: FormData) {
   const parsed = z.object({ minute_id: dbUuid, hearing_id: dbUuid, case_id: dbUuid, owner_override: z.string().optional() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/admin/audiencias?error=Acta%20no%20válida");
-  const { supabase, user, profile } = await requireCaseAccess(parsed.data.case_id, RESOURCE_ROLES.hearingsWrite);
+  const { supabase, user, profile } = await requireCaseAccess(
+    parsed.data.case_id,
+    PERMISSIONS.minutesPublish,
+  );
   const { data: minute } = await supabase.from("hearing_minutes").select("id,status,secretary_signature_required,judge_signature_required,development_markdown").eq("id", parsed.data.minute_id).eq("hearing_id", parsed.data.hearing_id).maybeSingle();
   if (!minute || minute.status !== "Borrador") redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=El%20acta%20no%20está%20en%20borrador`);
   if ((minute.development_markdown || "").trim().length < 20) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Complete%20el%20desarrollo%20antes%20de%20finalizar`);

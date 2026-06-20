@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireOwner } from "@/lib/auth/authorization";
+import { PERMISSIONS, requireOwnerPermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 export async function saveDependency(formData: FormData) {
@@ -25,7 +25,7 @@ export async function saveDependency(formData: FormData) {
     redirect(
       `/admin/dependencias?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase } = await requireOwner();
+  const { supabase } = await requireOwnerPermission(PERMISSIONS.settingsManage);
   const payload = {
     ...parsed.data,
     id: undefined,

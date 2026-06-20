@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 
 export default async function EditCasePage({
   params,
@@ -26,7 +26,7 @@ export default async function EditCasePage({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const { supabase, profile } = await requireCaseAccess(
     id,
-    RESOURCE_ROLES.casesEdit,
+    PERMISSIONS.casesEdit,
   );
   const [
     { data: item },
