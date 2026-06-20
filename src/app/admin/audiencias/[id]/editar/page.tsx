@@ -20,7 +20,7 @@ export default async function EditHearing({
     searchParams,
     requirePermission(PERMISSIONS.hearingsEdit),
   ]);
-  const [{ data: hearing }, { data: cases }, { data: minute }, canViewMinutes, canCreateMinutes, canEditMinutes] = await Promise.all([
+  const [{ data: hearing }, { data: cases }, { data: minute }, canViewMinutes, canCreateMinutes, canEditMinutes, canReschedule, canCancel] = await Promise.all([
     supabase.from("hearings").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("cases")
@@ -31,6 +31,8 @@ export default async function EditHearing({
     can(profile, "view", "actas", { supabase }),
     can(profile, "create", "actas", { supabase }),
     can(profile, "edit", "actas", { supabase }),
+    can(profile, "reschedule", "audiencias", { supabase }),
+    can(profile, "cancel", "audiencias", { supabase }),
   ]);
   if (!hearing) notFound();
   return (
@@ -42,7 +44,7 @@ export default async function EditHearing({
         action={<div className="flex flex-wrap gap-2"><HearingMinuteActions hearingId={id} minuteStatus={minute?.status} canView={canViewMinutes} canCreate={canCreateMinutes} canEdit={canEditMinutes} archived={Boolean(hearing.archived_at)} /></div>}
       />
       <ActionMessage error={query.error} success={query.success} />
-      <HearingForm cases={cases ?? []} hearing={hearing} />
+      <HearingForm cases={cases ?? []} hearing={hearing} canReschedule={canReschedule} canCancel={canCancel} />
       {hearing.status !== "Cancelada" && (
         <form
           action={cancelHearing}
@@ -58,8 +60,9 @@ export default async function EditHearing({
           <ConfirmSubmitButton
             message="¿Cancelar esta audiencia?"
             variant="destructive"
+            disabled={!canCancel}
           >
-            Cancelar audiencia
+            {canCancel ? "Cancelar audiencia" : "Sin permiso para cancelar"}
           </ConfirmSubmitButton>
         </form>
       )}

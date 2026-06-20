@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { enforcePermission, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 export async function createJudicialState(formData: FormData) {
@@ -32,9 +32,14 @@ export async function createJudicialState(formData: FormData) {
     redirect(
       `/admin/estados/nuevo?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase, user } = await requirePermission(
-    parsed.data.status === "Publicado" ? PERMISSIONS.statesPublish : PERMISSIONS.statesCreate,
-  );
+  const session = await requirePermission(PERMISSIONS.statesCreate);
+  if (parsed.data.case_id) {
+    await enforcePermission(session, PERMISSIONS.statesEdit);
+  }
+  if (parsed.data.status === "Publicado") {
+    await enforcePermission(session, PERMISSIONS.statesPublish);
+  }
+  const { supabase, user } = session;
   if (parsed.data.status === "Publicado" && parsed.data.case_id) {
     const { data: caseRecord } = await supabase
       .from("cases")

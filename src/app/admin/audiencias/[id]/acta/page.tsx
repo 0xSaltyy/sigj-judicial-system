@@ -18,6 +18,8 @@ import {
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { LifecycleActions } from "@/components/lifecycle-actions";
 import { can, requirePermission } from "@/lib/auth/permissions";
 import { signatureImageDataUrl } from "@/lib/signature-images";
 
@@ -77,12 +79,17 @@ export default async function HearingMinutes({
       imageUrl: await signatureImageDataUrl(supabase, s.signature_image_path),
     })),
   );
-  const [canCreate, canEdit, canFinalize, canSign, canManageSignatures] = await Promise.all([
+  const [canCreate, canEdit, canFinalize, canReopen, canActaSign, canSign, canRequestSignatures, canRevokeSignatures, canPrint, canArchive] = await Promise.all([
     can(profile, "create", "actas", { supabase }),
     can(profile, "edit", "actas", { supabase }),
-    can(profile, "publish", "actas", { supabase }),
+    can(profile, "finalize", "actas", { supabase }),
+    can(profile, "reopen", "actas", { supabase }),
+    can(profile, "sign", "actas", { supabase }),
     can(profile, "sign", "firmas", { supabase }),
-    can(profile, "manage", "firmas", { supabase }),
+    can(profile, "request", "firmas", { supabase }),
+    can(profile, "revoke", "firmas", { supabase }),
+    can(profile, "print", "actas", { supabase }),
+    can(profile, "archive", "actas", { supabase }),
   ]);
   const local = (value?: string | null) =>
     value ? new Date(value).toISOString().slice(0, 16) : "";
@@ -95,7 +102,7 @@ export default async function HearingMinutes({
       <AdminPageHeader
         title="Acta de audiencia"
         description={`${caseRecord?.internal_number ?? "Expediente"} · ${minute?.status ?? "Sin iniciar"}`}
-        action={finalized ? <PrintButton label={signed ? "PDF/Imprimir acta firmada" : "Imprimir acta"} href={`/imprimir/actas/${id}`} /> : undefined}
+        action={finalized ? (canPrint ? <PrintButton label={signed ? "PDF/Imprimir acta firmada" : "Imprimir acta"} href={`/imprimir/actas/${id}`} /> : <Button disabled title="No tiene permiso para imprimir actas">Imprimir acta</Button>) : undefined}
       />
       <div className="no-print -mt-3 mb-5 rounded-lg border bg-slate-50 px-4 py-3 text-xs text-slate-600">
         <span className="font-semibold text-[#153553]">Flujo del acta:</span> redactar y guardar borrador → finalizar → solicitar/capturar firmas → imprimir.
@@ -243,8 +250,9 @@ export default async function HearingMinutes({
           targetId={minute.id}
           destination={`/admin/audiencias/${id}/acta`}
           signingLink={query.signingLink}
-          canManage={canManageSignatures}
-          canSign={canSign}
+          canRequest={canRequestSignatures}
+          canRevoke={canRevokeSignatures}
+          canSign={canSign && canActaSign}
         />
       )}
       {minute?.status === "Borrador" && canFinalize && (
@@ -261,7 +269,7 @@ export default async function HearingMinutes({
         </form>
       )}
       {minute?.status === "Borrador" && !canFinalize && <p className="no-print my-5 rounded-lg border bg-slate-50 p-4 text-sm text-muted-foreground">El borrador sólo puede finalizarlo un usuario con permiso para finalizar actas.</p>}
-      {finalized && canFinalize && (
+      {finalized && canReopen && (
         <form action={reopenHearingMinutes} className="no-print my-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
           <input type="hidden" name="minute_id" value={minute.id} />
           <input type="hidden" name="hearing_id" value={id} />
@@ -272,6 +280,20 @@ export default async function HearingMinutes({
             <ConfirmSubmitButton message="¿Reabrir esta acta para edición?" variant="outline" disabled={signatures.length > 0}>Reabrir acta</ConfirmSubmitButton>
           </div>
         </form>
+      )}
+      {minute && minute.status !== "Archivada" && (
+        <div className="no-print my-5">
+          <LifecycleActions
+            resource="hearing_minutes"
+            recordId={minute.id}
+            recordLabel={`Acta de audiencia ${caseRecord?.internal_number ?? id}`}
+            destination={`/admin/audiencias/${id}/acta`}
+            archived={false}
+            canArchive={canArchive}
+            canRestore={false}
+            canHardDelete={false}
+          />
+        </div>
       )}
       {minute && <HearingMinuteDocument hearing={hearing} minute={minute} caseRecord={formalCaseRecord} signatures={signatures} />}
     </>

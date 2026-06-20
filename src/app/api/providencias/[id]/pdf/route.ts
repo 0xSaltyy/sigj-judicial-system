@@ -10,6 +10,8 @@ import {
 } from "@/lib/document-templates";
 import { appUrl, hashSecret } from "@/lib/secure-tokens";
 import { formalSignerName, formalSignerTitle } from "@/lib/signature-display";
+import type { AuthenticatedProfile } from "@/lib/auth/authorization";
+import { can } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -175,6 +177,16 @@ async function canReadPdf(
   if (!supabase) return false;
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return false;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id,full_name,email,role,dependency_id,position_title,is_active,is_owner")
+    .eq("id", user.user.id)
+    .maybeSingle();
+  if (
+    !profile?.is_active ||
+    !(await can(profile as AuthenticatedProfile, "view", "providencias", { supabase })) ||
+    !(await can(profile as AuthenticatedProfile, "print", "providencias", { supabase }))
+  ) return false;
   const { data } = await supabase.from("proceedings").select("id").eq("id", proceedingId).eq("case_id", caseId).maybeSingle();
   return Boolean(data);
 }

@@ -25,7 +25,7 @@ export default async function ShareCasePage({
   }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const { supabase } = await requireCaseAccess(id, PERMISSIONS.linksShare);
+  const { supabase } = await requireCaseAccess(id, PERMISSIONS.linksCreate);
   const [
     { data: item },
     { data: links },

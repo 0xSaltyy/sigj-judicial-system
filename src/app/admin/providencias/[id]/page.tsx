@@ -57,11 +57,15 @@ export default async function ProceedingDetail({
         : Promise.resolve({ data: [] }),
     ]);
   if (!proceeding) notFound();
-  const [canWrite, canPublish, canShare, canManageSignatures, canArchive, canRestore, canHardDelete] = await Promise.all([
+  const [canWrite, canPublish, canShare, canProvidenceSign, canSign, canRequestSignatures, canRevokeSignatures, canPrint, canArchive, canRestore, canHardDelete] = await Promise.all([
     can(profile, "edit", "providencias", { supabase }),
     can(profile, "publish", "providencias", { supabase }),
     can(profile, "share", "providencias", { supabase }),
-    can(profile, "manage", "firmas", { supabase }),
+    can(profile, "sign", "providencias", { supabase }),
+    can(profile, "sign", "firmas", { supabase }),
+    can(profile, "request", "firmas", { supabase }),
+    can(profile, "revoke", "firmas", { supabase }),
+    can(profile, "print", "providencias", { supabase }),
     can(profile, "archive", "providencias", { supabase }),
     can(profile, "restore", "providencias", { supabase }),
     can(profile, "hard_delete", "providencias", { supabase }),
@@ -71,8 +75,9 @@ export default async function ProceedingDetail({
     : proceeding.case;
   const dependency = Array.isArray(caseRecord?.dependency) ? caseRecord.dependency[0] : caseRecord?.dependency;
   const formalCaseRecord = { ...caseRecord, dependency_name: dependency?.name || null };
-  const originalPdfUrl = proceeding.pdf_path ? `/api/providencias/${id}/pdf?variant=original` : null;
-  const combinedPdfUrl = proceeding.pdf_path ? `/api/providencias/${id}/pdf` : null;
+  const originalPdfUrl = proceeding.pdf_path && canPrint ? `/api/providencias/${id}/pdf?variant=original` : null;
+  const combinedPdfUrl = proceeding.pdf_path && canPrint ? `/api/providencias/${id}/pdf` : null;
+  const canUseSignatures = canProvidenceSign && (canSign || canRequestSignatures || canRevokeSignatures);
   const { data: signatureRows } = await supabase
     .from("signatures")
     .select(
@@ -105,16 +110,13 @@ export default async function ProceedingDetail({
                   </Link>
                 </Button>
               )}
-            {canManageSignatures ? <Button asChild variant="outline">
+            {canUseSignatures ? <Button asChild variant="outline">
               <Link href={`/admin/providencias/${id}/firmas`}>
                 <PenLine className="size-4" />
                 Firmas
               </Link>
             </Button> : <Button variant="outline" disabled title="No tiene permiso para administrar firmas"><PenLine className="size-4" /> Firmas</Button>}
-            <PrintButton
-              label="Imprimir providencia"
-              href={`/imprimir/providencias/${id}`}
-            />
+            {canPrint ? <PrintButton label="Imprimir providencia" href={`/imprimir/providencias/${id}`} /> : <Button disabled title="No tiene permiso para imprimir providencias">Imprimir providencia</Button>}
             {combinedPdfUrl && (
               <Button asChild>
                 <a href={combinedPdfUrl} target="_blank" rel="noreferrer">
@@ -138,6 +140,9 @@ export default async function ProceedingDetail({
           targetId={id}
           destination={`/admin/providencias/${id}`}
           signingLink={query.signingLink}
+          canRequest={canProvidenceSign && canRequestSignatures}
+          canRevoke={canProvidenceSign && canRevokeSignatures}
+          canSign={canProvidenceSign && canSign}
         />
       </div>
       <div className="mt-4 space-y-4 no-print">

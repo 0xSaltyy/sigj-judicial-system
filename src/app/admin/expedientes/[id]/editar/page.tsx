@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
+import { can, PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 
 export default async function EditCasePage({
   params,
@@ -59,6 +59,10 @@ export default async function EditCasePage({
   ]);
   if (!item) notFound();
   if (item.archived_at && !profile.is_owner) notFound();
+  const [canRepartition, canAssignPonente] = await Promise.all([
+    can(profile, "repartition", "expedientes", { supabase }),
+    can(profile, "assign_ponente", "expedientes", { supabase }),
+  ]);
   const field = "mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm";
   return (
     <>
@@ -151,6 +155,8 @@ export default async function EditCasePage({
             defaultValue={item.dependency_id ?? ""}
             required
             className={field}
+            disabled={!canRepartition}
+            title={!canRepartition ? "No tiene permiso para cambiar el reparto o la dependencia" : undefined}
           >
             {(dependencies ?? []).map((d) => (
               <option key={d.id} value={d.id}>
@@ -158,12 +164,15 @@ export default async function EditCasePage({
               </option>
             ))}
           </select>
+          {!canRepartition && <input type="hidden" name="dependency_id" value={item.dependency_id ?? ""} />}
         </Field>
         <Field label="Juez / magistrado asignado" optional>
           <select
             name="assigned_judge_id"
             defaultValue={item.assigned_judge_id ?? ""}
             className={field}
+            disabled={!canAssignPonente}
+            title={!canAssignPonente ? "No tiene permiso para asignar ponente" : undefined}
           >
             <option value="">Sin asignar</option>
             {(judges ?? []).map((j) => (
@@ -172,6 +181,7 @@ export default async function EditCasePage({
               </option>
             ))}
           </select>
+          {!canAssignPonente && <input type="hidden" name="assigned_judge_id" value={item.assigned_judge_id ?? ""} />}
         </Field>
         <Field label="Nivel de reserva" required>
           <select

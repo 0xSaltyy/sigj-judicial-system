@@ -24,27 +24,44 @@ export const RESOURCE_ROLES = {
 export const PERMISSIONS = {
   casesCreate: { resource: "expedientes", action: "create" },
   casesEdit: { resource: "expedientes", action: "edit" },
+  casesRepartition: { resource: "expedientes", action: "repartition" },
+  casesAssignPonente: { resource: "expedientes", action: "assign_ponente" },
   actionsCreate: { resource: "actuaciones", action: "create" },
+  hearingsView: { resource: "audiencias", action: "view" },
   hearingsCreate: { resource: "audiencias", action: "create" },
   hearingsEdit: { resource: "audiencias", action: "edit" },
+  hearingsReschedule: { resource: "audiencias", action: "reschedule" },
+  hearingsCancel: { resource: "audiencias", action: "cancel" },
   minutesCreate: { resource: "actas", action: "create" },
   minutesEdit: { resource: "actas", action: "edit" },
-  minutesPublish: { resource: "actas", action: "publish" },
+  minutesFinalize: { resource: "actas", action: "finalize" },
+  minutesReopen: { resource: "actas", action: "reopen" },
+  minutesSign: { resource: "actas", action: "sign" },
+  minutesPrint: { resource: "actas", action: "print" },
   proceedingsCreate: { resource: "providencias", action: "create" },
   proceedingsEdit: { resource: "providencias", action: "edit" },
   proceedingsPublish: { resource: "providencias", action: "publish" },
-  documentsCreate: { resource: "documentos", action: "create" },
+  proceedingsSign: { resource: "providencias", action: "sign" },
+  proceedingsPrint: { resource: "providencias", action: "print" },
+  documentsUpload: { resource: "documentos", action: "upload" },
+  documentsPreview: { resource: "documentos", action: "preview" },
+  documentsDownload: { resource: "documentos", action: "download" },
   noticesCreate: { resource: "comunicados", action: "create" },
   noticesEdit: { resource: "comunicados", action: "edit" },
   noticesPublish: { resource: "comunicados", action: "publish" },
   statesCreate: { resource: "estados", action: "create" },
   statesEdit: { resource: "estados", action: "edit" },
   statesPublish: { resource: "estados", action: "publish" },
-  linksShare: { resource: "enlaces", action: "share" },
-  linksManage: { resource: "enlaces", action: "manage" },
+  linksCreate: { resource: "enlaces", action: "create" },
+  linksRevoke: { resource: "enlaces", action: "revoke" },
   signaturesSign: { resource: "firmas", action: "sign" },
-  signaturesManage: { resource: "firmas", action: "manage" },
-  usersManage: { resource: "usuarios", action: "manage" },
+  signaturesRequest: { resource: "firmas", action: "request" },
+  signaturesRevoke: { resource: "firmas", action: "revoke" },
+  usersCreate: { resource: "usuarios", action: "create" },
+  usersEdit: { resource: "usuarios", action: "edit" },
+  usersDeactivate: { resource: "usuarios", action: "deactivate" },
+  usersReactivate: { resource: "usuarios", action: "reactivate" },
+  usersAssignRole: { resource: "usuarios", action: "assign_role" },
   rolesManage: { resource: "roles", action: "manage" },
   settingsManage: { resource: "configuracion", action: "manage" },
 } as const satisfies Record<string, PermissionRequirement>;
@@ -109,6 +126,30 @@ export async function requirePermission(allowed: readonly AppRole[] | Permission
       p_record_id: null,
       p_description: "Intento de operación sin permiso efectivo",
       p_metadata: requirement ?? { role: session.profile.role },
+    });
+    redirect("/no-autorizado");
+  }
+  return session;
+}
+
+export async function enforcePermission(
+  session: Awaited<ReturnType<typeof requireInternalUser>>,
+  requirement: PermissionRequirement,
+  recordId: string | null = null,
+) {
+  const granted = await can(
+    session.profile,
+    requirement.action,
+    requirement.resource,
+    { supabase: session.supabase },
+  );
+  if (!granted) {
+    await session.supabase.rpc("log_security_event", {
+      p_action: "PERMISSION_DENIED",
+      p_table: requirement.resource,
+      p_record_id: recordId,
+      p_description: "Intento de operación sin permiso efectivo",
+      p_metadata: requirement,
     });
     redirect("/no-autorizado");
   }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PERMISSIONS, requireOwnerPermission } from "@/lib/auth/permissions";
+import { enforcePermission, PERMISSIONS, requireOwnerPermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_ROLES } from "@/lib/user-management";
 import { dbUuid } from "@/lib/validation";
@@ -74,7 +74,7 @@ export async function inviteUser(formData: FormData) {
       parsed.error.issues[0].message,
       "/admin/usuarios/nuevo",
     );
-  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersManage);
+  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersCreate);
   const admin = createAdminClient();
   if (!admin)
     usersRedirect(
@@ -167,7 +167,8 @@ export async function inviteUser(formData: FormData) {
 export async function updateManagedUser(formData: FormData) {
   const parsed = updateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) usersRedirect("error", parsed.error.issues[0].message);
-  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersManage);
+  const session = await requireOwnerPermission(PERMISSIONS.usersEdit);
+  const { supabase, user } = session;
   const { data: current, error: currentError } = await supabase
     .from("profiles")
     .select("id,full_name,role,dependency_id,position_title,is_active,is_owner")
@@ -187,6 +188,13 @@ export async function updateManagedUser(formData: FormData) {
       "La cuenta propietaria está protegida y no puede modificarse desde esta operación",
     );
   }
+  if (current.role !== parsed.data.role)
+    await enforcePermission(session, PERMISSIONS.usersAssignRole, current.id);
+  const nextActive = parsed.data.is_active === "true";
+  if (current.is_active && !nextActive)
+    await enforcePermission(session, PERMISSIONS.usersDeactivate, current.id);
+  if (!current.is_active && nextActive)
+    await enforcePermission(session, PERMISSIONS.usersReactivate, current.id);
 
   if (parsed.data.dependency_id) {
     const { data: institution } = await supabase
@@ -227,7 +235,7 @@ export async function updateManagedUser(formData: FormData) {
 export async function sendPasswordSetup(formData: FormData) {
   const parsed = targetSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) usersRedirect("error", "Usuario no válido");
-  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersManage);
+  const { supabase, user } = await requireOwnerPermission(PERMISSIONS.usersEdit);
   const admin = createAdminClient();
   if (!admin) usersRedirect("error", "Falta SUPABASE_SERVICE_ROLE_KEY");
   const { data: target } = await supabase

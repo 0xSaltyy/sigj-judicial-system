@@ -148,7 +148,7 @@ export async function uploadCaseDocument(formData: FormData) {
 
   const session = await requireCaseAccess(
     target.data.case_id,
-    PERMISSIONS.documentsCreate,
+    PERMISSIONS.documentsUpload,
   );
   if (
     session.record.archived_at &&

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
+import { enforcePermission, PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import {
   appUrl,
   createSecureToken,
@@ -98,16 +98,29 @@ async function targetExists(
   return Boolean(data);
 }
 
+async function enforceTargetSignaturePermission(
+  session: Awaited<ReturnType<typeof requireCaseAccess>>,
+  type: z.infer<typeof targetTypes>,
+  targetId: string,
+) {
+  if (type === "proceeding")
+    await enforcePermission(session, PERMISSIONS.proceedingsSign, targetId);
+  if (type === "hearing_minute")
+    await enforcePermission(session, PERMISSIONS.minutesSign, targetId);
+}
+
 export async function requestSignature(formData: FormData) {
   const parsed = requestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(
       `/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase, user } = await requireCaseAccess(
+  const session = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.signaturesManage,
+    PERMISSIONS.signaturesRequest,
   );
+  const { supabase, user } = session;
+  await enforceTargetSignaturePermission(session, parsed.data.target_type, parsed.data.target_id);
   if (
     !(await targetExists(
       supabase,
@@ -165,10 +178,12 @@ export async function assignInternalSignature(formData: FormData) {
   const parsed = internalAssignmentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase, user } = await requireCaseAccess(
+  const session = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.signaturesManage,
+    PERMISSIONS.signaturesRequest,
   );
+  const { supabase, user } = session;
+  await enforceTargetSignaturePermission(session, parsed.data.target_type, parsed.data.target_id);
   if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
     redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
   const admin = createAdminClient();
@@ -217,10 +232,12 @@ export async function signNow(formData: FormData) {
   const parsed = directSignatureSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase, user, profile } = await requireCaseAccess(
+  const session = await requireCaseAccess(
     parsed.data.case_id,
     PERMISSIONS.signaturesSign,
   );
+  const { supabase, user, profile } = session;
+  await enforceTargetSignaturePermission(session, parsed.data.target_type, parsed.data.target_id);
   if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
     redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
   const admin = createAdminClient();
@@ -263,10 +280,12 @@ export async function completeInternalSignature(formData: FormData) {
   const parsed = pendingInternalSignatureSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase, user } = await requireCaseAccess(
+  const session = await requireCaseAccess(
     parsed.data.case_id,
     PERMISSIONS.signaturesSign,
   );
+  const { supabase, user } = session;
+  await enforceTargetSignaturePermission(session, parsed.data.target_type, parsed.data.target_id);
   if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
     redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
   const admin = createAdminClient();
@@ -305,7 +324,7 @@ export async function revokeSignatureRequest(formData: FormData) {
     redirect("/admin/dashboard?error=Solicitud%20no%20válida");
   const { supabase } = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.signaturesManage,
+    PERMISSIONS.signaturesRevoke,
   );
   const { error } = await supabase
     .from("signature_requests")
@@ -340,7 +359,7 @@ export async function revokeCompletedSignature(formData: FormData) {
     redirect("/admin/dashboard?error=Firma%20no%20válida");
   const { supabase, profile } = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.signaturesManage,
+    PERMISSIONS.signaturesRevoke,
   );
   const { data: signature } = await supabase
     .from("signatures")

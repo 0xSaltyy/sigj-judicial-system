@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
+import { enforcePermission, PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { APP_ROLES, type AppRole } from "@/lib/user-management";
 import type { PermissionResource } from "@/lib/permissions/catalog";
 import { dbUuid } from "@/lib/validation";
@@ -164,10 +164,17 @@ export async function createExternalShare(formData: FormData) {
     redirect(
       `/admin/expedientes/${caseId}/compartir?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase, user } = await requireCaseAccess(
+  const session = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.linksShare,
+    PERMISSIONS.linksCreate,
   );
+  const { supabase, user } = session;
+  if (parsed.data.include_documents === "true") {
+    await enforcePermission(session, { resource: "documentos", action: "share" }, parsed.data.case_id);
+  }
+  if (parsed.data.include_proceedings === "true") {
+    await enforcePermission(session, { resource: "providencias", action: "share" }, parsed.data.case_id);
+  }
   const { token, hash } = createSecureToken();
   const email = parsed.data.external_email || null;
   const expiresMinutes =
@@ -222,7 +229,7 @@ export async function revokeExternalShare(formData: FormData) {
     redirect("/admin/expedientes?error=Enlace%20no%20válido");
   const { supabase } = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.linksManage,
+    PERMISSIONS.linksRevoke,
   );
   const { error } = await supabase
     .from("share_links")

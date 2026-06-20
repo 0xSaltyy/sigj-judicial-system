@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
+import { enforcePermission, PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 const schema = z.object({
@@ -39,10 +39,31 @@ export async function saveHearing(formData: FormData) {
       `/admin/audiencias/nueva?caseId=${encodeURIComponent(caseId)}&error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
   }
-  const { supabase, user } = await requireCaseAccess(
+  const session = await requireCaseAccess(
     parsed.data.case_id,
-    parsed.data.hearing_id ? PERMISSIONS.hearingsEdit : PERMISSIONS.hearingsCreate,
+    parsed.data.hearing_id ? PERMISSIONS.hearingsView : PERMISSIONS.hearingsCreate,
   );
+  const { supabase, user } = session;
+  const { data: current } = parsed.data.hearing_id
+    ? await supabase
+        .from("hearings")
+        .select("id,scheduled_at,end_at,status")
+        .eq("id", parsed.data.hearing_id)
+        .eq("case_id", parsed.data.case_id)
+        .maybeSingle()
+    : { data: null };
+  if (parsed.data.hearing_id && !current)
+    redirect("/admin/audiencias?error=Audiencia%20no%20disponible");
+  if (current) {
+    await enforcePermission(session, PERMISSIONS.hearingsEdit, current.id);
+    const nextStart = new Date(parsed.data.scheduled_at).getTime();
+    const nextEnd = parsed.data.end_at ? new Date(parsed.data.end_at).getTime() : null;
+    const currentEnd = current.end_at ? new Date(current.end_at).getTime() : null;
+    if (new Date(current.scheduled_at).getTime() !== nextStart || currentEnd !== nextEnd)
+      await enforcePermission(session, PERMISSIONS.hearingsReschedule, current.id);
+    if (current.status !== "Cancelada" && parsed.data.status === "Cancelada")
+      await enforcePermission(session, PERMISSIONS.hearingsCancel, current.id);
+  }
   const payload = {
     case_id: parsed.data.case_id,
     title: parsed.data.title,
@@ -99,7 +120,7 @@ export async function cancelHearing(formData: FormData) {
     redirect("/admin/audiencias?error=Datos%20de%20cancelación%20inválidos");
   const { supabase } = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.hearingsEdit,
+    PERMISSIONS.hearingsCancel,
   );
   const { error } = await supabase
     .from("hearings")
@@ -172,7 +193,7 @@ export async function finalizeHearingMinutes(formData: FormData) {
   if (!parsed.success) redirect("/admin/audiencias?error=Acta%20no%20válida");
   const { supabase, user } = await requireCaseAccess(
     parsed.data.case_id,
-    PERMISSIONS.minutesPublish,
+    PERMISSIONS.minutesFinalize,
   );
   const { data: minute } = await supabase.from("hearing_minutes").select("id,status,secretary_signature_required,judge_signature_required,development_markdown,started_at,ended_at").eq("id", parsed.data.minute_id).eq("hearing_id", parsed.data.hearing_id).eq("case_id", parsed.data.case_id).maybeSingle();
   if (!minute || minute.status !== "Borrador") {
@@ -204,7 +225,7 @@ export async function reopenHearingMinutes(formData: FormData) {
     reason: z.string().trim().min(10).max(500),
   }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/admin/audiencias?error=Solicitud%20de%20reapertura%20inválida");
-  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.minutesPublish);
+  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.minutesReopen);
   const { data: minute } = await supabase
     .from("hearing_minutes")
     .select("id,status")

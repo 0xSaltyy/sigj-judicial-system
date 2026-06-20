@@ -18,7 +18,7 @@ export default async function HearingMinutePrintPage({
 }) {
   const [{ id }, { supabase }] = await Promise.all([
     params,
-    requirePermission({ resource: "actas", action: "view" }),
+    requirePermission({ resource: "actas", action: "print" }),
   ]);
   const [{ data: hearing }, { data: minute }] = await Promise.all([
     supabase

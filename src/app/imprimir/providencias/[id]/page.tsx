@@ -11,6 +11,8 @@ import { hashSecret } from "@/lib/secure-tokens";
 import { signatureImageDataUrl } from "@/lib/signature-images";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import type { AuthenticatedProfile } from "@/lib/auth/authorization";
+import { can } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -47,14 +49,24 @@ export default async function ProvidencePrintPage({
   let loaded: LoadedProvidence | null = null;
 
   if (user) {
-    const { data: internal } = await supabase
-      .from("proceedings")
-      .select(
-        "*,case:cases(internal_number,judicial_number,authority_type,chamber,claimant_name,defendant_name,municipality,dependency:dependencies(name))",
-      )
-      .eq("id", id)
-      .is("archived_at", null)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id,full_name,email,role,dependency_id,position_title,is_active,is_owner")
+      .eq("id", user.id)
       .maybeSingle();
+    const internalAllowed = profile?.is_active &&
+      await can(profile as AuthenticatedProfile, "view", "providencias", { supabase }) &&
+      await can(profile as AuthenticatedProfile, "print", "providencias", { supabase });
+    const { data: internal } = internalAllowed
+      ? await supabase
+          .from("proceedings")
+          .select(
+            "*,case:cases(internal_number,judicial_number,authority_type,chamber,claimant_name,defendant_name,municipality,dependency:dependencies(name))",
+          )
+          .eq("id", id)
+          .is("archived_at", null)
+          .maybeSingle()
+      : { data: null };
     if (internal) {
       const caseRecord = Array.isArray(internal.case)
         ? internal.case[0]

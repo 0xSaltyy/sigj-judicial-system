@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  enforcePermission,
   requireCaseAccess,
   requirePermission,
   PERMISSIONS,
@@ -58,9 +59,15 @@ export async function createCase(formData: FormData) {
   const parsed = caseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     errorRedirect("/admin/expedientes/nuevo", parsed.error.issues[0].message);
-  const { supabase, user } = await requirePermission(
+  const session = await requirePermission(
     PERMISSIONS.casesCreate,
   );
+  const { supabase, user } = session;
+  const files = formData
+    .getAll("attachments")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  if (files.length)
+    await enforcePermission(session, PERMISSIONS.documentsUpload);
   const { data: dependency } = await supabase
     .from("dependencies")
     .select("id,code,name,is_active")
@@ -168,9 +175,6 @@ export async function createCase(formData: FormData) {
       `Expediente creado, pero un registro relacionado falló: ${childError.message}`,
     );
 
-  const files = formData
-    .getAll("attachments")
-    .filter((value): value is File => value instanceof File && value.size > 0);
   for (const file of files) {
     if (!allowedTypes.has(file.type) || file.size > 20 * 1024 * 1024)
       errorRedirect(
@@ -212,10 +216,21 @@ export async function updateCase(formData: FormData) {
     redirect(
       `/admin/expedientes?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase } = await requireCaseAccess(
+  const session = await requireCaseAccess(
     parsed.data.case_id,
     PERMISSIONS.casesEdit,
   );
+  const { supabase } = session;
+  const { data: current } = await supabase
+    .from("cases")
+    .select("dependency_id,assigned_judge_id")
+    .eq("id", parsed.data.case_id)
+    .maybeSingle();
+  if (!current) errorRedirect("/admin/expedientes", "Expediente no encontrado");
+  if (current.dependency_id !== parsed.data.dependency_id)
+    await enforcePermission(session, PERMISSIONS.casesRepartition, parsed.data.case_id);
+  if (current.assigned_judge_id !== (parsed.data.assigned_judge_id || null))
+    await enforcePermission(session, PERMISSIONS.casesAssignPonente, parsed.data.case_id);
   const { error } = await supabase
     .from("cases")
     .update({
@@ -260,7 +275,18 @@ export async function updateCaseFull(formData: FormData) {
   const parsed = fullUpdateSchema.safeParse(Object.fromEntries(formData));
   const caseId = String(formData.get("case_id") || "");
   if (!parsed.success) redirect(`/admin/expedientes/${caseId}/editar?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
-  const { supabase } = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.casesEdit);
+  const session = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.casesEdit);
+  const { supabase } = session;
+  const { data: current } = await supabase
+    .from("cases")
+    .select("dependency_id,assigned_judge_id")
+    .eq("id", parsed.data.case_id)
+    .maybeSingle();
+  if (!current) redirect(`/admin/expedientes/${parsed.data.case_id}/editar?error=Expediente%20no%20encontrado`);
+  if (current.dependency_id !== parsed.data.dependency_id)
+    await enforcePermission(session, PERMISSIONS.casesRepartition, parsed.data.case_id);
+  if (current.assigned_judge_id !== (parsed.data.assigned_judge_id || null))
+    await enforcePermission(session, PERMISSIONS.casesAssignPonente, parsed.data.case_id);
   const payload = {
     title: parsed.data.title, authority_type: parsed.data.authority_type, chamber: parsed.data.chamber,
     process_type: parsed.data.process_type, process_subtype: parsed.data.process_subtype,
@@ -324,7 +350,7 @@ export async function generateCertificate(formData: FormData) {
     redirect("/admin/expedientes?error=Expediente%20no%20válido");
   const { supabase, user } = await requireCaseAccess(
     caseId.data,
-    PERMISSIONS.documentsCreate,
+    PERMISSIONS.documentsUpload,
   );
   const { data: record } = await supabase
     .from("cases")

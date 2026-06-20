@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { enforcePermission, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 const schema = z
@@ -53,12 +53,13 @@ export async function saveNotice(formData: FormData) {
     redirect(
       `/admin/comunicados/nuevo?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const requirement = parsed.data.status === "Publicado"
-    ? PERMISSIONS.noticesPublish
-    : parsed.data.id
-      ? PERMISSIONS.noticesEdit
-      : PERMISSIONS.noticesCreate;
-  const { supabase, user } = await requirePermission(requirement);
+  const session = await requirePermission(
+    parsed.data.id ? PERMISSIONS.noticesEdit : PERMISSIONS.noticesCreate,
+  );
+  if (parsed.data.status === "Publicado") {
+    await enforcePermission(session, PERMISSIONS.noticesPublish, parsed.data.id || null);
+  }
+  const { supabase, user } = session;
   const payload = {
     title: parsed.data.title || "Comunicado sin título",
     slug: slugify(parsed.data.title || `borrador-${crypto.randomUUID()}`),

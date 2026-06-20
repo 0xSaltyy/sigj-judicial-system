@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-type Resource = "cases" | "radications" | "case_actions" | "documents" | "hearings" | "proceedings" | "public_notices" | "judicial_states" | "dependencies";
+type Resource = "cases" | "radications" | "case_actions" | "documents" | "hearings" | "proceedings" | "public_notices" | "judicial_states" | "hearing_minutes" | "dependencies";
 type Operation = "archive" | "restore" | "delete";
 
 type Props = {
@@ -50,7 +50,7 @@ export function LifecycleActions(props: Props) {
           size={props.compact ? "sm" : "default"}
           variant="outline"
           disabled={props.archived ? !props.canRestore : !props.canArchive}
-          title={props.archived ? (props.canRestore ? "Restaurar registro" : "Solo SUPER_ADMIN puede restaurar") : (props.canArchive ? "Archivar registro" : "Su rol no puede archivar este registro")}
+          title={props.archived ? (props.canRestore ? "Restaurar registro" : "No tiene permiso para restaurar este registro") : (props.canArchive ? "Archivar registro" : "No tiene permiso para archivar este registro")}
           onClick={() => setOperation(props.archived ? "restore" : "archive")}
         >
           {props.archived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />}

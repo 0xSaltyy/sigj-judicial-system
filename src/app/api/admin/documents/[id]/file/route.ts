@@ -20,19 +20,18 @@ export async function GET(
     .select("id,full_name,email,role,dependency_id,position_title,is_active,is_owner")
     .eq("id", user.id)
     .maybeSingle();
-  const allowed = profile?.is_active && await can(
-    profile as AuthenticatedProfile,
-    "view",
-    "documentos",
-    { supabase },
-  );
+  const download = request.nextUrl.searchParams.get("download") === "1";
+  const authenticatedProfile = profile as AuthenticatedProfile;
+  const allowed = profile?.is_active &&
+    await can(authenticatedProfile, "view", "documentos", { supabase }) &&
+    await can(authenticatedProfile, download ? "download" : "preview", "documentos", { supabase });
   if (!allowed) {
     await supabase.rpc("log_security_event", {
       p_action: "PERMISSION_DENIED",
       p_table: "documents",
       p_record_id: null,
       p_description: "Intento de abrir un documento sin permiso",
-      p_metadata: { action: "view" },
+      p_metadata: { action: download ? "download" : "preview" },
     });
     return NextResponse.json({ error: "No tiene permiso para consultar documentos" }, { status: 403 });
   }
@@ -46,7 +45,6 @@ export async function GET(
   if (error || !document || document.archived_at || document.deleted_at)
     return NextResponse.json({ error: "Documento no disponible" }, { status: 404 });
 
-  const download = request.nextUrl.searchParams.get("download") === "1";
   const { data, error: signedError } = await supabase.storage
     .from("case-documents")
     .createSignedUrl(document.file_path, 600, {

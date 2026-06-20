@@ -17,6 +17,7 @@ const schema = z.object({
     "proceedings",
     "public_notices",
     "judicial_states",
+    "hearing_minutes",
     "dependencies",
   ]),
   record_id: dbUuid,
@@ -40,6 +41,7 @@ export async function manageRecordLifecycle(formData: FormData) {
     proceedings: "providencias",
     public_notices: "comunicados",
     judicial_states: "estados",
+    hearing_minutes: "actas",
     dependencies: "configuracion",
   };
   const permissionActions: Record<z.infer<typeof schema>["operation"], PermissionAction> = {

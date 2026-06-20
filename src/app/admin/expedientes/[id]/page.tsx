@@ -119,7 +119,7 @@ export default async function CaseDetailPage({
       : Promise.resolve({ data: [] }),
   ]);
   if (!item) notFound();
-  const [canEdit, canAct, canHear, canProceed, canArchive, canRestore, canHardDelete, canUpload, canDocumentArchive, canDocumentRestore, canDocumentHardDelete, canDocumentShare, canShare] = await Promise.all([
+  const [canEdit, canAct, canHear, canProceed, canArchive, canRestore, canHardDelete, canUpload, canDocumentPreview, canDocumentDownload, canDocumentArchive, canDocumentRestore, canDocumentHardDelete, canDocumentShare, canShare, canRepartition, canAssignPonente] = await Promise.all([
     can(profile, "edit", "expedientes", { supabase }),
     can(profile, "create", "actuaciones", { supabase }),
     can(profile, "create", "audiencias", { supabase }),
@@ -127,17 +127,21 @@ export default async function CaseDetailPage({
     can(profile, "archive", "expedientes", { supabase }),
     can(profile, "restore", "expedientes", { supabase }),
     can(profile, "hard_delete", "expedientes", { supabase }),
-    can(profile, "create", "documentos", { supabase }),
+    can(profile, "upload", "documentos", { supabase }),
+    can(profile, "preview", "documentos", { supabase }),
+    can(profile, "download", "documentos", { supabase }),
     can(profile, "archive", "documentos", { supabase }),
     can(profile, "restore", "documentos", { supabase }),
     can(profile, "hard_delete", "documentos", { supabase }),
     can(profile, "share", "documentos", { supabase }),
     can(profile, "share", "expedientes", { supabase }),
+    can(profile, "repartition", "expedientes", { supabase }),
+    can(profile, "assign_ponente", "expedientes", { supabase }),
   ]);
   const signedDocuments: SavedDocument[] = (documents ?? []).map((doc) => ({
     ...doc,
-    previewUrl: doc.archived_at ? null : `/api/admin/documents/${doc.id}/file`,
-    downloadUrl: doc.archived_at ? null : `/api/admin/documents/${doc.id}/file?download=1`,
+    previewUrl: doc.archived_at || !canDocumentPreview ? null : `/api/admin/documents/${doc.id}/file`,
+    downloadUrl: doc.archived_at || !canDocumentDownload ? null : `/api/admin/documents/${doc.id}/file?download=1`,
     canArchive: canDocumentArchive,
     canRestore: canDocumentRestore,
     canHardDelete: canDocumentHardDelete,
@@ -314,6 +318,8 @@ export default async function CaseDetailPage({
                         defaultValue={item.dependency_id ?? ""}
                         className="h-9 rounded-md border px-3 text-sm"
                         required
+                        disabled={!canRepartition}
+                        title={!canRepartition ? "No tiene permiso para cambiar el reparto o la dependencia" : undefined}
                       >
                         {(dependencies ?? []).map((d) => (
                           <option key={d.id} value={d.id}>
@@ -321,10 +327,13 @@ export default async function CaseDetailPage({
                           </option>
                         ))}
                       </select>
+                      {!canRepartition && <input type="hidden" name="dependency_id" value={item.dependency_id ?? ""} />}
                       <select
                         name="assigned_judge_id"
                         defaultValue={item.assigned_judge_id ?? ""}
                         className="h-9 rounded-md border px-3 text-sm"
+                        disabled={!canAssignPonente}
+                        title={!canAssignPonente ? "No tiene permiso para asignar ponente" : undefined}
                       >
                         <option value="">Sin asignar</option>
                         {(judges ?? []).map((j) => (
@@ -333,6 +342,7 @@ export default async function CaseDetailPage({
                           </option>
                         ))}
                       </select>
+                      {!canAssignPonente && <input type="hidden" name="assigned_judge_id" value={item.assigned_judge_id ?? ""} />}
                       <Textarea
                         name="observations"
                         defaultValue={item.observations ?? ""}

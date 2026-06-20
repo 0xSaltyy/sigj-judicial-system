@@ -16,7 +16,7 @@ export default async function NewCaseDocumentPage({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const { supabase, profile } = await requireCaseAccess(
     id,
-    PERMISSIONS.documentsCreate,
+    PERMISSIONS.documentsUpload,
   );
   const { data: record } = await supabase
     .from("cases")
