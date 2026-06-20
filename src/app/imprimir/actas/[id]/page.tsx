@@ -4,6 +4,7 @@ import type { PrintableSignature } from "@/components/formal-providence-document
 import { HearingMinuteDocument } from "@/components/hearing-minute-document";
 import { PrintDocumentShell } from "@/components/print-document-shell";
 import { requirePermission } from "@/lib/auth/permissions";
+import { signatureImageDataUrl } from "@/lib/signature-images";
 
 export const metadata: Metadata = {
   title: "Acta de audiencia",
@@ -22,7 +23,7 @@ export default async function HearingMinutePrintPage({
   const [{ data: hearing }, { data: minute }] = await Promise.all([
     supabase
       .from("hearings")
-      .select("*,case:cases(internal_number,judicial_number,title,chamber)")
+      .select("*,case:cases(internal_number,judicial_number,title,chamber,authority_type,dependency:dependencies(name))")
       .eq("id", id)
       .maybeSingle(),
     supabase
@@ -33,6 +34,8 @@ export default async function HearingMinutePrintPage({
   ]);
   if (!hearing || !minute || !["Finalizada", "Firmada"].includes(minute.status)) notFound();
   const caseRecord = Array.isArray(hearing.case) ? hearing.case[0] : hearing.case;
+  const dependency = Array.isArray(caseRecord?.dependency) ? caseRecord.dependency[0] : caseRecord?.dependency;
+  const formalCaseRecord = { ...caseRecord, dependency_name: dependency?.name || null };
   const { data: signatureRows } = await supabase
         .from("signatures")
         .select("id,signer_name,signer_title,signature_image_path,purpose,signed_at,verification_code")
@@ -43,12 +46,7 @@ export default async function HearingMinutePrintPage({
   const signatures: PrintableSignature[] = await Promise.all(
     (signatureRows ?? []).map(async (signature) => ({
       ...signature,
-      imageUrl:
-        (
-          await supabase.storage
-            .from("signatures")
-            .createSignedUrl(signature.signature_image_path, 600)
-        ).data?.signedUrl ?? null,
+      imageUrl: await signatureImageDataUrl(supabase, signature.signature_image_path),
     })),
   );
   await supabase.rpc("log_security_event", {
@@ -64,7 +62,7 @@ export default async function HearingMinutePrintPage({
       <HearingMinuteDocument
         hearing={hearing}
         minute={minute}
-        caseRecord={caseRecord}
+        caseRecord={formalCaseRecord}
         signatures={signatures}
       />
     </PrintDocumentShell>

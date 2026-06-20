@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { CorteSupremaLogo } from "@/components/corte-suprema-logo";
 import { JudicialPrintFooter, JudicialWatermark } from "@/components/judicial-document";
 import { MarkdownViewer } from "@/components/markdown-editor";
 import { PdfProvidencePreview } from "@/components/pdf-providence-preview";
@@ -166,7 +167,7 @@ function InstitutionHeader({
   if (style === "corte_suprema") {
     return (
       <header className="formal-header formal-header--csj">
-        <p className="formal-csj-court">CORTE SUPREMA DE JUSTICIA</p>
+        <CorteSupremaLogo width={132} className="formal-csj-logo" />
         <p className="formal-csj-room">{room}</p>
         {metadata.rapporteurName && (
           <div className="formal-csj-rapporteur">

@@ -48,13 +48,14 @@
 .formal-document { width: min(100%, 210mm); min-height: 297mm; padding: 22mm 20mm 18mm; color: #111; font-family: "Bookman Old Style", "Bookman", "Bookman Antiqua", Georgia, serif; font-size: 11.5pt; line-height: 1.55; }
 .formal-header { text-align: center; }
 .formal-header--csj { padding: 3mm 8mm 0; }
-.formal-csj-court { font-size: 13pt; font-weight: 800; letter-spacing: .015em; text-transform: uppercase; }
-.formal-csj-room { margin-top: .15rem; font-size: 11.5pt; font-weight: 800; text-transform: uppercase; }
+.formal-csj-logo { max-height: 142px; }
+.formal-csj-room { margin-top: 2mm; font-size: 11.5pt; font-weight: 800; text-transform: uppercase; }
 .formal-csj-rapporteur { margin-top: 13mm; font-weight: 800; line-height: 1.7; text-transform: uppercase; }
 .formal-csj-reference { margin-top: 10mm; line-height: 1.65; }
 .formal-csj-date { margin-top: 10mm; text-align: center; }
 .formal-signature-sheet-title { margin-top: 12mm; text-align: center; font-size: 13pt; font-weight: 800; text-transform: uppercase; }
 .formal-document--corte_suprema .judicial-rich-text h2 { margin-top: 10mm; letter-spacing: .02em; }
+.formal-document--corte_suprema .signature-ink-image { display: block; opacity: 1; }
 .formal-kicker { font-weight: 800; letter-spacing: .025em; text-transform: uppercase; }
 .formal-room { margin-top: .15rem; font-weight: 700; text-transform: uppercase; }
 .formal-document-title { margin: 2rem auto 0; max-width: 170mm; text-align: center; font-size: 13pt; font-weight: 800; line-height: 1.45; text-transform: uppercase; }

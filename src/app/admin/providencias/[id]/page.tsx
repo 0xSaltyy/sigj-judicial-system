@@ -15,6 +15,7 @@ import {
 } from "@/components/signature-panel";
 import { Button } from "@/components/ui/button";
 import { can, requirePermission } from "@/lib/auth/permissions";
+import { signatureImageDataUrl } from "@/lib/signature-images";
 
 export default async function ProceedingDetail({
   params,
@@ -84,12 +85,7 @@ export default async function ProceedingDetail({
   const signatures = await Promise.all(
     (signatureRows ?? []).map(async (s) => ({
       ...s,
-      imageUrl:
-        (
-          await supabase.storage
-            .from("signatures")
-            .createSignedUrl(s.signature_image_path, 900)
-        ).data?.signedUrl ?? null,
+      imageUrl: await signatureImageDataUrl(supabase, s.signature_image_path),
     })),
   );
   return (

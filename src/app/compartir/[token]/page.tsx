@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hashSecret } from "@/lib/secure-tokens";
 import { formatDate } from "@/lib/demo-data";
+import { signatureImageDataUrl } from "@/lib/signature-images";
 
 export default async function SharedCasePage({
   params,
@@ -170,12 +171,7 @@ export default async function SharedCasePage({
   const sharedSignatures = await Promise.all(
     (signatureRows ?? []).map(async (signature) => ({
       ...signature,
-      imageUrl:
-        (
-          await admin!.storage
-            .from("signatures")
-            .createSignedUrl(signature.signature_image_path, 600)
-        ).data?.signedUrl ?? null,
+      imageUrl: await signatureImageDataUrl(admin!, signature.signature_image_path),
     })),
   );
   return (

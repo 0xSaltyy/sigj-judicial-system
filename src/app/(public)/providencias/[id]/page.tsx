@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { FormalProvidenceDocument } from "@/components/formal-providence-document";
 import { PrintButton } from "@/components/print-button";
 import { Button } from "@/components/ui/button";
+import { signatureImageDataUrl } from "@/lib/signature-images";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -44,12 +45,7 @@ export default async function ProceedingDetail({
     ? await Promise.all(
         (signatureRows ?? []).map(async (s) => ({
           ...s,
-          imageUrl:
-            (
-              await admin.storage
-                .from("signatures")
-                .createSignedUrl(s.signature_image_path, 600)
-            ).data?.signedUrl ?? null,
+          imageUrl: await signatureImageDataUrl(admin, s.signature_image_path),
         })),
       )
     : [];

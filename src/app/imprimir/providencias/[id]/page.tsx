@@ -8,6 +8,7 @@ import {
 } from "@/components/formal-providence-document";
 import { PrintDocumentShell } from "@/components/print-document-shell";
 import { hashSecret } from "@/lib/secure-tokens";
+import { signatureImageDataUrl } from "@/lib/signature-images";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -170,12 +171,7 @@ export default async function ProvidencePrintPage({
     ? await Promise.all(
         (signatureRows ?? []).map(async (signature) => ({
           ...signature,
-          imageUrl:
-            (
-              await assetClient.storage
-                .from("signatures")
-                .createSignedUrl(signature.signature_image_path, 600)
-            ).data?.signedUrl ?? null,
+          imageUrl: await signatureImageDataUrl(assetClient, signature.signature_image_path),
         })),
       )
     : [];

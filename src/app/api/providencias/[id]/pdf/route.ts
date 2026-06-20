@@ -89,19 +89,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }))
       .filter((signature) => signature.signer_name && signature.signer_title);
     if (printableSignatures.length) {
-      const [regular, bold, emblem] = await Promise.all([
+      const [regular, bold, logo] = await Promise.all([
         pdf.embedFont(PDF_SERIF_REGULAR),
         pdf.embedFont(PDF_SERIF_BOLD),
-        loadEmblem(pdf),
+        loadPngAsset(
+          pdf,
+          templateStyle === "corte_suprema" ? "corte-suprema.png" : "escudo-institucional.png",
+        ),
       ]);
+      if (templateStyle === "corte_suprema" && !logo) {
+        throw new Error("El logotipo de la Corte Suprema no está disponible");
+      }
       const signatureAssets = await Promise.all(printableSignatures.map(async (signature) => {
         const { data } = await admin.storage.from("signatures").download(signature.signature_image_path);
-        return { ...signature, image: data ? await pdf.embedPng(await data.arrayBuffer()) : null };
+        if (!data) throw new Error("La imagen de una firma completada no está disponible");
+        return { ...signature, image: await pdf.embedPng(await data.arrayBuffer()) };
       }));
       appendSignatureSheets(pdf, signatureAssets, {
         regular,
         bold,
-        emblem,
+        logo,
         title: proceeding.title,
         number: proceeding.providence_number,
         radicado: caseRecord?.judicial_number || caseRecord?.internal_number || "—",
@@ -135,7 +142,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 type SignatureSheetContext = {
   regular: PDFFont;
   bold: PDFFont;
-  emblem: Awaited<ReturnType<PDFDocument["embedPng"]>> | null;
+  logo: Awaited<ReturnType<PDFDocument["embedPng"]>> | null;
   title: string;
   number: string;
   radicado: string;
@@ -172,9 +179,9 @@ async function canReadPdf(
   return Boolean(data);
 }
 
-async function loadEmblem(pdf: PDFDocument) {
+async function loadPngAsset(pdf: PDFDocument, filename: string) {
   try {
-    const bytes = await readFile(path.join(process.cwd(), "public", "escudo-institucional.png"));
+    const bytes = await readFile(path.join(process.cwd(), "public", filename));
     return await pdf.embedPng(bytes);
   } catch {
     return null;
@@ -215,27 +222,30 @@ function drawSheetHeader(
   totalPages: number,
 ) {
   if (context.style === "corte_suprema") {
-    centered(page, "CORTE SUPREMA DE JUSTICIA", 782, 13, context.bold);
-    centered(page, context.room.toUpperCase(), 762, 11, context.bold);
-    if (context.rapporteurName) {
-      centered(page, context.rapporteurName.toUpperCase(), 728, 10.5, context.bold);
-      centered(page, "MAGISTRADO/A PONENTE", 712, 9.5, context.bold);
+    if (context.logo) {
+      const scaled = context.logo.scaleToFit(92, 98);
+      page.drawImage(context.logo, { x: (595.28 - scaled.width) / 2, y: 714, width: scaled.width, height: scaled.height });
     }
-    centered(page, "HOJA DE FIRMAS", 680, 13, context.bold);
-    drawLabel(page, "Documento", context.documentCode, 650, context);
-    drawLabel(page, "Radicación n.°", context.radicado, 632, context);
-    if (context.actNumber) drawLabel(page, "Acta", context.actNumber, 614, context);
-    drawLabel(page, "Fecha", `${context.city}, ${writtenDate(context.date)}`, context.actNumber ? 596 : 614, context);
-    drawLabel(page, "Archivo", context.originalName, context.actNumber ? 578 : 596, context);
+    centered(page, context.room.toUpperCase(), 692, 11, context.bold);
+    if (context.rapporteurName) {
+      centered(page, context.rapporteurName.toUpperCase(), 658, 10.5, context.bold);
+      centered(page, "MAGISTRADO/A PONENTE", 642, 9.5, context.bold);
+    }
+    centered(page, "HOJA DE FIRMAS", 610, 13, context.bold);
+    drawLabel(page, "Documento", context.documentCode, 580, context);
+    drawLabel(page, "Radicación n.°", context.radicado, 562, context);
+    if (context.actNumber) drawLabel(page, "Acta", context.actNumber, 544, context);
+    drawLabel(page, "Fecha", `${context.city}, ${writtenDate(context.date)}`, context.actNumber ? 526 : 544, context);
+    drawLabel(page, "Archivo", context.originalName, context.actNumber ? 508 : 526, context);
     const titleLines = wrapText(context.title, context.bold, 10, 445);
-    titleLines.slice(0, 2).forEach((line, index) => centered(page, line, (context.actNumber ? 553 : 571) - index * 13, 10, context.bold));
-    page.drawLine({ start: { x: 64, y: 525 }, end: { x: 531, y: 525 }, thickness: 0.7, color: rgb(0.25, 0.25, 0.25) });
+    titleLines.slice(0, 2).forEach((line, index) => centered(page, line, (context.actNumber ? 483 : 501) - index * 13, 10, context.bold));
+    page.drawLine({ start: { x: 64, y: 455 }, end: { x: 531, y: 455 }, thickness: 0.7, color: rgb(0.25, 0.25, 0.25) });
     page.drawText(`Hoja ${pageNumber} de ${totalPages}`, { x: 478, y: 32, size: 7, font: context.regular, color: rgb(0.42, 0.42, 0.42) });
     return;
   }
-  if (context.emblem) {
-    const scaled = context.emblem.scaleToFit(58, 58);
-    page.drawImage(context.emblem, { x: (595.28 - scaled.width) / 2, y: 755, width: scaled.width, height: scaled.height });
+  if (context.logo) {
+    const scaled = context.logo.scaleToFit(58, 58);
+    page.drawImage(context.logo, { x: (595.28 - scaled.width) / 2, y: 755, width: scaled.width, height: scaled.height });
   }
   centered(page, "REPÚBLICA DE COLOMBIA", 742, 10, context.bold);
   centered(page, "RAMA JUDICIAL DEL PODER PÚBLICO", 728, 10, context.bold);
@@ -262,7 +272,7 @@ function drawSignature(
   const column = index % 2;
   const row = Math.floor(index / 2);
   const x = 72 + column * 244;
-  const y = (context.style === "corte_suprema" ? 382 : 402) - row * 220;
+  const y = (context.style === "corte_suprema" ? 310 : 402) - row * 220;
   if (signature.image) {
     const scaled = signature.image.scaleToFit(170, 80);
     page.drawImage(signature.image, { x: x + (190 - scaled.width) / 2, y: y + 56, width: scaled.width, height: scaled.height });

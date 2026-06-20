@@ -19,6 +19,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { can, requirePermission } from "@/lib/auth/permissions";
+import { signatureImageDataUrl } from "@/lib/signature-images";
 
 export default async function HearingMinutes({
   params,
@@ -39,7 +40,7 @@ export default async function HearingMinutes({
   const [{ data: hearing }, { data: minute }] = await Promise.all([
     supabase
       .from("hearings")
-      .select("*,case:cases(internal_number,judicial_number,title,chamber)")
+      .select("*,case:cases(internal_number,judicial_number,title,chamber,authority_type,dependency:dependencies(name))")
       .eq("id", id)
       .maybeSingle(),
     supabase
@@ -52,6 +53,13 @@ export default async function HearingMinutes({
   const caseRecord = Array.isArray(hearing.case)
     ? hearing.case[0]
     : hearing.case;
+  const dependency = Array.isArray(caseRecord?.dependency)
+    ? caseRecord.dependency[0]
+    : caseRecord?.dependency;
+  const formalCaseRecord = {
+    ...caseRecord,
+    dependency_name: dependency?.name || null,
+  };
   const { data: signatureRows } = minute
     ? await supabase
         .from("signatures")
@@ -66,12 +74,7 @@ export default async function HearingMinutes({
   const signatures = await Promise.all(
     (signatureRows ?? []).map(async (s) => ({
       ...s,
-      imageUrl:
-        (
-          await supabase.storage
-            .from("signatures")
-            .createSignedUrl(s.signature_image_path, 900)
-        ).data?.signedUrl ?? null,
+      imageUrl: await signatureImageDataUrl(supabase, s.signature_image_path),
     })),
   );
   const [canCreate, canEdit, canFinalize, canSign, canManageSignatures] = await Promise.all([
@@ -270,7 +273,7 @@ export default async function HearingMinutes({
           </div>
         </form>
       )}
-      {minute && <HearingMinuteDocument hearing={hearing} minute={minute} caseRecord={caseRecord} signatures={signatures} />}
+      {minute && <HearingMinuteDocument hearing={hearing} minute={minute} caseRecord={formalCaseRecord} signatures={signatures} />}
     </>
   );
 }

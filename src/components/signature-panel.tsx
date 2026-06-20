@@ -12,6 +12,7 @@ import { SignaturePad } from "@/components/signature-pad";
 import { SubmitButton } from "@/components/submit-button";
 import { formatDate } from "@/lib/demo-data";
 import { formalSignerName, formalSignerTitle } from "@/lib/signature-display";
+import { signatureImageDataUrl } from "@/lib/signature-images";
 import { createClient } from "@/lib/supabase/server";
 
 type TargetType = "proceeding" | "hearing_minute" | "certificate" | "document";
@@ -80,10 +81,10 @@ export async function SignaturePanel({
     ]);
   const signed = await Promise.all(
     (signatures ?? []).map(async (item) => {
-      const { data } = await supabase.storage
-        .from("signatures")
-        .createSignedUrl(item.signature_image_path, 900);
-      return { ...item, imageUrl: data?.signedUrl ?? null };
+      return {
+        ...item,
+        imageUrl: await signatureImageDataUrl(supabase, item.signature_image_path),
+      };
     }),
   );
   const pendingForCurrentUser = (requests ?? []).filter(
@@ -269,11 +270,15 @@ export function SignaturePrintBlocks({
     <section className="judicial-signature mt-14 grid gap-10 text-center sm:grid-cols-2">
       {printable.map((item) => (
         <div key={item.id} className="break-inside-avoid">
-          {item.imageUrl && (
+          {item.imageUrl ? (
             <div className="flex h-24 items-end justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.imageUrl} alt={`Firma de ${item.signer_name}`} className="max-h-20 max-w-[240px] object-contain" />
+              <img src={item.imageUrl} alt={`Firma manuscrita de ${item.signer_name}`} className="signature-ink-image max-h-20 max-w-[240px] object-contain" />
             </div>
+          ) : (
+            <p className="flex h-24 items-end justify-center pb-3 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+              Imagen de firma no disponible
+            </p>
           )}
           <div className="mx-auto w-64 border-t border-slate-700 pt-2">
             <p className="text-sm font-semibold uppercase">{item.signer_name}</p>
