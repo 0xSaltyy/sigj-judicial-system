@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarPlus, FilePlus2, Pencil, Printer, Share2, Upload } from "lucide-react";
 import { generateCertificate, updateCase } from "@/app/actions/cases";
-import { uploadCaseDocuments } from "@/app/actions/documents";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { CaseTimeline, type TimelineItem } from "@/components/case-timeline";
@@ -11,7 +10,6 @@ import {
   DocumentPreview,
   type SavedDocument,
 } from "@/components/document-preview";
-import { DocumentUploader } from "@/components/document-uploader";
 import { LifecycleActions } from "@/components/lifecycle-actions";
 import { ShareAccessForm } from "@/components/share-access-form";
 import { SubmitButton } from "@/components/submit-button";
@@ -73,7 +71,7 @@ export default async function CaseDetailPage({
     supabase
       .from("documents")
       .select(
-        "id,title,original_name,file_path,file_type,size_bytes,visibility,created_at,uploaded_by,archived_at",
+        "id,title,original_name,file_type,size_bytes,visibility,created_at,archived_at,document_type,document_date,description,folios,source,uploaded_by_name",
       )
       .eq("case_id", id)
       .is("deleted_at", null)
@@ -136,25 +134,20 @@ export default async function CaseDetailPage({
     can(profile, "share", "documentos", { supabase }),
     can(profile, "share", "expedientes", { supabase }),
   ]);
-  const signedDocuments: SavedDocument[] = await Promise.all(
-    (documents ?? []).map(async (doc) => {
-      const { data } = await supabase.storage
-        .from("case-documents")
-        .createSignedUrl(doc.file_path, 900, { download: false });
-      return {
-        ...doc,
-        signedUrl: doc.archived_at ? null : (data?.signedUrl ?? null),
-        canArchive: canDocumentArchive,
-        canRestore: canDocumentRestore,
-        canHardDelete: canDocumentHardDelete,
-        canShare: canDocumentShare,
-      };
-    }),
-  );
+  const signedDocuments: SavedDocument[] = (documents ?? []).map((doc) => ({
+    ...doc,
+    previewUrl: doc.archived_at ? null : `/api/admin/documents/${doc.id}/file`,
+    downloadUrl: doc.archived_at ? null : `/api/admin/documents/${doc.id}/file?download=1`,
+    canArchive: canDocumentArchive,
+    canRestore: canDocumentRestore,
+    canHardDelete: canDocumentHardDelete,
+    canShare: canDocumentShare,
+  }));
   const canCertificate = canUpload;
+  const canAddDocument = canUpload && (!item.archived_at || (profile.is_owner && profile.role === "SUPER_ADMIN"));
   return (
     <>
-      {query.success && <ClearDrafts storageKeys={[`case-edit:${id}`]} />}
+      {query.success && <ClearDrafts storageKeys={[`case-edit:${id}`, ...(query.success === "Documento agregado y auditado" ? [`sigj:case:${id}:document:new`] : [])]} />}
       <AdminPageHeader
         title={item.internal_number}
         description={item.title}
@@ -234,6 +227,17 @@ export default async function CaseDetailPage({
             <Link href={`/admin/providencias/nueva?caseId=${id}`}>
               <FilePlus2 className="size-4" /> Crear providencia
             </Link>
+          </Button>
+        )}
+        {canAddDocument ? (
+          <Button asChild size="sm" className="bg-[#153b5c]">
+            <Link href={`/admin/expedientes/${id}/documentos/nuevo`}>
+              <Upload className="size-4" /> Agregar documento
+            </Link>
+          </Button>
+        ) : (
+          <Button size="sm" disabled title={item.archived_at ? "Solo la cuenta propietaria puede agregar documentos a un expediente archivado" : "No tiene permiso para agregar documentos"}>
+            <Upload className="size-4" /> Agregar documento
           </Button>
         )}
       </div>
@@ -383,28 +387,15 @@ export default async function CaseDetailPage({
         <TabsContent value="documentos">
           <div id="documentos" className="space-y-5">
             <Card>
-              <CardHeader>
+              <CardHeader className="sm:grid-cols-[1fr_auto] sm:items-center">
                 <CardTitle className="text-base">
                   <Upload className="mr-2 inline size-4" />
-                  Adjuntar documentos
+                  Documentos del expediente
                 </CardTitle>
+                {canAddDocument && <Button asChild size="sm" className="bg-[#153b5c]"><Link href={`/admin/expedientes/${id}/documentos/nuevo`}><Upload className="size-4" /> Agregar documento</Link></Button>}
               </CardHeader>
-              <CardContent>
-                {canUpload ? <form action={uploadCaseDocuments} className="space-y-4">
-                  <input type="hidden" name="case_id" value={id} />
-                  <DocumentUploader />
-                  <select
-                    name="visibility"
-                    className="h-9 rounded-md border px-3 text-sm"
-                  >
-                    <option value="internal">Interno</option>
-                    <option value="reserved">Reservado</option>
-                    <option value="public">Público</option>
-                  </select>
-                  <SubmitButton pendingLabel="Subiendo…">
-                    Subir documentos
-                  </SubmitButton>
-                </form> : <p className="rounded border bg-slate-50 p-4 text-sm text-muted-foreground">No tiene permiso para cargar documentos en este expediente.</p>}
+              <CardContent className="text-sm text-muted-foreground">
+                Los archivos se almacenan de forma privada y cada alta, consulta, descarga o cambio de ciclo de vida queda auditado.
               </CardContent>
             </Card>
             <div className="grid gap-4 xl:grid-cols-2">
