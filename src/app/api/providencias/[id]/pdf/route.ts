@@ -9,6 +9,12 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// PDF has no CSS font stack. Bookman is not one of its standard fonts, so the
+// generated signature sheet uses the built-in serif fallback instead of
+// embedding or distributing a proprietary font file.
+const PDF_SERIF_REGULAR = StandardFonts.TimesRoman;
+const PDF_SERIF_BOLD = StandardFonts.TimesRomanBold;
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const admin = createAdminClient();
@@ -40,8 +46,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const pdf = await PDFDocument.load(await source.arrayBuffer(), { ignoreEncryption: true });
     if (signatures?.length) {
       const [regular, bold, emblem] = await Promise.all([
-        pdf.embedFont(StandardFonts.TimesRoman),
-        pdf.embedFont(StandardFonts.TimesRomanBold),
+        pdf.embedFont(PDF_SERIF_REGULAR),
+        pdf.embedFont(PDF_SERIF_BOLD),
         loadEmblem(pdf),
       ]);
       const signatureAssets = await Promise.all(signatures.map(async (signature) => {
