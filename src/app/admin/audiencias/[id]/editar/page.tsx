@@ -6,8 +6,10 @@ import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ClearDrafts } from "@/components/clear-drafts";
 import { HearingForm } from "@/components/hearing-form";
 import { HearingMinuteActions } from "@/components/hearing-minute-actions";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Input } from "@/components/ui/input";
 import { can, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { hearingEditorRealtime } from "@/lib/realtime-subscriptions";
 export default async function EditHearing({
   params,
   searchParams,
@@ -37,6 +39,12 @@ export default async function EditHearing({
   if (!hearing) notFound();
   return (
     <>
+      <RealtimeRefresh
+        channel={`admin-hearing-editor-${id}`}
+        subscriptions={hearingEditorRealtime(id)}
+        mode="prompt"
+        promptMessage="Hay cambios nuevos en esta audiencia. Actualizar vista."
+      />
       {query.success && <ClearDrafts storageKeys={[`sigj:hearing:${hearing.case_id}`, `sigj:hearing:${id}`]} />}
       <AdminPageHeader
         title="Editar audiencia"

@@ -11,6 +11,7 @@ import {
   type SavedDocument,
 } from "@/components/document-preview";
 import { LifecycleActions } from "@/components/lifecycle-actions";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { ShareAccessForm } from "@/components/share-access-form";
 import { SubmitButton } from "@/components/submit-button";
 import {
@@ -24,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { can, requirePermission } from "@/lib/auth/permissions";
 import { formatDate } from "@/lib/demo-data";
+import { caseDetailRealtime } from "@/lib/realtime-subscriptions";
 
 export default async function CaseDetailPage({
   params,
@@ -151,6 +153,7 @@ export default async function CaseDetailPage({
   const canAddDocument = canUpload && (!item.archived_at || (profile.is_owner && profile.role === "SUPER_ADMIN"));
   return (
     <>
+      <RealtimeRefresh channel={`admin-case-${id}`} subscriptions={caseDetailRealtime(id)} />
       {query.success && <ClearDrafts storageKeys={[`case-edit:${id}`, ...(query.success === "Documento agregado y auditado" ? [`sigj:case:${id}:document:new`] : [])]} />}
       <AdminPageHeader
         title={item.internal_number}

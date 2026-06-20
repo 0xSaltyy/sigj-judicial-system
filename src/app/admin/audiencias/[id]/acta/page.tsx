@@ -20,8 +20,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { LifecycleActions } from "@/components/lifecycle-actions";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { can, requirePermission } from "@/lib/auth/permissions";
 import { signatureImageDataUrl } from "@/lib/signature-images";
+import { hearingMinuteRealtime } from "@/lib/realtime-subscriptions";
 
 export default async function HearingMinutes({
   params,
@@ -98,6 +100,12 @@ export default async function HearingMinutes({
   const signed = minute?.status === "Firmada";
   return (
     <>
+      <RealtimeRefresh
+        channel={`admin-hearing-minute-${id}`}
+        subscriptions={hearingMinuteRealtime(id, minute?.id)}
+        mode={editable ? "prompt" : "auto"}
+        promptMessage="Hay cambios nuevos en esta acta. Actualizar vista."
+      />
       {query.success && <ClearDrafts storageKeys={[`hearing-minute:${id}`]} />}
       <AdminPageHeader
         title="Acta de audiencia"

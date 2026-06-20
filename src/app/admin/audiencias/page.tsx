@@ -6,13 +6,16 @@ import { Button } from "@/components/ui/button";
 import { CaseStatusBadge } from "@/components/status-badges";
 import { LifecycleActions } from "@/components/lifecycle-actions";
 import { HearingMinuteActions } from "@/components/hearing-minute-actions";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { can, requirePermission } from "@/lib/auth/permissions";
+import { HEARING_LIST_REALTIME } from "@/lib/realtime-subscriptions";
 
 export default async function AdminHearingsPage({ searchParams }: { searchParams: Promise<{ error?: string; success?: string }> }) {
   const { supabase, profile } = await requirePermission({ resource: "audiencias", action: "view" });
   const [query, canCreate, canEdit, canArchive, canRestore, canHardDelete, canViewMinutes, canCreateMinutes, canEditMinutes] = await Promise.all([searchParams, can(profile, "create", "audiencias", { supabase }), can(profile, "edit", "audiencias", { supabase }), can(profile, "archive", "audiencias", { supabase }), can(profile, "restore", "audiencias", { supabase }), can(profile, "hard_delete", "audiencias", { supabase }), can(profile, "view", "actas", { supabase }), can(profile, "create", "actas", { supabase }), can(profile, "edit", "actas", { supabase })]);
   const { data, error } = await supabase.from("hearings").select("*,case:cases(internal_number,chamber),minute:hearing_minutes(id,status)").order("scheduled_at", { ascending: false }).limit(100);
   return <>
+    <RealtimeRefresh channel="admin-hearings" subscriptions={HEARING_LIST_REALTIME} />
     <AdminPageHeader title="Agenda de audiencias" description="Programación y gestión de sesiones físicas y virtuales." action={canCreate ? <Button asChild className="bg-[#153b5c]"><Link href="/admin/audiencias/nueva"><CalendarPlus className="size-4" /> Programar audiencia</Link></Button> : <Button disabled title="No tiene permiso para crear audiencias"><CalendarPlus className="size-4" /> Programar audiencia</Button>} />
     <ActionMessage error={query.error ?? error?.message} success={query.success} />
     <div className="grid gap-4 lg:grid-cols-2">

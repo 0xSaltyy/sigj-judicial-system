@@ -1,1 +1,57 @@
-import Link from "next/link";import {FileText} from "lucide-react";import {PageHero} from "@/components/page-hero";import {Button} from "@/components/ui/button";import {createClient} from "@/lib/supabase/server";import {formatDate} from "@/lib/demo-data";export default async function StatesPage(){const supabase=await createClient();const {data}=supabase?await supabase.from("public_states").select("*").order("state_date",{ascending:false}):{data:[]};return <><PageHero title="Estados judiciales" description="Actuaciones públicas fijadas por despacho."/><div className="mx-auto max-w-6xl space-y-3 px-4 py-12">{(data??[]).map(s=><article key={s.id} className="flex justify-between rounded-lg border bg-white p-5"><div className="flex gap-3"><FileText className="size-5"/><div><p className="mono-number font-semibold">{s.state_number}</p><p className="mt-1 text-sm text-muted-foreground">{s.institution_name} · {formatDate(s.state_date)} · {s.item_count} actuaciones</p></div></div><Button asChild variant="outline"><Link href={`/estados/${s.id}`}>Vista imprimible</Link></Button></article>)}{!data?.length&&<p className="rounded border bg-white p-8 text-center text-sm text-muted-foreground">No hay estados publicados.</p>}</div></>}
+import Link from "next/link";
+import { FileText } from "lucide-react";
+import { PageHero } from "@/components/page-hero";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
+import { formatDate } from "@/lib/demo-data";
+import { STATE_LIST_REALTIME } from "@/lib/realtime-subscriptions";
+export default async function StatesPage() {
+  const supabase = await createClient();
+  const { data } = supabase
+    ? await supabase
+        .from("public_states")
+        .select("*")
+        .order("state_date", { ascending: false })
+    : { data: [] };
+  return (
+    <>
+      <RealtimeRefresh
+        channel="public-states"
+        subscriptions={STATE_LIST_REALTIME}
+        protectUnsavedForms={false}
+      />
+      <PageHero
+        title="Estados judiciales"
+        description="Actuaciones públicas fijadas por despacho."
+      />
+      <div className="mx-auto max-w-6xl space-y-3 px-4 py-12">
+        {(data ?? []).map((s) => (
+          <article
+            key={s.id}
+            className="flex justify-between rounded-lg border bg-white p-5"
+          >
+            <div className="flex gap-3">
+              <FileText className="size-5" />
+              <div>
+                <p className="mono-number font-semibold">{s.state_number}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {s.institution_name} · {formatDate(s.state_date)} ·{" "}
+                  {s.item_count} actuaciones
+                </p>
+              </div>
+            </div>
+            <Button asChild variant="outline">
+              <Link href={`/estados/${s.id}`}>Vista imprimible</Link>
+            </Button>
+          </article>
+        ))}
+        {!data?.length && (
+          <p className="rounded border bg-white p-8 text-center text-sm text-muted-foreground">
+            No hay estados publicados.
+          </p>
+        )}
+      </div>
+    </>
+  );
+}

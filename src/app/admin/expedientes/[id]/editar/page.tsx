@@ -9,12 +9,14 @@ import {
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { DraftForm } from "@/components/draft-form";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { can, PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
+import { caseEditorRealtime } from "@/lib/realtime-subscriptions";
 
 export default async function EditCasePage({
   params,
@@ -66,6 +68,12 @@ export default async function EditCasePage({
   const field = "mt-1 h-10 w-full rounded-md border bg-white px-3 text-sm";
   return (
     <>
+      <RealtimeRefresh
+        channel={`admin-case-editor-${id}`}
+        subscriptions={caseEditorRealtime(id)}
+        mode="prompt"
+        promptMessage="Hay cambios nuevos en este expediente. Actualizar vista."
+      />
       <AdminPageHeader
         title="Editar expediente"
         description={`${item.internal_number} · Cambios sensibles auditados con valor anterior y nuevo.`}

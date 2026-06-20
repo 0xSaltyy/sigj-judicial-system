@@ -9,6 +9,7 @@ import { ClearDrafts } from "@/components/clear-drafts";
 import { FormalProvidenceDocument } from "@/components/formal-providence-document";
 import { LifecycleActions } from "@/components/lifecycle-actions";
 import { PrintButton } from "@/components/print-button";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { ShareAccessForm } from "@/components/share-access-form";
 import {
   SignaturePanel,
@@ -16,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { can, requirePermission } from "@/lib/auth/permissions";
 import { signatureImageDataUrl } from "@/lib/signature-images";
+import { proceedingDetailRealtime } from "@/lib/realtime-subscriptions";
 
 export default async function ProceedingDetail({
   params,
@@ -95,6 +97,10 @@ export default async function ProceedingDetail({
   );
   return (
     <>
+      <RealtimeRefresh
+        channel={`admin-proceeding-${id}`}
+        subscriptions={proceedingDetailRealtime(id, proceeding.case_id)}
+      />
       {query.success && <ClearDrafts storageKeys={["sigj:proceeding:new", `sigj:proceeding:${id}`]} />}
       <AdminPageHeader
         title={proceeding.providence_number}

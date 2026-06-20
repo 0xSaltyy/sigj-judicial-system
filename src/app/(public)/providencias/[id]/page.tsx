@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import { FormalProvidenceDocument } from "@/components/formal-providence-document";
 import { PrintButton } from "@/components/print-button";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Button } from "@/components/ui/button";
 import { signatureImageDataUrl } from "@/lib/signature-images";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { publicProceedingRealtime } from "@/lib/realtime-subscriptions";
 
 export default async function ProceedingDetail({
   params,
@@ -39,8 +41,12 @@ export default async function ProceedingDetail({
           .order("signature_order"),
       ])
     : [{ data: null }, { data: [] }];
-  const originalPdfUrl = admin && privateRecord?.pdf_path ? `/api/providencias/${id}/pdf?variant=original` : null;
-  const combinedPdfUrl = admin && privateRecord?.pdf_path ? `/api/providencias/${id}/pdf` : null;
+  const originalPdfUrl =
+    admin && privateRecord?.pdf_path
+      ? `/api/providencias/${id}/pdf?variant=original`
+      : null;
+  const combinedPdfUrl =
+    admin && privateRecord?.pdf_path ? `/api/providencias/${id}/pdf` : null;
   const signatures = admin
     ? await Promise.all(
         (signatureRows ?? []).map(async (s) => ({
@@ -51,13 +57,33 @@ export default async function ProceedingDetail({
     : [];
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
+      <RealtimeRefresh
+        channel={`public-proceeding-${id}`}
+        subscriptions={publicProceedingRealtime(id)}
+        protectUnsavedForms={false}
+      />
       <div className="mb-5 flex justify-end no-print">
-        <PrintButton label="Imprimir providencia" href={`/imprimir/providencias/${id}`} />
-        {combinedPdfUrl && <Button asChild className="ml-2"><a href={combinedPdfUrl} target="_blank" rel="noreferrer">PDF formal con firmas</a></Button>}
+        <PrintButton
+          label="Imprimir providencia"
+          href={`/imprimir/providencias/${id}`}
+        />
+        {combinedPdfUrl && (
+          <Button asChild className="ml-2">
+            <a href={combinedPdfUrl} target="_blank" rel="noreferrer">
+              PDF formal con firmas
+            </a>
+          </Button>
+        )}
       </div>
-      <p className="no-print -mt-2 mb-5 text-right text-xs text-muted-foreground">Para impresión limpia, desactive encabezados y pies del navegador o use el PDF formal.</p>
+      <p className="no-print -mt-2 mb-5 text-right text-xs text-muted-foreground">
+        Para impresión limpia, desactive encabezados y pies del navegador o use
+        el PDF formal.
+      </p>
       <FormalProvidenceDocument
-        proceeding={{ ...proceeding, pdf_original_name: privateRecord?.pdf_original_name }}
+        proceeding={{
+          ...proceeding,
+          pdf_original_name: privateRecord?.pdf_original_name,
+        }}
         caseRecord={proceeding}
         signatures={signatures}
         pdfUrl={originalPdfUrl}

@@ -7,10 +7,12 @@ import {
   Plus,
 } from "lucide-react";
 import { AdminPageHeader, MetricCard } from "@/components/admin-page";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CaseStatusBadge } from "@/components/status-badges";
 import { requireInternalUser } from "@/lib/auth/authorization";
+import { DASHBOARD_REALTIME } from "@/lib/realtime-subscriptions";
 export default async function DashboardPage() {
   const { supabase } = await requireInternalUser();
   const now = new Date().toISOString();
@@ -54,6 +56,7 @@ export default async function DashboardPage() {
   ]);
   return (
     <>
+      <RealtimeRefresh channel="admin-dashboard" subscriptions={DASHBOARD_REALTIME} />
       <AdminPageHeader
         title="Panel del Palacio Judicial"
         description="Resumen operativo en tiempo real."

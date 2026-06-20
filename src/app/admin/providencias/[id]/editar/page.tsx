@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { ProvidenceForm, type CaseOption } from "@/components/providence-form";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { proceedingEditorRealtime } from "@/lib/realtime-subscriptions";
 
 export default async function EditProceedingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const [{ id }, query, { supabase }] = await Promise.all([params, searchParams, requirePermission(PERMISSIONS.proceedingsEdit)]);
@@ -17,6 +19,12 @@ export default async function EditProceedingPage({ params, searchParams }: { par
   })) as CaseOption[];
   return (
     <>
+      <RealtimeRefresh
+        channel={`admin-proceeding-editor-${id}`}
+        subscriptions={proceedingEditorRealtime(id)}
+        mode="prompt"
+        promptMessage="Hay cambios nuevos en esta providencia. Actualizar vista."
+      />
       <AdminPageHeader title="Editar providencia" description="Guarde el borrador, revise el formato y publique solo cuando esté listo." />
       <ActionMessage error={query.error} />
       <ProvidenceForm cases={cases} proceeding={proceeding} />
