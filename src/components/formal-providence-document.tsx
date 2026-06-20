@@ -95,8 +95,14 @@ export function FormalProvidenceDocument({
           combinedUrl={combinedPdfUrl}
         />
         {signatures.length > 0 && (
-            <section className="paper judicial-document rounded-lg border bg-white p-8">
-            <h2 className="text-center text-sm font-bold uppercase tracking-wide text-[#153553]">Firmas registradas</h2>
+          <section className={`paper judicial-document formal-document formal-document--${style} rounded-lg border bg-white`}>
+            <InstitutionHeader
+              style={style}
+              proceeding={proceeding}
+              caseRecord={caseRecord}
+              metadata={metadata}
+            />
+            <h2 className="formal-signature-sheet-title">Hoja de firmas</h2>
             <SignaturePrintBlocks signatures={signatures} />
           </section>
         )}
@@ -113,7 +119,7 @@ export function FormalProvidenceDocument({
         caseRecord={caseRecord}
         metadata={metadata}
       />
-      <h1 className="formal-document-title">{proceeding.title}</h1>
+      {style !== "corte_suprema" && <h1 className="formal-document-title">{proceeding.title}</h1>}
       <div className="judicial-body mt-8">
         <MarkdownViewer content={body} variant="document" />
       </div>
@@ -160,21 +166,20 @@ function InstitutionHeader({
   if (style === "corte_suprema") {
     return (
       <header className="formal-header formal-header--csj">
-        <Emblem size={88} />
-        <p className="formal-kicker">CORTE SUPREMA DE JUSTICIA</p>
-        <p className="formal-room">{room}</p>
+        <p className="formal-csj-court">CORTE SUPREMA DE JUSTICIA</p>
+        <p className="formal-csj-room">{room}</p>
         {metadata.rapporteurName && (
-          <div className="mt-8">
-            <p className="font-bold uppercase">{metadata.rapporteurName}</p>
-            <p>Magistrado/a ponente</p>
+          <div className="formal-csj-rapporteur">
+            <p>{metadata.rapporteurName}</p>
+            <p>MAGISTRADO/A PONENTE</p>
           </div>
         )}
-        <div className="mt-8 leading-7">
-          <p>{metadata.documentCode || proceeding.providence_number}</p>
-          <p className="font-bold">Radicación n.° {radicado}</p>
+        <div className="formal-csj-reference">
+          <p className="font-bold">{metadata.documentCode || proceeding.providence_number}</p>
+          <p>Radicación n.° {radicado}</p>
           {metadata.actNumber && <p>(Aprobado Acta No. {metadata.actNumber})</p>}
         </div>
-        <p className="mt-8 text-left">{city}, {writtenDate(proceeding.providence_date)}.</p>
+        <p className="formal-csj-date">{city}, {writtenDate(proceeding.providence_date)}</p>
       </header>
     );
   }

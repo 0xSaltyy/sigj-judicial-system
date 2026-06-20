@@ -13,7 +13,7 @@ export const TEMPLATE_STYLE_LABELS: Record<TemplateStyle, string> = {
   corte_suprema: "Corte Suprema de Justicia",
   tribunal_superior: "Tribunal Superior",
   juzgado: "Juzgado / despacho general",
-  blank: "Documento en blanco formal",
+  blank: "Documento formal en blanco",
 };
 
 type TemplateSpec = {
@@ -21,12 +21,20 @@ type TemplateSpec = {
   label: string;
   sections?: string[];
   closing?: string;
+  content?: string;
+  templateOnly?: boolean;
 };
 
 const GENERIC_SECTIONS = ["ANTECEDENTES", "CONSIDERACIONES", "RESUELVE"];
 
 const TEMPLATE_SPECS: TemplateSpec[] = [
-  { key: "blank", label: "Documento en blanco formal", sections: [] },
+  { key: "blank", label: "Documento formal en blanco", sections: [] },
+  {
+    key: "corte_suprema_base",
+    label: "Corte Suprema · Providencia base",
+    templateOnly: true,
+    content: "## VISTOS\n\n[Texto inicial]\n\n## CONSIDERANDO\n\n[Consideraciones]\n\n## RESUELVE\n\n**PRIMERO.** [Decisión]\n\n**SEGUNDO.** [Decisión]\n\n**TERCERO.** [Decisión]\n\n**Notifíquese, comuníquese y cúmplase.**",
+  },
   { key: "avocacion", label: "Auto de avocación de conocimiento" },
   { key: "apertura_instruccion", label: "Auto de apertura de instrucción" },
   { key: "avocamiento_pruebas", label: "Auto de avocamiento, apertura de instrucción y decreto de pruebas", sections: ["I. ANTECEDENTES", "II. COMPETENCIA", "III. MARCO NORMATIVO", "IV. CONSIDERACIONES DEL DESPACHO", "RESUELVE"] },
@@ -71,6 +79,7 @@ const TEMPLATE_SPECS: TemplateSpec[] = [
 ];
 
 function buildTemplate(spec: TemplateSpec) {
+  if (spec.content) return spec.content;
   if (!spec.sections?.length) {
     return spec.key === "blank" || spec.key === "custom"
       ? "[Redacte aquí el contenido del documento.]"
@@ -96,7 +105,7 @@ export const DOCUMENT_TEMPLATES = TEMPLATE_SPECS.map((spec) => ({
 }));
 
 export const PROVIDENCE_TYPES = TEMPLATE_SPECS.filter(
-  (item) => !["blank", "custom"].includes(item.key),
+  (item) => !item.templateOnly && !["blank", "custom"].includes(item.key),
 ).map((item) => item.label);
 
 export type DocumentMetadata = {
@@ -178,8 +187,8 @@ export function renderDocumentPlaceholders(content: string, context: Placeholder
 
 export function inferTemplateStyle(hints: Array<string | null | undefined>): Exclude<TemplateStyle, "auto"> {
   const value = hints.filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  if (/corte suprema|casacion|sala plena/.test(value)) return "corte_suprema";
-  if (/tribunal superior|sala de instruccion/.test(value)) return "tribunal_superior";
+  if (/corte suprema|sala de casacion|casacion|sala plena/.test(value)) return "corte_suprema";
+  if (/tribunal superior/.test(value)) return "tribunal_superior";
   return "juzgado";
 }
 

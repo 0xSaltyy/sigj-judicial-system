@@ -2,6 +2,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import {
+  type DocumentMetadata,
+  resolveTemplateStyle,
+  type TemplateStyle,
+  writtenDate,
+} from "@/lib/document-templates";
 import { appUrl, hashSecret } from "@/lib/secure-tokens";
 import { formalSignerName, formalSignerTitle } from "@/lib/signature-display";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -22,12 +28,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!admin) return NextResponse.json({ error: "Servicio de documentos no configurado" }, { status: 503 });
   const { data: proceeding } = await admin
     .from("proceedings")
-    .select("id,case_id,providence_number,title,type,chamber,providence_date,pdf_path,pdf_original_name,status,visibility,case:cases(internal_number,judicial_number,public_visibility,confidentiality_level,archived_at)")
+    .select("id,case_id,providence_number,title,type,chamber,providence_date,pdf_path,pdf_original_name,status,visibility,template_style,document_metadata,case:cases(internal_number,judicial_number,authority_type,chamber,municipality,public_visibility,confidentiality_level,archived_at,dependency:dependencies(name))")
     .eq("id", id)
     .is("archived_at", null)
     .maybeSingle();
   if (!proceeding?.pdf_path) return NextResponse.json({ error: "PDF no disponible" }, { status: 404 });
   const caseRecord = Array.isArray(proceeding.case) ? proceeding.case[0] : proceeding.case;
+  const dependency = Array.isArray(caseRecord?.dependency) ? caseRecord.dependency[0] : caseRecord?.dependency;
+  const metadata = (proceeding.document_metadata || {}) as DocumentMetadata;
+  const templateStyle = resolveTemplateStyle(proceeding.template_style, [
+    dependency?.name,
+    caseRecord?.authority_type,
+    caseRecord?.chamber,
+    proceeding.chamber,
+  ]);
   const allowed = await canReadPdf(request, proceeding.case_id, id, {
     status: proceeding.status,
     visibility: proceeding.visibility,
@@ -94,6 +108,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         date: proceeding.providence_date || "—",
         originalName: proceeding.pdf_original_name || "Documento PDF",
         verificationUrl: appUrl(`/providencias/${id}`),
+        style: templateStyle,
+        dependency: dependency?.name || proceeding.chamber || "Despacho judicial",
+        room: metadata.roomName || proceeding.chamber || caseRecord?.chamber || "Sala judicial",
+        rapporteurName: metadata.rapporteurName || null,
+        documentCode: metadata.documentCode || proceeding.providence_number,
+        actNumber: metadata.actNumber || null,
+        city: metadata.city || caseRecord?.municipality || "Bogotá, D.C.",
       });
     }
     const bytes = await pdf.save();
@@ -110,6 +131,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "El PDF no pudo combinarse con la hoja de firmas" }, { status: 422 });
   }
 }
+
+type SignatureSheetContext = {
+  regular: PDFFont;
+  bold: PDFFont;
+  emblem: Awaited<ReturnType<PDFDocument["embedPng"]>> | null;
+  title: string;
+  number: string;
+  radicado: string;
+  date: string;
+  originalName: string;
+  verificationUrl: string;
+  style: Exclude<TemplateStyle, "auto">;
+  dependency: string;
+  room: string;
+  rapporteurName: string | null;
+  documentCode: string;
+  actNumber: string | null;
+  city: string;
+};
 
 async function canReadPdf(
   request: NextRequest,
@@ -152,17 +192,7 @@ function appendSignatureSheets(
     verification_code: string;
     image: Awaited<ReturnType<PDFDocument["embedPng"]>> | null;
   }>,
-  context: {
-    regular: PDFFont;
-    bold: PDFFont;
-    emblem: Awaited<ReturnType<PDFDocument["embedPng"]>> | null;
-    title: string;
-    number: string;
-    radicado: string;
-    date: string;
-    originalName: string;
-    verificationUrl: string;
-  },
+  context: SignatureSheetContext,
 ) {
   const chunks = Array.from({ length: Math.ceil(signatures.length / 4) }, (_, index) => signatures.slice(index * 4, index * 4 + 4));
   chunks.forEach((chunk, pageIndex) => {
@@ -180,16 +210,38 @@ function appendSignatureSheets(
 
 function drawSheetHeader(
   page: PDFPage,
-  context: Parameters<typeof appendSignatureSheets>[2],
+  context: SignatureSheetContext,
   pageNumber: number,
   totalPages: number,
 ) {
+  if (context.style === "corte_suprema") {
+    centered(page, "CORTE SUPREMA DE JUSTICIA", 782, 13, context.bold);
+    centered(page, context.room.toUpperCase(), 762, 11, context.bold);
+    if (context.rapporteurName) {
+      centered(page, context.rapporteurName.toUpperCase(), 728, 10.5, context.bold);
+      centered(page, "MAGISTRADO/A PONENTE", 712, 9.5, context.bold);
+    }
+    centered(page, "HOJA DE FIRMAS", 680, 13, context.bold);
+    drawLabel(page, "Documento", context.documentCode, 650, context);
+    drawLabel(page, "Radicación n.°", context.radicado, 632, context);
+    if (context.actNumber) drawLabel(page, "Acta", context.actNumber, 614, context);
+    drawLabel(page, "Fecha", `${context.city}, ${writtenDate(context.date)}`, context.actNumber ? 596 : 614, context);
+    drawLabel(page, "Archivo", context.originalName, context.actNumber ? 578 : 596, context);
+    const titleLines = wrapText(context.title, context.bold, 10, 445);
+    titleLines.slice(0, 2).forEach((line, index) => centered(page, line, (context.actNumber ? 553 : 571) - index * 13, 10, context.bold));
+    page.drawLine({ start: { x: 64, y: 525 }, end: { x: 531, y: 525 }, thickness: 0.7, color: rgb(0.25, 0.25, 0.25) });
+    page.drawText(`Hoja ${pageNumber} de ${totalPages}`, { x: 478, y: 32, size: 7, font: context.regular, color: rgb(0.42, 0.42, 0.42) });
+    return;
+  }
   if (context.emblem) {
     const scaled = context.emblem.scaleToFit(58, 58);
     page.drawImage(context.emblem, { x: (595.28 - scaled.width) / 2, y: 755, width: scaled.width, height: scaled.height });
   }
   centered(page, "REPÚBLICA DE COLOMBIA", 742, 10, context.bold);
   centered(page, "RAMA JUDICIAL DEL PODER PÚBLICO", 728, 10, context.bold);
+  if (context.style === "tribunal_superior") {
+    centered(page, context.dependency.toUpperCase(), 711, 9.5, context.bold);
+  }
   centered(page, "HOJA DE FIRMAS DEL DOCUMENTO ADJUNTO", 692, 13, context.bold);
   drawLabel(page, "Documento", context.originalName, 660, context);
   drawLabel(page, "Providencia", context.number, 642, context);
@@ -205,12 +257,12 @@ function drawSignature(
   page: PDFPage,
   signature: Parameters<typeof appendSignatureSheets>[1][number],
   index: number,
-  context: Parameters<typeof appendSignatureSheets>[2],
+  context: SignatureSheetContext,
 ) {
   const column = index % 2;
   const row = Math.floor(index / 2);
   const x = 72 + column * 244;
-  const y = 402 - row * 220;
+  const y = (context.style === "corte_suprema" ? 382 : 402) - row * 220;
   if (signature.image) {
     const scaled = signature.image.scaleToFit(170, 80);
     page.drawImage(signature.image, { x: x + (190 - scaled.width) / 2, y: y + 56, width: scaled.width, height: scaled.height });
@@ -222,7 +274,7 @@ function drawSignature(
   centeredIn(page, `Código: ${signature.verification_code}`, x, 190, y - 7, 7, context.regular);
 }
 
-function drawLabel(page: PDFPage, label: string, value: string, y: number, context: Parameters<typeof appendSignatureSheets>[2]) {
+function drawLabel(page: PDFPage, label: string, value: string, y: number, context: SignatureSheetContext) {
   page.drawText(`${label}:`, { x: 72, y, size: 9, font: context.bold });
   page.drawText(value.slice(0, 95), { x: 145, y, size: 9, font: context.regular });
 }

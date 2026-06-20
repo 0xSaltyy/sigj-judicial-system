@@ -57,11 +57,18 @@ export function ProvidenceForm({
   initialCaseId?: string;
   proceeding?: Proceeding;
 }) {
+  const requestedCaseId = proceeding?.case_id ?? initialCaseId ?? "";
+  const initialCase = cases.find((item) => item.id === requestedCaseId);
+  const initialStyle = proceeding?.template_style && proceeding.template_style !== "auto"
+    ? proceeding.template_style
+    : inferTemplateStyle([initialCase?.dependency_name, initialCase?.authority_type, initialCase?.chamber]);
   const knownType = proceeding && PROVIDENCE_TYPES.includes(proceeding.type);
   const [selectedType, setSelectedType] = useState(knownType ? proceeding.type : proceeding ? "__other" : PROVIDENCE_TYPES[0]);
   const [customType, setCustomType] = useState(knownType ? "" : proceeding?.type || "");
-  const [selectedCaseId, setSelectedCaseId] = useState(proceeding?.case_id ?? initialCaseId ?? "");
-  const [templateKey, setTemplateKey] = useState(proceeding?.template_key || "blank");
+  const [selectedCaseId, setSelectedCaseId] = useState(requestedCaseId);
+  const [templateKey, setTemplateKey] = useState(
+    proceeding?.template_key || (initialStyle === "corte_suprema" ? "corte_suprema_base" : "blank"),
+  );
   const [templateStyle, setTemplateStyle] = useState<TemplateStyle>(proceeding?.template_style || "auto");
   const [mode, setMode] = useState(proceeding?.creation_mode ?? "editor");
   const [title, setTitle] = useState(proceeding?.title ?? PROVIDENCE_TYPES[0]);
@@ -188,7 +195,12 @@ export function ProvidenceForm({
           )}
           {mode === "pdf" && <input type="hidden" name="template_key" value="" />}
         </div>
-        <details className="mt-5 rounded-lg border p-4" open={resolvedStyle === "tribunal_superior"}>
+        {resolvedStyle === "corte_suprema" && templateKey !== "corte_suprema_base" && mode !== "pdf" && (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Para iniciar con VISTOS, CONSIDERANDO y RESUELVE, seleccione “Corte Suprema · Providencia base”.
+          </p>
+        )}
+        <details className="mt-5 rounded-lg border p-4" open={resolvedStyle === "tribunal_superior" || resolvedStyle === "corte_suprema"}>
           <summary className="cursor-pointer text-sm font-semibold">Metadatos y marcadores del documento</summary>
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <MetaField label="Ciudad" name="city" value={metadata.city || selectedCase?.municipality || "Bogotá, D.C."} />
