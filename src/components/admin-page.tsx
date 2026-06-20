@@ -1,8 +1,8 @@
 import { ChevronRight, Home } from "lucide-react";
 import Link from "next/link";
 
-export function AdminPageHeader({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
-  return <div className="mb-7"><div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground"><Link href="/admin/dashboard"><Home className="size-3.5" /></Link><ChevronRight className="size-3" /><span>{title}</span></div><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h1 className="text-2xl font-semibold tracking-tight text-[#102d49] sm:text-3xl">{title}</h1><p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p></div>{action}</div></div>;
+export function AdminPageHeader({ title, description, action, breadcrumbLabel }: { title: string; description: string; action?: React.ReactNode; breadcrumbLabel?: string }) {
+  return <div className="mb-7"><div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground"><Link href="/admin/dashboard"><Home className="size-3.5" /></Link><ChevronRight className="size-3" /><span>{breadcrumbLabel ?? title}</span></div><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h1 className="text-2xl font-semibold tracking-tight text-[#102d49] sm:text-3xl">{title}</h1><p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p></div>{action}</div></div>;
 }
 
 export function MetricCard({ label, value, detail, icon }: { label: string; value: string; detail: string; icon: React.ReactNode }) {

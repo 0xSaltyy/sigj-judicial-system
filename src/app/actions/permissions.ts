@@ -68,7 +68,16 @@ export async function updateUserPermissionOverrides(
     .eq("id", target.data)
     .maybeSingle();
   if (!profile) return { error: "El usuario no existe" };
-  if (profile.is_owner) return { error: "La cuenta propietaria no admite permisos personalizados" };
+  if (profile.is_owner) {
+    await supabase.rpc("log_security_event", {
+      p_action: "OWNER_PERMISSION_OVERRIDE_DENIED",
+      p_table: "user_permission_overrides",
+      p_record_id: profile.id,
+      p_description: "Se impidió modificar los permisos personalizados de la cuenta propietaria",
+      p_metadata: { source: "custom_permissions_page" },
+    });
+    return { error: "La cuenta propietaria no admite permisos personalizados" };
+  }
 
   const entries = PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
     actions.flatMap((action) => {
@@ -78,12 +87,14 @@ export async function updateUserPermissionOverrides(
         : [];
     }),
   );
-  const { error } = await supabase.rpc("replace_user_permission_overrides", {
+  const { data, error } = await supabase.rpc("replace_user_permission_overrides", {
     p_user_id: target.data,
     p_entries: entries,
     p_reason: reason.data || null,
   });
   if (error) return { error: error.message };
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (!result?.ok) return { error: result?.error ?? "No fue posible actualizar los permisos personalizados" };
   revalidatePath(`/admin/usuarios/${target.data}/permisos`);
   revalidatePath("/admin/usuarios");
   userRedirect(target.data, "success", "Permisos personalizados actualizados y auditados");
