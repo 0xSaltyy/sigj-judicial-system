@@ -1,5 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { appUrl } from "@/lib/secure-tokens";
+import { isTechnicalPreviewHostname } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 function safeDestination(request: NextRequest) {
@@ -11,11 +13,17 @@ function safeDestination(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  if (isTechnicalPreviewHostname(request.nextUrl.hostname)) {
+    const officialCallback = new URL(appUrl(request.nextUrl.pathname));
+    officialCallback.search = request.nextUrl.search;
+    return NextResponse.redirect(officialCallback);
+  }
+
   const supabase = await createClient();
   const destination = safeDestination(request);
   if (!supabase) {
     return NextResponse.redirect(
-      new URL("/login?error=Supabase%20no%20está%20configurado", request.url),
+      new URL("/login?error=Supabase%20no%20está%20configurado", appUrl("/")),
     );
   }
 
@@ -32,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/login?error=${encodeURIComponent("El enlace expiró o no es válido")}`,
-        request.url,
+        appUrl("/"),
       ),
     );
   }
@@ -50,10 +58,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/login?error=${encodeURIComponent("La cuenta no tiene acceso institucional activo")}`,
-        request.url,
+        appUrl("/"),
       ),
     );
   }
 
-  return NextResponse.redirect(new URL(destination, request.url));
+  return NextResponse.redirect(new URL(destination, appUrl("/")));
 }

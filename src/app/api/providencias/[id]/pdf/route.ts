@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { hashSecret } from "@/lib/secure-tokens";
+import { appUrl, hashSecret } from "@/lib/secure-tokens";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         radicado: caseRecord?.judicial_number || caseRecord?.internal_number || "—",
         date: proceeding.providence_date || "—",
         originalName: proceeding.pdf_original_name || "Documento PDF",
+        verificationUrl: appUrl(`/providencias/${id}`),
       });
     }
     const bytes = await pdf.save();
@@ -130,6 +131,7 @@ function appendSignatureSheets(
     radicado: string;
     date: string;
     originalName: string;
+    verificationUrl: string;
   },
 ) {
   const chunks = Array.from({ length: Math.ceil(signatures.length / 4) }, (_, index) => signatures.slice(index * 4, index * 4 + 4));
@@ -139,6 +141,9 @@ function appendSignatureSheets(
     chunk.forEach((signature, index) => drawSignature(page, signature, index, context));
     page.drawText("Sistema ficticio de demostración académica. No produce efectos jurídicos.", {
       x: 128, y: 28, size: 7, font: context.regular, color: rgb(0.42, 0.42, 0.42),
+    });
+    page.drawText(`Verificación: ${context.verificationUrl}`, {
+      x: 72, y: 42, size: 7, font: context.regular, color: rgb(0.3, 0.3, 0.3),
     });
   });
 }

@@ -1,6 +1,8 @@
 "use server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isTechnicalPreviewHostname, requestHostname, siteUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -8,7 +10,15 @@ const loginSchema = z.object({
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
 });
 
+async function requireOfficialAuthDomain(path: string) {
+  const requestHeaders = await headers();
+  if (isTechnicalPreviewHostname(requestHostname(requestHeaders))) {
+    redirect(siteUrl(path));
+  }
+}
+
 export async function login(formData: FormData) {
+  await requireOfficialAuthDomain("/login");
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(
@@ -49,18 +59,20 @@ export async function logout() {
 }
 
 export async function recoverPassword(formData: FormData) {
+  await requireOfficialAuthDomain("/recuperar-password");
   const email = z.string().email().safeParse(formData.get("email"));
   if (!email.success)
     redirect("/recuperar-password?error=Correo%20no%20válido");
   const supabase = await createClient();
   if (supabase)
     await supabase.auth.resetPasswordForEmail(email.data, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback?next=/actualizar-password`,
+      redirectTo: siteUrl("/auth/callback?next=/actualizar-password"),
     });
   redirect("/recuperar-password?sent=1");
 }
 
 export async function updatePassword(formData: FormData) {
+  await requireOfficialAuthDomain("/actualizar-password");
   const parsed = z.string().min(8).safeParse(formData.get("password"));
   if (!parsed.success)
     redirect("/actualizar-password?error=Use%20al%20menos%208%20caracteres");

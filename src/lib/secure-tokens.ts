@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
+import { siteUrl } from "@/lib/site-url";
 
 export function createSecureToken() {
   const token = randomBytes(32).toString("base64url");
@@ -18,9 +19,7 @@ export function maskEmail(value?: string | null) {
 }
 
 export function appUrl(path: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  return `${base.replace(/\/$/, "")}${path}`;
+  return siteUrl(path);
 }
 
 export function verificationCode() {

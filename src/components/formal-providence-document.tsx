@@ -115,6 +115,7 @@ export function FormalProvidenceDocument({
         />
       )}
       <JudicialPrintFooter
+        verificationPath={`/providencias/${proceeding.id}`}
         verification={
           signatures[0]?.verification_code
             ? `Código de verificación: ${signatures.map((item) => item.verification_code).join(" · ")}`

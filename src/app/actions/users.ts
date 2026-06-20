@@ -7,6 +7,7 @@ import { requireOwner } from "@/lib/auth/authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_ROLES } from "@/lib/user-management";
 import { dbUuid } from "@/lib/validation";
+import { appUrl } from "@/lib/secure-tokens";
 
 const optionalUuid = dbUuid.optional().or(z.literal(""));
 const inviteSchema = z.object({
@@ -38,9 +39,7 @@ function usersRedirect(
 }
 
 function passwordRedirectUrl() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-  if (!appUrl) throw new Error("Falta NEXT_PUBLIC_APP_URL");
-  return `${appUrl}/auth/callback?next=/actualizar-password`;
+  return appUrl("/auth/callback?next=/actualizar-password");
 }
 
 async function writeAudit(
@@ -223,8 +222,6 @@ export async function sendPasswordSetup(formData: FormData) {
   const { supabase, user } = await requireOwner();
   const admin = createAdminClient();
   if (!admin) usersRedirect("error", "Falta SUPABASE_SERVICE_ROLE_KEY");
-  if (!process.env.NEXT_PUBLIC_APP_URL)
-    usersRedirect("error", "Falta NEXT_PUBLIC_APP_URL");
   const { data: target } = await supabase
     .from("profiles")
     .select("id,email,is_owner")
