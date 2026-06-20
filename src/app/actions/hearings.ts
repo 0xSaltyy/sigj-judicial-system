@@ -115,9 +115,9 @@ export async function cancelHearing(formData: FormData) {
 
 const minutesSchema = z.object({
   minute_id: dbUuid.optional().or(z.literal("")), hearing_id: dbUuid, case_id: dbUuid,
-  started_at: z.string().optional(), ended_at: z.string().optional(), chamber: z.string().trim().max(180).optional(),
+  started_at: z.string().optional(), ended_at: z.string().optional(), chamber: z.string().trim().max(180).optional(), location_details: z.string().trim().max(500).optional(),
   interveners: z.string().trim().max(12000).optional(), attendees: z.string().trim().max(12000).optional(), absences: z.string().trim().max(12000).optional(),
-  development_markdown: z.string().trim().max(100000).optional(), decisions_markdown: z.string().trim().max(100000).optional(), evidence_markdown: z.string().trim().max(100000).optional(), records_markdown: z.string().trim().max(100000).optional(), observations_markdown: z.string().trim().max(100000).optional(), closing_markdown: z.string().trim().max(100000).optional(),
+  development_markdown: z.string().trim().max(100000).optional(), requests_markdown: z.string().trim().max(100000).optional(), decisions_markdown: z.string().trim().max(100000).optional(), evidence_markdown: z.string().trim().max(100000).optional(), records_markdown: z.string().trim().max(100000).optional(), observations_markdown: z.string().trim().max(100000).optional(), closing_markdown: z.string().trim().max(100000).optional(),
   secretary_signature_required: z.string().optional(), judge_signature_required: z.string().optional(),
 });
 
@@ -131,33 +131,107 @@ export async function saveHearingMinutes(formData: FormData) {
   );
   const { data: hearing } = await supabase.from("hearings").select("id").eq("id", parsed.data.hearing_id).eq("case_id", parsed.data.case_id).is("archived_at", null).maybeSingle();
   if (!hearing) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Audiencia%20no%20disponible`);
-  const payload = { hearing_id: parsed.data.hearing_id, case_id: parsed.data.case_id, started_at: parsed.data.started_at ? new Date(parsed.data.started_at).toISOString() : null, ended_at: parsed.data.ended_at ? new Date(parsed.data.ended_at).toISOString() : null, chamber: parsed.data.chamber || null, interveners: parsed.data.interveners || null, attendees: parsed.data.attendees || null, absences: parsed.data.absences || null, development_markdown: parsed.data.development_markdown || "", decisions_markdown: parsed.data.decisions_markdown || "", evidence_markdown: parsed.data.evidence_markdown || "", records_markdown: parsed.data.records_markdown || "", observations_markdown: parsed.data.observations_markdown || "", closing_markdown: parsed.data.closing_markdown || "", secretary_signature_required: parsed.data.secretary_signature_required === "true", judge_signature_required: parsed.data.judge_signature_required === "true" };
-  const result = parsed.data.minute_id ? await supabase.from("hearing_minutes").update(payload).eq("id", parsed.data.minute_id).eq("status", "Borrador") : await supabase.from("hearing_minutes").insert({ ...payload, created_by: user.id });
-  if (result.error) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=${encodeURIComponent(result.error.message)}`);
+  if (parsed.data.minute_id) {
+    const { data: current } = await supabase
+      .from("hearing_minutes")
+      .select("id,status")
+      .eq("id", parsed.data.minute_id)
+      .eq("hearing_id", parsed.data.hearing_id)
+      .eq("case_id", parsed.data.case_id)
+      .maybeSingle();
+    if (!current || current.status !== "Borrador") {
+      await supabase.rpc("log_security_event", {
+        p_action: "HEARING_MINUTE_EDIT_DENIED",
+        p_table: "hearing_minutes",
+        p_record_id: parsed.data.minute_id,
+        p_description: "Se impidió editar un acta que no está en borrador",
+        p_metadata: { status: current?.status ?? "not_found" },
+      });
+      redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Solo%20las%20actas%20en%20borrador%20pueden%20editarse`);
+    }
+  }
+  const payload = { hearing_id: parsed.data.hearing_id, case_id: parsed.data.case_id, started_at: parsed.data.started_at ? new Date(parsed.data.started_at).toISOString() : null, ended_at: parsed.data.ended_at ? new Date(parsed.data.ended_at).toISOString() : null, chamber: parsed.data.chamber || null, location_details: parsed.data.location_details || null, interveners: parsed.data.interveners || null, attendees: parsed.data.attendees || null, absences: parsed.data.absences || null, development_markdown: parsed.data.development_markdown || "", requests_markdown: parsed.data.requests_markdown || "", decisions_markdown: parsed.data.decisions_markdown || "", evidence_markdown: parsed.data.evidence_markdown || "", records_markdown: parsed.data.records_markdown || "", observations_markdown: parsed.data.observations_markdown || "", closing_markdown: parsed.data.closing_markdown || "", secretary_signature_required: parsed.data.secretary_signature_required === "true", judge_signature_required: parsed.data.judge_signature_required === "true" };
+  const result = parsed.data.minute_id
+    ? await supabase.from("hearing_minutes").update(payload).eq("id", parsed.data.minute_id).eq("status", "Borrador").select("id").maybeSingle()
+    : await supabase.from("hearing_minutes").insert({ ...payload, created_by: user.id }).select("id").single();
+  if (result.error || !result.data) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=${encodeURIComponent(result.error?.message ?? "No fue posible guardar el acta")}`);
+  await supabase.rpc("log_security_event", {
+    p_action: parsed.data.minute_id ? "HEARING_MINUTE_EDITED" : "HEARING_MINUTE_CREATED",
+    p_table: "hearing_minutes",
+    p_record_id: result.data.id,
+    p_description: parsed.data.minute_id ? "Borrador de acta editado" : "Borrador de acta creado",
+    p_metadata: { hearing_id: parsed.data.hearing_id },
+  });
   revalidatePath(`/admin/audiencias/${parsed.data.hearing_id}/acta`);
+  revalidatePath("/admin/audiencias");
   redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?success=Acta%20guardada%20como%20borrador`);
 }
 
 export async function finalizeHearingMinutes(formData: FormData) {
-  const parsed = z.object({ minute_id: dbUuid, hearing_id: dbUuid, case_id: dbUuid, owner_override: z.string().optional() }).safeParse(Object.fromEntries(formData));
+  const parsed = z.object({ minute_id: dbUuid, hearing_id: dbUuid, case_id: dbUuid }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/admin/audiencias?error=Acta%20no%20válida");
-  const { supabase, user, profile } = await requireCaseAccess(
+  const { supabase, user } = await requireCaseAccess(
     parsed.data.case_id,
     PERMISSIONS.minutesPublish,
   );
-  const { data: minute } = await supabase.from("hearing_minutes").select("id,status,secretary_signature_required,judge_signature_required,development_markdown").eq("id", parsed.data.minute_id).eq("hearing_id", parsed.data.hearing_id).maybeSingle();
-  if (!minute || minute.status !== "Borrador") redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=El%20acta%20no%20está%20en%20borrador`);
-  if ((minute.development_markdown || "").trim().length < 20) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Complete%20el%20desarrollo%20antes%20de%20finalizar`);
-  const { data: signatures } = await supabase.from("signatures").select("signer_title").eq("target_type", "hearing_minute").eq("target_id", minute.id).eq("status", "signed");
-  const hasSecretary = (signatures ?? []).some(s => s.signer_title.toLowerCase().includes("secretar"));
-  const hasJudge = (signatures ?? []).some(s => /juez|jueza|magistrad/i.test(s.signer_title));
-  const override = profile.is_owner && parsed.data.owner_override === "true";
-  if (minute.secretary_signature_required && !hasSecretary && !override) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Se%20requiere%20la%20firma%20de%20Secretaría`);
-  if (minute.judge_signature_required && !hasJudge && !override) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Se%20requiere%20la%20firma%20del%20juez%20o%20magistrado`);
+  const { data: minute } = await supabase.from("hearing_minutes").select("id,status,secretary_signature_required,judge_signature_required,development_markdown,started_at,ended_at").eq("id", parsed.data.minute_id).eq("hearing_id", parsed.data.hearing_id).eq("case_id", parsed.data.case_id).maybeSingle();
+  if (!minute || minute.status !== "Borrador") {
+    await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_FINALIZE_DENIED", p_table: "hearing_minutes", p_record_id: parsed.data.minute_id, p_description: "Se impidió finalizar un acta fuera de borrador", p_metadata: { status: minute?.status ?? "not_found" } });
+    redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=El%20acta%20no%20está%20en%20borrador`);
+  }
+  if ((minute.development_markdown || "").trim().length < 20) {
+    await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_FINALIZE_DENIED", p_table: "hearing_minutes", p_record_id: minute.id, p_description: "Se impidió finalizar un acta con desarrollo incompleto", p_metadata: { reason: "incomplete_development" } });
+    redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Complete%20el%20desarrollo%20antes%20de%20finalizar`);
+  }
+  if (!minute.started_at || !minute.ended_at || new Date(minute.ended_at) < new Date(minute.started_at)) {
+    await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_FINALIZE_DENIED", p_table: "hearing_minutes", p_record_id: minute.id, p_description: "Se impidió finalizar un acta sin horas reales válidas", p_metadata: { reason: "invalid_actual_times" } });
+    redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Registre%20las%20horas%20reales%20de%20inicio%20y%20finalizaci%C3%B3n`);
+  }
   const now = new Date().toISOString();
-  const [minuteResult, hearingResult] = await Promise.all([supabase.from("hearing_minutes").update({ status: "Finalizada", finalized_at: now, finalized_by: user.id }).eq("id", minute.id).eq("status", "Borrador"), supabase.from("hearings").update({ status: "Realizada" }).eq("id", parsed.data.hearing_id)]);
-  if (minuteResult.error || hearingResult.error) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=${encodeURIComponent(minuteResult.error?.message || hearingResult.error?.message || "No fue posible finalizar")}`);
-  await supabase.rpc("log_security_event", { p_action: override ? "HEARING_MINUTE_FINALIZED_OVERRIDE" : "HEARING_MINUTE_FINALIZED", p_table: "hearing_minutes", p_record_id: minute.id, p_description: "Acta de audiencia finalizada", p_metadata: { secretary_signature_required: minute.secretary_signature_required, judge_signature_required: minute.judge_signature_required, owner_override: override } });
+  const [minuteResult, hearingResult] = await Promise.all([supabase.from("hearing_minutes").update({ status: "Finalizada", finalized_at: now, finalized_by: user.id }).eq("id", minute.id).eq("status", "Borrador").select("id").maybeSingle(), supabase.from("hearings").update({ status: "Realizada" }).eq("id", parsed.data.hearing_id)]);
+  if (minuteResult.error || !minuteResult.data || hearingResult.error) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=${encodeURIComponent(minuteResult.error?.message || hearingResult.error?.message || "No fue posible finalizar")}`);
+  await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_FINALIZED", p_table: "hearing_minutes", p_record_id: minute.id, p_description: "Acta de audiencia finalizada y habilitada para firmas", p_metadata: { secretary_signature_required: minute.secretary_signature_required, judge_signature_required: minute.judge_signature_required } });
   revalidatePath(`/admin/audiencias/${parsed.data.hearing_id}/acta`);
+  revalidatePath("/admin/audiencias");
   redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?success=Acta%20finalizada`);
+}
+
+export async function reopenHearingMinutes(formData: FormData) {
+  const parsed = z.object({
+    minute_id: dbUuid,
+    hearing_id: dbUuid,
+    case_id: dbUuid,
+    reason: z.string().trim().min(10).max(500),
+  }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/admin/audiencias?error=Solicitud%20de%20reapertura%20inválida");
+  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, PERMISSIONS.minutesPublish);
+  const { data: minute } = await supabase
+    .from("hearing_minutes")
+    .select("id,status")
+    .eq("id", parsed.data.minute_id)
+    .eq("hearing_id", parsed.data.hearing_id)
+    .eq("case_id", parsed.data.case_id)
+    .maybeSingle();
+  const { count: activeSignatures } = await supabase
+    .from("signatures")
+    .select("id", { count: "exact", head: true })
+    .eq("target_type", "hearing_minute")
+    .eq("target_id", parsed.data.minute_id)
+    .eq("status", "signed");
+  if (!minute || !["Finalizada", "Firmada"].includes(minute.status) || (activeSignatures ?? 0) > 0) {
+    await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_REOPEN_DENIED", p_table: "hearing_minutes", p_record_id: parsed.data.minute_id, p_description: "Se impidió reabrir un acta no disponible o con firmas vigentes", p_metadata: { status: minute?.status ?? "not_found", active_signatures: activeSignatures ?? 0 } });
+    redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Revoque%20las%20firmas%20vigentes%20antes%20de%20reabrir%20el%20acta`);
+  }
+  const { data, error } = await supabase
+    .from("hearing_minutes")
+    .update({ status: "Borrador", finalized_at: null, finalized_by: null, reopened_at: new Date().toISOString(), reopened_by: user.id, reopen_reason: parsed.data.reason })
+    .eq("id", minute.id)
+    .in("status", ["Finalizada", "Firmada"])
+    .select("id")
+    .maybeSingle();
+  if (error || !data) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=${encodeURIComponent(error?.message ?? "No fue posible reabrir el acta")}`);
+  await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_REOPENED", p_table: "hearing_minutes", p_record_id: minute.id, p_description: "Acta reabierta para corrección", p_metadata: { reason: parsed.data.reason } });
+  revalidatePath(`/admin/audiencias/${parsed.data.hearing_id}/acta`);
+  revalidatePath("/admin/audiencias");
+  redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?success=Acta%20reabierta%20como%20borrador`);
 }

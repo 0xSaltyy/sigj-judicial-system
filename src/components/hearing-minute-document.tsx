@@ -12,6 +12,7 @@ type HearingDocument = {
   scheduled_at: string;
   end_at?: string | null;
   room?: string | null;
+  virtual_link?: string | null;
 };
 
 type MinuteDocument = {
@@ -19,10 +20,12 @@ type MinuteDocument = {
   started_at?: string | null;
   ended_at?: string | null;
   chamber?: string | null;
+  location_details?: string | null;
   interveners?: string | null;
   attendees?: string | null;
   absences?: string | null;
   development_markdown?: string | null;
+  requests_markdown?: string | null;
   decisions_markdown?: string | null;
   evidence_markdown?: string | null;
   records_markdown?: string | null;
@@ -72,8 +75,8 @@ export function HearingMinuteDocument({
             value: minute?.ended_at ? dateTime(minute.ended_at) : "Pendiente",
           },
           {
-            label: "Sala",
-            value: minute?.chamber || hearing.room || "Por definir",
+            label: "Lugar / sala",
+            value: minute?.location_details || minute?.chamber || hearing.room || hearing.virtual_link || "Por definir",
           },
           { label: "Estado", value: minute?.status || "Borrador" },
         ]}
@@ -82,15 +85,16 @@ export function HearingMinuteDocument({
       <TextSection title="Comparecientes" content={minute?.attendees} plain />
       <TextSection title="Inasistencias" content={minute?.absences} plain />
       <TextSection title="Desarrollo de la audiencia" content={minute?.development_markdown} />
-      <TextSection title="Decisiones adoptadas" content={minute?.decisions_markdown} />
+      <TextSection title="Solicitudes presentadas" content={minute?.requests_markdown} />
       <TextSection title="Pruebas practicadas o decretadas" content={minute?.evidence_markdown} />
+      <TextSection title="Decisiones adoptadas" content={minute?.decisions_markdown} />
       <TextSection title="Constancias" content={minute?.records_markdown} />
       <TextSection title="Observaciones" content={minute?.observations_markdown} />
       <TextSection title="Cierre" content={minute?.closing_markdown} />
       <SignaturePrintBlocks signatures={signatures} />
       <JudicialPrintFooter
         verificationPath="/audiencias"
-        verification={`Acta asociada al expediente ${caseRecord?.internal_number ?? "—"}.`}
+        verification={`Acta asociada al expediente ${caseRecord?.internal_number ?? "—"}.${signatures.length ? ` Códigos de verificación: ${signatures.map((signature) => signature.verification_code).join(" · ")}.` : ""}`}
       />
     </article>
   );

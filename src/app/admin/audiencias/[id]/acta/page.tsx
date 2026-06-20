@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import {
   finalizeHearingMinutes,
+  reopenHearingMinutes,
   saveHearingMinutes,
 } from "@/app/actions/hearings";
 import { ActionMessage } from "@/components/action-message";
@@ -17,7 +18,7 @@ import {
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { can, requirePermission } from "@/lib/auth/permissions";
 
 export default async function HearingMinutes({
   params,
@@ -33,7 +34,7 @@ export default async function HearingMinutes({
   const [{ id }, query, { supabase, profile }] = await Promise.all([
     params,
     searchParams,
-    requirePermission(PERMISSIONS.minutesEdit),
+    requirePermission({ resource: "actas", action: "view" }),
   ]);
   const [{ data: hearing }, { data: minute }] = await Promise.all([
     supabase
@@ -73,19 +74,33 @@ export default async function HearingMinutes({
         ).data?.signedUrl ?? null,
     })),
   );
+  const [canCreate, canEdit, canFinalize, canSign, canManageSignatures] = await Promise.all([
+    can(profile, "create", "actas", { supabase }),
+    can(profile, "edit", "actas", { supabase }),
+    can(profile, "publish", "actas", { supabase }),
+    can(profile, "sign", "firmas", { supabase }),
+    can(profile, "manage", "firmas", { supabase }),
+  ]);
   const local = (value?: string | null) =>
     value ? new Date(value).toISOString().slice(0, 16) : "";
-  const editable = !minute || minute.status === "Borrador";
+  const editable = (!minute && canCreate) || (minute?.status === "Borrador" && canEdit);
+  const finalized = minute && ["Finalizada", "Firmada"].includes(minute.status);
+  const signed = minute?.status === "Firmada";
   return (
     <>
       {query.success && <ClearDrafts storageKeys={[`hearing-minute:${id}`]} />}
       <AdminPageHeader
         title="Acta de audiencia"
         description={`${caseRecord?.internal_number ?? "Expediente"} · ${minute?.status ?? "Sin iniciar"}`}
-        action={<PrintButton label="Imprimir acta" href={`/imprimir/actas/${id}`} />}
+        action={finalized ? <PrintButton label={signed ? "PDF/Imprimir acta firmada" : "Imprimir acta"} href={`/imprimir/actas/${id}`} /> : undefined}
       />
-      <p className="no-print -mt-3 mb-5 text-xs text-muted-foreground">Para impresión limpia, desactive encabezados y pies del navegador.</p>
+      <div className="no-print -mt-3 mb-5 rounded-lg border bg-slate-50 px-4 py-3 text-xs text-slate-600">
+        <span className="font-semibold text-[#153553]">Flujo del acta:</span> redactar y guardar borrador → finalizar → solicitar/capturar firmas → imprimir.
+        {finalized && <span className="ml-1">Para impresión limpia, desactive encabezados y pies del navegador.</span>}
+      </div>
       <ActionMessage error={query.error} success={query.success} />
+      {!minute && !canCreate && <p className="no-print mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Puede consultar actas, pero no tiene permiso para crear el acta de esta audiencia.</p>}
+      {minute?.status === "Borrador" && !canEdit && <p className="no-print mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">El acta está en borrador y se muestra en modo de consulta. Su usuario no tiene permiso para editarla.</p>}
       {editable && (
         <DraftForm
           action={saveHearingMinutes}
@@ -95,14 +110,14 @@ export default async function HearingMinutes({
           {minute && <input type="hidden" name="minute_id" value={minute.id} />}
           <input type="hidden" name="hearing_id" value={id} />
           <input type="hidden" name="case_id" value={hearing.case_id} />
-          <Field label="Inicio">
+          <Field label="Hora de inicio real">
             <Input
               type="datetime-local"
               name="started_at"
               defaultValue={local(minute?.started_at ?? hearing.scheduled_at)}
             />
           </Field>
-          <Field label="Cierre">
+          <Field label="Hora de finalización real">
             <Input
               type="datetime-local"
               name="ended_at"
@@ -115,6 +130,13 @@ export default async function HearingMinutes({
               defaultValue={
                 minute?.chamber ?? hearing.room ?? caseRecord?.chamber ?? ""
               }
+            />
+          </Field>
+          <Field label="Lugar / sala / enlace" wide>
+            <Input
+              name="location_details"
+              defaultValue={minute?.location_details ?? hearing.virtual_link ?? hearing.room ?? ""}
+              placeholder="Sala física, dirección o enlace de conexión"
             />
           </Field>
           <Field label="Tipo de audiencia">
@@ -148,6 +170,12 @@ export default async function HearingMinutes({
                 minute?.development_markdown ??
                 "# Desarrollo de la audiencia\n\n"
               }
+            />
+          </Field>
+          <Field label="Solicitudes presentadas" wide>
+            <MarkdownEditor
+              name="requests_markdown"
+              initialValue={minute?.requests_markdown ?? ""}
             />
           </Field>
           <Field label="Decisiones adoptadas" wide>
@@ -205,16 +233,18 @@ export default async function HearingMinutes({
           </div>
         </DraftForm>
       )}
-      {minute && (
+      {finalized && (
         <SignaturePanel
           caseId={hearing.case_id}
           targetType="hearing_minute"
           targetId={minute.id}
           destination={`/admin/audiencias/${id}/acta`}
           signingLink={query.signingLink}
+          canManage={canManageSignatures}
+          canSign={canSign}
         />
       )}
-      {minute?.status === "Borrador" && (
+      {minute?.status === "Borrador" && canFinalize && (
         <form
           action={finalizeHearingMinutes}
           className="my-5 rounded-lg border border-amber-200 bg-amber-50 p-4"
@@ -222,18 +252,25 @@ export default async function HearingMinutes({
           <input type="hidden" name="minute_id" value={minute.id} />
           <input type="hidden" name="hearing_id" value={id} />
           <input type="hidden" name="case_id" value={hearing.case_id} />
-          {profile.is_owner && (
-            <label className="mb-3 flex items-center gap-2 text-xs text-amber-950">
-              <input type="checkbox" name="owner_override" value="true" />
-              Excepción SUPER_ADMIN a requisitos de firma (queda auditada)
-            </label>
-          )}
           <ConfirmSubmitButton message="¿Finalizar el acta? Después quedará en solo lectura.">
-            Finalizar / cerrar acta
+            Finalizar acta
           </ConfirmSubmitButton>
         </form>
       )}
-      <HearingMinuteDocument hearing={hearing} minute={minute} caseRecord={caseRecord} signatures={signatures} />
+      {minute?.status === "Borrador" && !canFinalize && <p className="no-print my-5 rounded-lg border bg-slate-50 p-4 text-sm text-muted-foreground">El borrador sólo puede finalizarlo un usuario con permiso para finalizar actas.</p>}
+      {finalized && canFinalize && (
+        <form action={reopenHearingMinutes} className="no-print my-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <input type="hidden" name="minute_id" value={minute.id} />
+          <input type="hidden" name="hearing_id" value={id} />
+          <input type="hidden" name="case_id" value={hearing.case_id} />
+          <p className="mb-3 text-sm text-slate-700">La reapertura devuelve el acta a borrador y queda auditada. {signatures.length ? "Primero debe revocar todas las firmas vigentes." : "Use esta opción sólo para una corrección justificada."}</p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Input name="reason" minLength={10} maxLength={500} required placeholder="Motivo obligatorio de reapertura" disabled={signatures.length > 0} />
+            <ConfirmSubmitButton message="¿Reabrir esta acta para edición?" variant="outline" disabled={signatures.length > 0}>Reabrir acta</ConfirmSubmitButton>
+          </div>
+        </form>
+      )}
+      {minute && <HearingMinuteDocument hearing={hearing} minute={minute} caseRecord={caseRecord} signatures={signatures} />}
     </>
   );
 }

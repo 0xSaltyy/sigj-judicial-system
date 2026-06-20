@@ -5,8 +5,9 @@ import { AdminPageHeader } from "@/components/admin-page";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ClearDrafts } from "@/components/clear-drafts";
 import { HearingForm } from "@/components/hearing-form";
+import { HearingMinuteActions } from "@/components/hearing-minute-actions";
 import { Input } from "@/components/ui/input";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { can, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 export default async function EditHearing({
   params,
   searchParams,
@@ -14,18 +15,22 @@ export default async function EditHearing({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
-  const [{ id }, query, { supabase }] = await Promise.all([
+  const [{ id }, query, { supabase, profile }] = await Promise.all([
     params,
     searchParams,
     requirePermission(PERMISSIONS.hearingsEdit),
   ]);
-  const [{ data: hearing }, { data: cases }] = await Promise.all([
+  const [{ data: hearing }, { data: cases }, { data: minute }, canViewMinutes, canCreateMinutes, canEditMinutes] = await Promise.all([
     supabase.from("hearings").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("cases")
       .select("id,internal_number")
       .order("filed_at", { ascending: false })
       .limit(100),
+    supabase.from("hearing_minutes").select("id,status").eq("hearing_id", id).maybeSingle(),
+    can(profile, "view", "actas", { supabase }),
+    can(profile, "create", "actas", { supabase }),
+    can(profile, "edit", "actas", { supabase }),
   ]);
   if (!hearing) notFound();
   return (
@@ -34,6 +39,7 @@ export default async function EditHearing({
       <AdminPageHeader
         title="Editar audiencia"
         description="Reprogramación, estado, participantes y cancelación."
+        action={<div className="flex flex-wrap gap-2"><HearingMinuteActions hearingId={id} minuteStatus={minute?.status} canView={canViewMinutes} canCreate={canCreateMinutes} canEdit={canEditMinutes} archived={Boolean(hearing.archived_at)} /></div>}
       />
       <ActionMessage error={query.error} success={query.success} />
       <HearingForm cases={cases ?? []} hearing={hearing} />

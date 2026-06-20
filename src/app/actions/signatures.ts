@@ -74,14 +74,21 @@ async function targetExists(
   id: string,
   caseId: string,
 ) {
+  if (type === "hearing_minute") {
+    const { data } = await supabase
+      .from("hearing_minutes")
+      .select("id,status")
+      .eq("id", id)
+      .eq("case_id", caseId)
+      .maybeSingle();
+    return Boolean(data && ["Finalizada", "Firmada"].includes(data.status));
+  }
   const table =
     type === "proceeding"
       ? "proceedings"
-      : type === "hearing_minute"
-        ? "hearing_minutes"
-        : type === "certificate"
-          ? "certificates"
-          : "documents";
+      : type === "certificate"
+        ? "certificates"
+        : "documents";
   const { data } = await supabase
     .from(table)
     .select("id")
@@ -357,7 +364,7 @@ export async function revokeCompletedSignature(formData: FormData) {
       .select("status")
       .eq("id", signature.target_id)
       .single();
-    finalized = data?.status === "Finalizada";
+    finalized = ["Finalizada", "Firmada"].includes(data?.status || "");
   }
   if (finalized && !profile.is_owner)
     redirect(
@@ -397,6 +404,7 @@ export async function revokeCompletedSignature(formData: FormData) {
     },
   });
   revalidatePath(parsed.data.destination);
+  if (signature.target_type === "hearing_minute") revalidatePath("/admin/audiencias");
   redirect(
     `${parsed.data.destination}?success=Firma%20revocada.%20Puede%20solicitar%20una%20nueva`,
   );

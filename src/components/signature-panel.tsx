@@ -23,6 +23,8 @@ export async function SignaturePanel({
   destination,
   signingLink,
   readOnly = false,
+  canManage = true,
+  canSign = true,
 }: {
   caseId: string;
   targetType: TargetType;
@@ -30,6 +32,8 @@ export async function SignaturePanel({
   destination: string;
   signingLink?: string;
   readOnly?: boolean;
+  canManage?: boolean;
+  canSign?: boolean;
 }) {
   const supabase = await createClient();
   if (!supabase) return null;
@@ -37,6 +41,8 @@ export async function SignaturePanel({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+  const allowManage = !readOnly && canManage;
+  const allowSign = !readOnly && canSign;
   const [{ data: requests }, { data: signatures }, { data: users }, { data: currentProfile }] =
     await Promise.all([
       supabase
@@ -56,7 +62,7 @@ export async function SignaturePanel({
         .eq("target_id", targetId)
         .eq("status", "signed")
         .order("signature_order"),
-      readOnly
+      !allowManage
         ? Promise.resolve({ data: [] })
         : supabase
             .from("profiles")
@@ -64,7 +70,7 @@ export async function SignaturePanel({
             .eq("is_active", true)
             .neq("role", "CONSULTA_PUBLICA")
             .order("full_name"),
-      readOnly
+      !allowSign
         ? Promise.resolve({ data: null })
         : supabase
             .from("profiles")
@@ -129,7 +135,7 @@ export async function SignaturePanel({
               {displayTitle && <p className="text-sm text-muted-foreground">{displayTitle}</p>}
               <p className="mt-2 text-xs">{item.purpose} · {formatDate(item.signed_at)}</p>
               <p className="mt-1 font-mono text-[11px] text-slate-500">{item.verification_code}</p>
-              {!readOnly && (
+              {allowManage && (
                 <form action={revokeCompletedSignature} className="mt-3">
                   <input type="hidden" name="signature_id" value={item.id} />
                   <input type="hidden" name="case_id" value={caseId} />
@@ -154,7 +160,7 @@ export async function SignaturePanel({
               </p>
               <p className="mt-2 text-sm">{formalSignerName(request.signer_name) || "Nombre formal pendiente"}{formalSignerTitle(request.signer_title) ? ` · ${formalSignerTitle(request.signer_title)}` : ""}</p>
               <p className="text-xs text-muted-foreground">{request.purpose}</p>
-              {!readOnly && request.status === "pending" && (
+              {allowManage && request.status === "pending" && (
                 <form action={revokeSignatureRequest} className="mt-3">
                   <input type="hidden" name="request_id" value={request.id} />
                   <input type="hidden" name="case_id" value={caseId} />
@@ -165,7 +171,7 @@ export async function SignaturePanel({
             </article>
           ))}
       </div>
-      {!readOnly && pendingForCurrentUser.map((request) => (
+      {allowSign && pendingForCurrentUser.map((request) => (
         <details key={request.id} className="rounded-lg border border-[#c9af70] bg-amber-50/50 p-4" open>
           <summary className="cursor-pointer font-semibold text-[#153553]"><PenLine className="mr-2 inline size-4" />Firmar ahora · {formalSignerName(request.signer_name) || "Firma asignada"}</summary>
           <p className="mt-2 text-sm text-muted-foreground">{formalSignerTitle(request.signer_title)} · {request.purpose}</p>
@@ -181,7 +187,7 @@ export async function SignaturePanel({
           </form>
         </details>
       ))}
-      {!readOnly && (
+      {allowSign && (
         <details className="rounded-lg border bg-white p-4">
           <summary className="cursor-pointer font-semibold text-[#153553]"><PenLine className="mr-2 inline size-4" />Firmar ahora</summary>
           <form action={signNow} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -193,7 +199,7 @@ export async function SignaturePanel({
           </form>
         </details>
       )}
-      {!readOnly && (
+      {allowManage && (
         <details className="rounded-lg border bg-white p-4">
           <summary className="cursor-pointer font-semibold text-[#153553]"><UserRoundCheck className="mr-2 inline size-4" />Asignar firma a usuario interno</summary>
           <form action={assignInternalSignature} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -207,7 +213,7 @@ export async function SignaturePanel({
           </form>
         </details>
       )}
-      {!readOnly && (
+      {allowManage && (
         <details className="rounded-lg border bg-white p-4">
           <summary className="cursor-pointer font-semibold text-[#153553]"><Link2 className="mr-2 inline size-4" />Solicitar firma por enlace</summary>
           <form action={requestSignature} className="mt-4 grid gap-3 sm:grid-cols-2">

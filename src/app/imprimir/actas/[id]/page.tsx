@@ -31,17 +31,15 @@ export default async function HearingMinutePrintPage({
       .eq("hearing_id", id)
       .maybeSingle(),
   ]);
-  if (!hearing) notFound();
+  if (!hearing || !minute || !["Finalizada", "Firmada"].includes(minute.status)) notFound();
   const caseRecord = Array.isArray(hearing.case) ? hearing.case[0] : hearing.case;
-  const { data: signatureRows } = minute
-    ? await supabase
+  const { data: signatureRows } = await supabase
         .from("signatures")
         .select("id,signer_name,signer_title,signature_image_path,purpose,signed_at,verification_code")
         .eq("target_type", "hearing_minute")
         .eq("target_id", minute.id)
         .eq("status", "signed")
-        .order("signature_order")
-    : { data: [] };
+        .order("signature_order");
   const signatures: PrintableSignature[] = await Promise.all(
     (signatureRows ?? []).map(async (signature) => ({
       ...signature,
@@ -53,6 +51,13 @@ export default async function HearingMinutePrintPage({
         ).data?.signedUrl ?? null,
     })),
   );
+  await supabase.rpc("log_security_event", {
+    p_action: "HEARING_MINUTE_PRINT_VIEWED",
+    p_table: "hearing_minutes",
+    p_record_id: minute.id,
+    p_description: "Vista formal de impresión del acta abierta",
+    p_metadata: { hearing_id: id, status: minute.status },
+  });
 
   return (
     <PrintDocumentShell>
