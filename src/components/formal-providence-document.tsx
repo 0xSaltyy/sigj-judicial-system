@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { JudicialPrintFooter, JudicialWatermark } from "@/components/judicial-document";
 import { MarkdownViewer } from "@/components/markdown-editor";
+import { PdfProvidencePreview } from "@/components/pdf-providence-preview";
 import { SignaturePrintBlocks } from "@/components/signature-panel";
 import {
   type DocumentMetadata,
@@ -49,12 +50,14 @@ export function FormalProvidenceDocument({
   caseRecord,
   signatures,
   pdfUrl,
+  combinedPdfUrl,
   publicView = false,
 }: {
   proceeding: ProceedingDocument;
   caseRecord: CaseDocument;
   signatures: PrintableSignature[];
   pdfUrl?: string | null;
+  combinedPdfUrl?: string | null;
   publicView?: boolean;
 }) {
   const metadata = proceeding.document_metadata || {};
@@ -79,6 +82,28 @@ export function FormalProvidenceDocument({
   };
   const body = renderDocumentPlaceholders(proceeding.content_markdown, context);
   const uploadedOnly = proceeding.creation_mode === "pdf";
+  if (uploadedOnly) {
+    return (
+      <div className="space-y-6">
+        <PdfProvidencePreview
+          title={proceeding.title}
+          providenceNumber={proceeding.providence_number}
+          documentType={proceeding.type}
+          documentDate={proceeding.providence_date}
+          originalName={proceeding.pdf_original_name}
+          originalUrl={pdfUrl}
+          combinedUrl={combinedPdfUrl}
+        />
+        {signatures.length > 0 && (
+          <section className="paper judicial-document rounded-lg border bg-white p-8">
+            <h2 className="text-center text-sm font-bold uppercase tracking-wide text-[#153553]">Firmas registradas</h2>
+            <SignaturePrintBlocks signatures={signatures} />
+          </section>
+        )}
+        {publicView && <p className="text-center text-[9px] text-slate-400">Sistema ficticio de demostración académica. No corresponde a una autoridad judicial real ni produce efectos jurídicos.</p>}
+      </div>
+    );
+  }
   return (
     <article className={`paper judicial-document formal-document formal-document--${style} relative mx-auto bg-white`}>
       <JudicialWatermark />
@@ -88,32 +113,18 @@ export function FormalProvidenceDocument({
         caseRecord={caseRecord}
         metadata={metadata}
       />
-      {!uploadedOnly && (
-        <>
-          <h1 className="formal-document-title">{proceeding.title}</h1>
-          <div className="judicial-body mt-8">
-            <MarkdownViewer content={body} variant="document" />
-          </div>
-          {proceeding.creation_mode === "mixed" && pdfUrl && (
-            <section className="no-print mt-8 border-t pt-6">
-              <p className="mb-3 text-sm font-semibold">PDF original adjunto</p>
-              <iframe src={pdfUrl} title={`PDF ${proceeding.providence_number}`} className="h-[680px] w-full rounded border bg-slate-100" />
-            </section>
-          )}
-          {metadata.footnotes && (
-            <aside className="judicial-footnotes">{metadata.footnotes}</aside>
-          )}
-          <SignaturePrintBlocks signatures={signatures} />
-        </>
+      <h1 className="formal-document-title">{proceeding.title}</h1>
+      <div className="judicial-body mt-8">
+        <MarkdownViewer content={body} variant="document" />
+      </div>
+      {proceeding.creation_mode === "mixed" && pdfUrl && (
+        <section className="no-print mt-8 border-t pt-6">
+          <p className="mb-3 text-sm font-semibold">PDF original adjunto</p>
+          <iframe src={pdfUrl} title={`PDF ${proceeding.providence_number}`} className="h-[680px] w-full rounded border bg-slate-100" />
+        </section>
       )}
-      {uploadedOnly && (
-        <UploadedPdfSection
-          proceeding={proceeding}
-          caseRecord={caseRecord}
-          signatures={signatures}
-          pdfUrl={pdfUrl}
-        />
-      )}
+      {metadata.footnotes && <aside className="judicial-footnotes">{metadata.footnotes}</aside>}
+      <SignaturePrintBlocks signatures={signatures} />
       <JudicialPrintFooter
         verificationPath={`/providencias/${proceeding.id}`}
         verification={
@@ -219,42 +230,6 @@ function MetadataTable({ rows }: { rows: Array<[string, string | null | undefine
         </div>
       ))}
     </dl>
-  );
-}
-
-function UploadedPdfSection({
-  proceeding,
-  caseRecord,
-  signatures,
-  pdfUrl,
-}: {
-  proceeding: ProceedingDocument;
-  caseRecord: CaseDocument;
-  signatures: PrintableSignature[];
-  pdfUrl?: string | null;
-}) {
-  return (
-    <section className="mt-10">
-      <h1 className="formal-document-title">HOJA DE FIRMAS DEL DOCUMENTO ADJUNTO</h1>
-      <dl className="formal-attachment-data">
-        <div><dt>Documento</dt><dd>{proceeding.pdf_original_name || proceeding.title}</dd></div>
-        <div><dt>Providencia</dt><dd>{proceeding.providence_number}</dd></div>
-        <div><dt>Radicado</dt><dd>{caseRecord.judicial_number || caseRecord.internal_number || "—"}</dd></div>
-        <div><dt>Fecha</dt><dd>{writtenDate(proceeding.providence_date)}</dd></div>
-      </dl>
-      {pdfUrl && (
-        <div className="no-print mt-7">
-          <iframe src={pdfUrl} title={`PDF firmado ${proceeding.providence_number}`} className="h-[760px] w-full rounded border bg-slate-100" />
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            La vista incluye el PDF original y esta hoja de firmas anexada al final.
-          </p>
-        </div>
-      )}
-      <p className="mt-8 text-center text-sm leading-6">
-        Las siguientes firmas manuscritas fueron capturadas para el documento identificado en esta hoja.
-      </p>
-      <SignaturePrintBlocks signatures={signatures} />
-    </section>
   );
 }
 

@@ -139,7 +139,8 @@ export default async function SharedCasePage({
   const signedProceedings = await Promise.all(
     (proceedings ?? []).map(async (p) => ({
       ...p,
-      pdfUrl: p.pdf_path ? `/api/providencias/${p.id}/pdf?share=${encodeURIComponent(token)}` : null,
+      pdfUrl: p.pdf_path ? `/api/providencias/${p.id}/pdf?share=${encodeURIComponent(token)}&variant=original` : null,
+      combinedPdfUrl: p.pdf_path ? `/api/providencias/${p.id}/pdf?share=${encodeURIComponent(token)}` : null,
     })),
   );
   const hearingIds = (hearings ?? []).map((hearing) => hearing.id);
@@ -259,6 +260,7 @@ export default async function SharedCasePage({
               }}
               signatures={sharedSignatures.filter((signature) => signature.target_type === "proceeding" && signature.target_id === p.id)}
               pdfUrl={p.pdfUrl}
+              combinedPdfUrl={p.combinedPdfUrl}
             />
           ))}
         </Section>

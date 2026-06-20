@@ -3,6 +3,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { appUrl, hashSecret } from "@/lib/secure-tokens";
+import { formalSignerName, formalSignerTitle } from "@/lib/signature-display";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,21 +37,50 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   });
   if (!allowed) return NextResponse.json({ error: "Acceso no autorizado" }, { status: 403 });
 
-  const [{ data: source }, { data: signatures }] = await Promise.all([
-    admin.storage.from("providence-files").download(proceeding.pdf_path),
-    admin.from("signatures").select("id,signer_name,signer_title,signature_image_path,purpose,signed_at,verification_code,signature_order").eq("target_type", "proceeding").eq("target_id", id).eq("status", "signed").order("signature_order"),
-  ]);
+  const { data: source } = await admin.storage
+    .from("providence-files")
+    .download(proceeding.pdf_path);
   if (!source) return NextResponse.json({ error: "No fue posible leer el PDF" }, { status: 502 });
+  const sourceBytes = Buffer.from(await source.arrayBuffer());
+  if (sourceBytes.subarray(0, 5).toString("ascii") !== "%PDF-")
+    return NextResponse.json({ error: "El archivo almacenado no es un PDF válido" }, { status: 422 });
+  const originalName = safeFilename(proceeding.pdf_original_name || proceeding.providence_number) || "providencia.pdf";
+  if (request.nextUrl.searchParams.get("variant") === "original") {
+    const download = request.nextUrl.searchParams.get("download") === "1";
+    return new NextResponse(sourceBytes, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${originalName.endsWith(".pdf") ? originalName : `${originalName}.pdf`}"`,
+        "Cache-Control": "private, no-store, max-age=0",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+
+  const { data: signatures } = await admin
+    .from("signatures")
+    .select("id,signer_name,signer_title,signature_image_path,purpose,signed_at,verification_code,signature_order")
+    .eq("target_type", "proceeding")
+    .eq("target_id", id)
+    .eq("status", "signed")
+    .order("signature_order");
 
   try {
-    const pdf = await PDFDocument.load(await source.arrayBuffer(), { ignoreEncryption: true });
-    if (signatures?.length) {
+    const pdf = await PDFDocument.load(sourceBytes, { ignoreEncryption: true });
+    const printableSignatures = (signatures ?? [])
+      .map((signature) => ({
+        ...signature,
+        signer_name: formalSignerName(signature.signer_name),
+        signer_title: formalSignerTitle(signature.signer_title),
+      }))
+      .filter((signature) => signature.signer_name && signature.signer_title);
+    if (printableSignatures.length) {
       const [regular, bold, emblem] = await Promise.all([
         pdf.embedFont(PDF_SERIF_REGULAR),
         pdf.embedFont(PDF_SERIF_BOLD),
         loadEmblem(pdf),
       ]);
-      const signatureAssets = await Promise.all(signatures.map(async (signature) => {
+      const signatureAssets = await Promise.all(printableSignatures.map(async (signature) => {
         const { data } = await admin.storage.from("signatures").download(signature.signature_image_path);
         return { ...signature, image: data ? await pdf.embedPng(await data.arrayBuffer()) : null };
       }));

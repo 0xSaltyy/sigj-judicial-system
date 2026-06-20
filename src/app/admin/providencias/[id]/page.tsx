@@ -63,7 +63,8 @@ export default async function ProceedingDetail({
     : proceeding.case;
   const dependency = Array.isArray(caseRecord?.dependency) ? caseRecord.dependency[0] : caseRecord?.dependency;
   const formalCaseRecord = { ...caseRecord, dependency_name: dependency?.name || null };
-  const pdfUrl = proceeding.pdf_path ? `/api/providencias/${id}/pdf` : null;
+  const originalPdfUrl = proceeding.pdf_path ? `/api/providencias/${id}/pdf?variant=original` : null;
+  const combinedPdfUrl = proceeding.pdf_path ? `/api/providencias/${id}/pdf` : null;
   const { data: signatureRows } = await supabase
     .from("signatures")
     .select(
@@ -108,9 +109,9 @@ export default async function ProceedingDetail({
               </Link>
             </Button>
             <PrintButton label="Imprimir providencia" />
-            {pdfUrl && (
+            {combinedPdfUrl && (
               <Button asChild>
-                <a href={pdfUrl} target="_blank" rel="noreferrer">
+                <a href={combinedPdfUrl} target="_blank" rel="noreferrer">
                   <FileText className="size-4" /> PDF con hoja de firmas
                 </a>
               </Button>
@@ -119,7 +120,7 @@ export default async function ProceedingDetail({
         }
       />
       <ActionMessage error={query.error} success={query.success} />
-      <FormalProvidenceDocument proceeding={proceeding} caseRecord={formalCaseRecord} signatures={signatures} pdfUrl={pdfUrl} />
+      <FormalProvidenceDocument proceeding={proceeding} caseRecord={formalCaseRecord} signatures={signatures} pdfUrl={originalPdfUrl} combinedPdfUrl={combinedPdfUrl} />
       <div id="firmas">
         <SignaturePanel
           caseId={proceeding.case_id}

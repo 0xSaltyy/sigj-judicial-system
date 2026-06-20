@@ -38,7 +38,8 @@ export default async function ProceedingDetail({
           .order("signature_order"),
       ])
     : [{ data: null }, { data: [] }];
-  const pdfUrl = admin && privateRecord?.pdf_path ? `/api/providencias/${id}/pdf` : null;
+  const originalPdfUrl = admin && privateRecord?.pdf_path ? `/api/providencias/${id}/pdf?variant=original` : null;
+  const combinedPdfUrl = admin && privateRecord?.pdf_path ? `/api/providencias/${id}/pdf` : null;
   const signatures = admin
     ? await Promise.all(
         (signatureRows ?? []).map(async (s) => ({
@@ -56,13 +57,14 @@ export default async function ProceedingDetail({
     <div className="mx-auto max-w-4xl px-4 py-12">
       <div className="mb-5 flex justify-end no-print">
         <PrintButton label="Imprimir providencia" />
-        {pdfUrl && <Button asChild className="ml-2"><a href={pdfUrl} target="_blank" rel="noreferrer">Abrir PDF firmado</a></Button>}
+        {combinedPdfUrl && <Button asChild className="ml-2"><a href={combinedPdfUrl} target="_blank" rel="noreferrer">Abrir PDF firmado</a></Button>}
       </div>
       <FormalProvidenceDocument
         proceeding={{ ...proceeding, pdf_original_name: privateRecord?.pdf_original_name }}
         caseRecord={proceeding}
         signatures={signatures}
-        pdfUrl={pdfUrl}
+        pdfUrl={originalPdfUrl}
+        combinedPdfUrl={combinedPdfUrl}
         publicView
       />
     </div>

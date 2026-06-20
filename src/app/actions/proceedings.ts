@@ -47,7 +47,12 @@ export async function createProceeding(formData: FormData) {
 
   const file = formData.get("pdf_file");
   const pdf = file instanceof File && file.size > 0 ? file : null;
-  if (pdf && (pdf.type !== "application/pdf" || pdf.size > 50 * 1024 * 1024)) fail(errorPath, "Seleccione un PDF válido de hasta 50 MB");
+  if (pdf) {
+    const header = Buffer.from(await pdf.slice(0, 5).arrayBuffer()).toString("ascii");
+    const acceptedType = !pdf.type || pdf.type === "application/pdf";
+    if (!acceptedType || header !== "%PDF-" || pdf.size > 50 * 1024 * 1024)
+      fail(errorPath, "Seleccione un PDF válido de hasta 50 MB");
+  }
   if (!parsed.data.id && parsed.data.creation_mode === "pdf" && !pdf) fail(errorPath, "Seleccione el PDF de la providencia");
   if (parsed.data.creation_mode !== "editor" && !pdf && !existing?.pdf_path) fail(errorPath, "El modo PDF requiere un archivo adjunto");
 

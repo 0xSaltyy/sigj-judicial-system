@@ -14,7 +14,6 @@ import {
   verificationCode,
 } from "@/lib/secure-tokens";
 import { dbUuid } from "@/lib/validation";
-import { APP_ROLES, type AppRole } from "@/lib/user-management";
 
 const targetTypes = z.enum([
   "proceeding",
@@ -22,22 +21,52 @@ const targetTypes = z.enum([
   "certificate",
   "document",
 ]);
-const requestSchema = z.object({
+const requestBase = {
   case_id: dbUuid,
   target_type: targetTypes,
   target_id: dbUuid,
-  signer_type: z.enum(["internal", "role", "dependency", "external"]),
-  signer_user_id: dbUuid.optional().or(z.literal("")),
-  signer_role: z.string().optional(),
-  signer_dependency_id: dbUuid.optional().or(z.literal("")),
   signer_name: z.string().trim().min(2).max(160),
   signer_title: z.string().trim().min(2).max(160),
-  signer_email: z.string().trim().email().optional().or(z.literal("")),
   purpose: z.string().trim().min(2).max(240),
   signature_order: z.coerce.number().int().min(1).max(20),
-  expires_hours: z.coerce.number().int().min(1).max(720),
   destination: z.string().startsWith("/admin/"),
+};
+const requestSchema = z.object({
+  ...requestBase,
+  signer_email: z.string().trim().email().optional().or(z.literal("")),
+  expires_hours: z.coerce.number().int().min(1).max(720),
 });
+const internalAssignmentSchema = z.object({
+  ...requestBase,
+  signer_user_id: dbUuid,
+  expires_hours: z.coerce.number().int().min(1).max(720),
+});
+const directSignatureSchema = z.object({
+  ...requestBase,
+  signature_data: z.string().startsWith("data:image/png;base64,"),
+});
+const pendingInternalSignatureSchema = z.object({
+  request_id: dbUuid,
+  case_id: dbUuid,
+  target_type: targetTypes,
+  target_id: dbUuid,
+  destination: z.string().startsWith("/admin/"),
+  signature_data: z.string().startsWith("data:image/png;base64,"),
+});
+
+type AdminClient = NonNullable<ReturnType<typeof createAdminClient>>;
+type PersistableSignatureRequest = {
+  id: string;
+  case_id: string;
+  target_type: string;
+  target_id: string;
+  signer_user_id: string | null;
+  signer_name: string;
+  signer_title: string;
+  signer_email_masked: string | null;
+  purpose: string;
+  signature_order: number;
+};
 
 async function targetExists(
   supabase: Awaited<ReturnType<typeof requireCaseAccess>>["supabase"],
@@ -83,48 +112,18 @@ export async function requestSignature(formData: FormData) {
     redirect(
       `${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`,
     );
-  if (parsed.data.signer_type === "internal" && !parsed.data.signer_user_id)
-    redirect(`${parsed.data.destination}?error=Seleccione%20el%20usuario%20interno`);
-  if (
-    parsed.data.signer_type === "role" &&
-    !APP_ROLES.includes(parsed.data.signer_role as AppRole)
-  )
-    redirect(`${parsed.data.destination}?error=Seleccione%20un%20rol%20válido`);
-  if (
-    parsed.data.signer_type === "dependency" &&
-    !parsed.data.signer_dependency_id
-  )
-    redirect(`${parsed.data.destination}?error=Seleccione%20la%20dependencia`);
-  let signerName = parsed.data.signer_name;
-  let signerTitle = parsed.data.signer_title;
-  let email = parsed.data.signer_email || null;
-  if (parsed.data.signer_type === "internal" && parsed.data.signer_user_id) {
-    const { data: internalSigner } = await supabase
-      .from("profiles")
-      .select("full_name,position_title,email,is_active")
-      .eq("id", parsed.data.signer_user_id)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (!internalSigner)
-      redirect(`${parsed.data.destination}?error=El%20usuario%20interno%20no%20está%20disponible`);
-    signerName = internalSigner.full_name;
-    signerTitle = internalSigner.position_title || parsed.data.signer_title;
-    email = internalSigner.email;
-  }
+  const email = parsed.data.signer_email || null;
   const { token, hash } = createSecureToken();
   const { error } = await supabase.from("signature_requests").insert({
     case_id: parsed.data.case_id,
     target_type: parsed.data.target_type,
     target_id: parsed.data.target_id,
-    signer_type: parsed.data.signer_type,
-    signer_user_id: parsed.data.signer_user_id || null,
-    signer_role:
-      parsed.data.signer_type === "role"
-        ? parsed.data.signer_role || null
-        : null,
-    signer_dependency_id: parsed.data.signer_dependency_id || null,
-    signer_name: signerName,
-    signer_title: signerTitle,
+    signer_type: "external",
+    signer_user_id: null,
+    signer_role: null,
+    signer_dependency_id: null,
+    signer_name: parsed.data.signer_name,
+    signer_title: parsed.data.signer_title,
     signer_email_masked: maskEmail(email),
     signer_email_hash: email ? hashSecret(email.toLowerCase()) : null,
     purpose: parsed.data.purpose,
@@ -146,13 +145,145 @@ export async function requestSignature(formData: FormData) {
     p_description: "Firma solicitada",
     p_metadata: {
       target_type: parsed.data.target_type,
-      signer_type: parsed.data.signer_type,
+      signer_type: "external",
     },
   });
   revalidatePath(parsed.data.destination);
   redirect(
     `${parsed.data.destination}?success=${encodeURIComponent("Solicitud de firma creada")}&signingLink=${encodeURIComponent(appUrl(`/firmar/${token}`))}`,
   );
+}
+
+export async function assignInternalSignature(formData: FormData) {
+  const parsed = internalAssignmentSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success)
+    redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, [
+    ...RESOURCE_ROLES.proceedingsWrite,
+    ...RESOURCE_ROLES.hearingsWrite,
+  ]);
+  if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
+    redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
+  const admin = createAdminClient();
+  if (!admin)
+    redirect(`${parsed.data.destination}?error=Servicio%20de%20firma%20no%20configurado`);
+  const { data: signer } = await admin
+    .from("profiles")
+    .select("id,email,is_active")
+    .eq("id", parsed.data.signer_user_id)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (!signer)
+    redirect(`${parsed.data.destination}?error=El%20usuario%20interno%20no%20está%20disponible`);
+  const { hash } = createSecureToken();
+  const { error } = await supabase.from("signature_requests").insert({
+    case_id: parsed.data.case_id,
+    target_type: parsed.data.target_type,
+    target_id: parsed.data.target_id,
+    signer_type: "internal",
+    signer_user_id: signer.id,
+    signer_name: parsed.data.signer_name,
+    signer_title: parsed.data.signer_title,
+    signer_email_masked: maskEmail(signer.email),
+    signer_email_hash: signer.email ? hashSecret(signer.email.toLowerCase()) : null,
+    purpose: parsed.data.purpose,
+    signature_order: parsed.data.signature_order,
+    token_hash: hash,
+    expires_at: new Date(Date.now() + parsed.data.expires_hours * 3600000).toISOString(),
+    requested_by: user.id,
+    metadata: { delivery: "internal" },
+  });
+  if (error)
+    redirect(`${parsed.data.destination}?error=${encodeURIComponent(error.message)}`);
+  await supabase.rpc("log_security_event", {
+    p_action: "INTERNAL_SIGNATURE_ASSIGNED",
+    p_table: "signature_requests",
+    p_record_id: parsed.data.target_id,
+    p_description: "Firma asignada a un usuario interno sin generar enlace externo",
+    p_metadata: { target_type: parsed.data.target_type, signer_user_id: signer.id },
+  });
+  revalidatePath(parsed.data.destination);
+  redirect(`${parsed.data.destination}?success=${encodeURIComponent(signer.id === user.id ? "Firma interna lista. Use Firmar ahora" : "Firma interna asignada sin enlace externo")}`);
+}
+
+export async function signNow(formData: FormData) {
+  const parsed = directSignatureSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success)
+    redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+  const { supabase, user, profile } = await requireCaseAccess(parsed.data.case_id, [
+    ...RESOURCE_ROLES.proceedingsWrite,
+    ...RESOURCE_ROLES.hearingsWrite,
+  ]);
+  if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
+    redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
+  const admin = createAdminClient();
+  if (!admin)
+    redirect(`${parsed.data.destination}?error=Servicio%20de%20firma%20no%20configurado`);
+  const { hash } = createSecureToken();
+  const { data: request, error: requestError } = await admin
+    .from("signature_requests")
+    .insert({
+      case_id: parsed.data.case_id,
+      target_type: parsed.data.target_type,
+      target_id: parsed.data.target_id,
+      signer_type: "internal",
+      signer_user_id: user.id,
+      signer_name: parsed.data.signer_name,
+      signer_title: parsed.data.signer_title,
+      signer_email_masked: maskEmail(profile.email),
+      signer_email_hash: hashSecret(profile.email.toLowerCase()),
+      purpose: parsed.data.purpose,
+      signature_order: parsed.data.signature_order,
+      token_hash: hash,
+      expires_at: new Date(Date.now() + 3600000).toISOString(),
+      requested_by: user.id,
+      metadata: { delivery: "internal_direct" },
+    })
+    .select("*")
+    .single();
+  if (requestError || !request)
+    redirect(`${parsed.data.destination}?error=${encodeURIComponent(requestError?.message || "No fue posible preparar la firma")}`);
+  const error = await persistSignature(admin, request, parsed.data.signature_data, "Firma interna capturada directamente", user.id);
+  if (error) {
+    await admin.from("signature_requests").delete().eq("id", request.id).eq("status", "pending");
+    redirect(`${parsed.data.destination}?error=${encodeURIComponent(error)}`);
+  }
+  revalidatePath(parsed.data.destination);
+  redirect(`${parsed.data.destination}?success=Firma%20registrada%20correctamente`);
+}
+
+export async function completeInternalSignature(formData: FormData) {
+  const parsed = pendingInternalSignatureSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success)
+    redirect(`/admin/dashboard?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+  const { supabase, user } = await requireCaseAccess(parsed.data.case_id, [
+    ...RESOURCE_ROLES.proceedingsWrite,
+    ...RESOURCE_ROLES.hearingsWrite,
+  ]);
+  if (!(await targetExists(supabase, parsed.data.target_type, parsed.data.target_id, parsed.data.case_id)))
+    redirect(`${parsed.data.destination}?error=Documento%20de%20firma%20no%20válido`);
+  const admin = createAdminClient();
+  if (!admin)
+    redirect(`${parsed.data.destination}?error=Servicio%20de%20firma%20no%20configurado`);
+  const { data: request } = await admin
+    .from("signature_requests")
+    .select("*")
+    .eq("id", parsed.data.request_id)
+    .eq("case_id", parsed.data.case_id)
+    .eq("target_type", parsed.data.target_type)
+    .eq("target_id", parsed.data.target_id)
+    .eq("signer_type", "internal")
+    .eq("signer_user_id", user.id)
+    .eq("status", "pending")
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (!request || new Date(request.expires_at) <= new Date())
+    redirect(`${parsed.data.destination}?error=La%20solicitud%20interna%20no%20está%20vigente`);
+  const error = await persistSignature(admin, request, parsed.data.signature_data, "Firma interna capturada directamente", user.id);
+  if (error)
+    redirect(`${parsed.data.destination}?error=${encodeURIComponent(error)}`);
+  revalidatePath(parsed.data.destination);
+  redirect(`${parsed.data.destination}?success=Firma%20registrada%20correctamente`);
 }
 
 export async function revokeSignatureRequest(formData: FormData) {
@@ -311,6 +442,72 @@ export async function declineSignature(formData: FormData) {
   redirect(`/firmar/${encodeURIComponent(token)}?success=Solicitud%20rechazada`);
 }
 
+async function persistSignature(
+  admin: AdminClient,
+  request: PersistableSignatureRequest,
+  signatureData: string,
+  description: string,
+  actorId?: string,
+) {
+  const bytes = Buffer.from(signatureData.split(",")[1] || "", "base64");
+  if (!isValidSignaturePng(bytes)) return "Firma no válida";
+  const signatureId = crypto.randomUUID();
+  const path = `${request.case_id}/${request.target_type}/${request.target_id}/${signatureId}.png`;
+  const { error: uploadError } = await admin.storage
+    .from("signatures")
+    .upload(path, bytes, { contentType: "image/png", upsert: false });
+  if (uploadError) return uploadError.message;
+  const requestHeaders = await headers();
+  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const { error: signatureError } = await admin.from("signatures").insert({
+    id: signatureId,
+    request_id: request.id,
+    case_id: request.case_id,
+    target_type: request.target_type,
+    target_id: request.target_id,
+    signer_user_id: request.signer_user_id,
+    signer_name: request.signer_name,
+    signer_title: request.signer_title,
+    signer_email_masked: request.signer_email_masked,
+    signature_image_path: path,
+    purpose: request.purpose,
+    signature_order: request.signature_order,
+    ip_hash: ip ? hashSecret(ip) : null,
+    user_agent: requestHeaders.get("user-agent")?.slice(0, 500),
+    verification_code: verificationCode(),
+  });
+  if (signatureError) {
+    await admin.storage.from("signatures").remove([path]);
+    return signatureError.message;
+  }
+  const { data: completed, error: requestError } = await admin
+    .from("signature_requests")
+    .update({ status: "signed", signed_at: new Date().toISOString() })
+    .eq("id", request.id)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+  if (requestError || !completed) {
+    await admin.from("signatures").delete().eq("id", signatureId);
+    await admin.storage.from("signatures").remove([path]);
+    return requestError?.message || "La solicitud ya no está vigente";
+  }
+  await admin.from("audit_logs").insert({
+    ...(actorId ? { user_id: actorId } : {}),
+    action: "SIGNATURE_COMPLETED",
+    table_name: "signatures",
+    record_id: signatureId,
+    description,
+    metadata: {
+      target_type: request.target_type,
+      target_id: request.target_id,
+      request_id: request.id,
+      delivery: actorId ? "internal" : "external_link",
+    },
+  });
+  return null;
+}
+
 export async function completeSignature(formData: FormData) {
   const parsed = z
     .object({
@@ -343,63 +540,14 @@ export async function completeSignature(formData: FormData) {
     redirect(
       `/firmar/${encodeURIComponent(token)}?error=El%20enlace%20no%20es%20válido%20o%20venció`,
     );
-  const bytes = Buffer.from(parsed.data.signature_data.split(",")[1], "base64");
-  if (!isValidSignaturePng(bytes))
-    redirect(`/firmar/${encodeURIComponent(token)}?error=Firma%20no%20válida`);
-  const signatureId = crypto.randomUUID();
-  const path = `${request.case_id}/${request.target_type}/${request.target_id}/${signatureId}.png`;
-  const { error: uploadError } = await admin.storage
-    .from("signatures")
-    .upload(path, bytes, { contentType: "image/png", upsert: false });
-  if (uploadError)
-    redirect(
-      `/firmar/${encodeURIComponent(token)}?error=${encodeURIComponent(uploadError.message)}`,
-    );
-  const requestHeaders = await headers();
-  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const { error } = await admin
-    .from("signatures")
-    .insert({
-      id: signatureId,
-      request_id: request.id,
-      case_id: request.case_id,
-      target_type: request.target_type,
-      target_id: request.target_id,
-      signer_user_id: request.signer_user_id,
-      signer_name: request.signer_name,
-      signer_title: request.signer_title,
-      signer_email_masked: request.signer_email_masked,
-      signature_image_path: path,
-      purpose: request.purpose,
-      signature_order: request.signature_order,
-      ip_hash: ip ? hashSecret(ip) : null,
-      user_agent: requestHeaders.get("user-agent")?.slice(0, 500),
-      verification_code: verificationCode(),
-    });
-  if (error) {
-    await admin.storage.from("signatures").remove([path]);
-    redirect(
-      `/firmar/${encodeURIComponent(token)}?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-  await admin
-    .from("signature_requests")
-    .update({ status: "signed", signed_at: new Date().toISOString() })
-    .eq("id", request.id)
-    .eq("status", "pending");
-  await admin
-    .from("audit_logs")
-    .insert({
-      action: "SIGNATURE_COMPLETED",
-      table_name: "signatures",
-      record_id: signatureId,
-      description: "Firma capturada mediante enlace acotado",
-      metadata: {
-        target_type: request.target_type,
-        target_id: request.target_id,
-        request_id: request.id,
-      },
-    });
+  const error = await persistSignature(
+    admin,
+    request,
+    parsed.data.signature_data,
+    "Firma capturada mediante enlace acotado",
+  );
+  if (error)
+    redirect(`/firmar/${encodeURIComponent(token)}?error=${encodeURIComponent(error)}`);
   redirect(
     `/firmar/${encodeURIComponent(token)}?success=Firma%20registrada%20correctamente`,
   );
