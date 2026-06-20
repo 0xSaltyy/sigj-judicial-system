@@ -4,13 +4,16 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Eraser, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+type Point = { x: number; y: number };
+
 export function SignaturePad({ name = "signature_data" }: { name?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [value, setValue] = useState("");
   const helpId = useId();
   const drawing = useRef(false);
   const hasInk = useRef(false);
-  const lastPoint = useRef<{ x: number; y: number } | null>(null);
+  const strokes = useRef<Point[][]>([]);
+  const activeStroke = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,10 +32,13 @@ export function SignaturePad({ name = "signature_data" }: { name?: string }) {
       if (context) {
         context.lineCap = "round";
         context.lineJoin = "round";
+        context.lineWidth = 2.4;
         context.strokeStyle = "#102d49";
+        context.fillStyle = "#102d49";
       }
       hasInk.current = false;
-      lastPoint.current = null;
+      strokes.current = [];
+      activeStroke.current = null;
       setValue("");
     }
     prepareCanvas();
@@ -46,43 +52,70 @@ export function SignaturePad({ name = "signature_data" }: { name?: string }) {
     return { x: clientX - box.left, y: clientY - box.top };
   }
 
+  function renderStrokes(canvas: HTMLCanvasElement) {
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = 2.4;
+    context.strokeStyle = "#102d49";
+    context.fillStyle = "#102d49";
+
+    for (const stroke of strokes.current) {
+      if (stroke.length === 1) {
+        context.beginPath();
+        context.arc(stroke[0].x, stroke[0].y, context.lineWidth / 2, 0, Math.PI * 2);
+        context.fill();
+        continue;
+      }
+      if (stroke.length < 2) continue;
+
+      context.beginPath();
+      context.moveTo(stroke[0].x, stroke[0].y);
+      for (let index = 1; index < stroke.length - 1; index += 1) {
+        const current = stroke[index];
+        const next = stroke[index + 1];
+        const midpoint = {
+          x: (current.x + next.x) / 2,
+          y: (current.y + next.y) / 2,
+        };
+        context.quadraticCurveTo(current.x, current.y, midpoint.x, midpoint.y);
+      }
+      const last = stroke[stroke.length - 1];
+      context.lineTo(last.x, last.y);
+      context.stroke();
+    }
+  }
+
+  function appendPoint(canvas: HTMLCanvasElement, next: Point) {
+    const strokeIndex = activeStroke.current;
+    if (strokeIndex === null) return;
+    const stroke = strokes.current[strokeIndex];
+    const previous = stroke[stroke.length - 1];
+    if (previous && Math.hypot(next.x - previous.x, next.y - previous.y) < 0.15) return;
+    stroke.push(next);
+    if (stroke.length > 1) hasInk.current = true;
+    renderStrokes(canvas);
+  }
+
   function start(event: React.PointerEvent<HTMLCanvasElement>) {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     drawing.current = true;
-    const context = event.currentTarget.getContext("2d");
     const p = point(event.currentTarget, event.clientX, event.clientY);
-    lastPoint.current = p;
-    context?.beginPath();
-    context?.moveTo(p.x, p.y);
+    strokes.current.push([p]);
+    activeStroke.current = strokes.current.length - 1;
+    renderStrokes(event.currentTarget);
   }
 
   function move(event: React.PointerEvent<HTMLCanvasElement>) {
     if (!drawing.current) return;
     event.preventDefault();
     const canvas = event.currentTarget;
-    const context = event.currentTarget.getContext("2d");
-    if (!context) return;
     const coalesced = event.nativeEvent.getCoalescedEvents?.() ?? [event.nativeEvent];
     for (const sample of coalesced) {
-      const current = point(canvas, sample.clientX, sample.clientY);
-      const previous = lastPoint.current;
-      if (!previous) {
-        lastPoint.current = current;
-        continue;
-      }
-      const midpoint = {
-        x: (previous.x + current.x) / 2,
-        y: (previous.y + current.y) / 2,
-      };
-      const pressure = sample.pressure > 0 ? sample.pressure : 0.5;
-      context.lineWidth = 1.5 + pressure * 1.8;
-      context.beginPath();
-      context.moveTo(previous.x, previous.y);
-      context.quadraticCurveTo(previous.x, previous.y, midpoint.x, midpoint.y);
-      context.stroke();
-      lastPoint.current = current;
-      hasInk.current = true;
+      appendPoint(canvas, point(canvas, sample.clientX, sample.clientY));
     }
   }
 
@@ -92,7 +125,11 @@ export function SignaturePad({ name = "signature_data" }: { name?: string }) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     drawing.current = false;
-    lastPoint.current = null;
+    appendPoint(
+      event.currentTarget,
+      point(event.currentTarget, event.clientX, event.clientY),
+    );
+    activeStroke.current = null;
     setValue(hasInk.current ? canvasRef.current.toDataURL("image/png") : "");
   }
 
@@ -101,7 +138,8 @@ export function SignaturePad({ name = "signature_data" }: { name?: string }) {
     const context = canvas?.getContext("2d");
     if (canvas && context) context.clearRect(0, 0, canvas.width, canvas.height);
     hasInk.current = false;
-    lastPoint.current = null;
+    strokes.current = [];
+    activeStroke.current = null;
     setValue("");
   }
 
