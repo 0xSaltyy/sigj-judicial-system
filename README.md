@@ -95,7 +95,7 @@ En **Supabase SQL Editor**, ejecute con el correo privado real:
 ```sql
 select public.bootstrap_system_owner(
   'owner@example.com',
-  'Propietario del Sistema'
+  'Lilith D''Amico'
 );
 ```
 

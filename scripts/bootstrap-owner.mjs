@@ -12,7 +12,7 @@ if (!url || !serviceRoleKey || !ownerEmail) {
 const supabase = createClient(url, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 const { data, error } = await supabase.rpc("bootstrap_system_owner", {
   p_email: ownerEmail,
-  p_display_name: "Propietario del Sistema",
+  p_display_name: "Lilith D'Amico",
 });
 
 if (error) {

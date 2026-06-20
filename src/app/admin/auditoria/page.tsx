@@ -16,7 +16,7 @@ export default async function AuditPage() {
     supabase.from("audit_logs").select("id,user_id,target_user_id,action,table_name,description,old_values,new_values,created_at").order("created_at", { ascending: false }).limit(250),
     supabase.from("profiles").select("id,full_name,is_owner"),
   ]);
-  const names = new Map((profiles ?? []).map((profile) => [profile.id, profile.is_owner ? "Propietario del Sistema" : profile.full_name]));
+  const names = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
   return <>
     <AdminPageHeader title="Auditoría del sistema" description="Registro privado e inmutable de acciones sensibles y cambios de usuarios. Acceso exclusivo del propietario." />
     {error && <p className="mb-5 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">No fue posible cargar la auditoría: {error.message}</p>}

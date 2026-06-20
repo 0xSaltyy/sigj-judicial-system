@@ -8,7 +8,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ? await supabase.from("dependencies").select("name").eq("id", profile.dependency_id).maybeSingle()
     : { data: null };
   const viewer = {
-    fullName: profile.is_owner ? "Propietario del Sistema" : profile.full_name,
+    fullName: profile.full_name,
     role: profile.role,
     institution: institution?.name ?? "Palacio Judicial",
     isOwner: profile.is_owner,

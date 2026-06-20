@@ -370,7 +370,7 @@ create trigger audit_notifications after insert or update or delete on public.no
 create trigger audit_certificates after insert or update or delete on public.certificates for each row execute function public.audit_change();
 
 -- Bootstrap idempotente: solo service_role/SQL Editor y nunca permite transferir la propiedad.
-create or replace function public.bootstrap_system_owner(p_email text, p_display_name text default 'Propietario del Sistema')
+create or replace function public.bootstrap_system_owner(p_email text, p_display_name text default 'Lilith D''Amico')
 returns uuid language plpgsql security definer set search_path = public, auth as $$
 declare target_id uuid; existing_owner uuid;
 begin

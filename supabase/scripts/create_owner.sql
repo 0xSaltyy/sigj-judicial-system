@@ -2,5 +2,5 @@
 -- Sustituya el placeholder en la sesión privada; no publique el correo real en el repositorio.
 select public.bootstrap_system_owner(
   'owner@example.com',
-  'Propietario del Sistema'
+  'Lilith D''Amico'
 );
