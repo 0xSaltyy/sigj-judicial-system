@@ -45,13 +45,37 @@
   .mono-number { font-family: "Geist Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 }
 
+.formal-document { width: min(100%, 210mm); min-height: 297mm; padding: 22mm 20mm 18mm; color: #111; font-family: Georgia, "Times New Roman", serif; font-size: 11.5pt; line-height: 1.55; }
+.formal-header { text-align: center; }
+.formal-header--csj { padding-inline: 8mm; }
+.formal-kicker { font-weight: 800; letter-spacing: .025em; text-transform: uppercase; }
+.formal-room { margin-top: .15rem; font-weight: 700; text-transform: uppercase; }
+.formal-document-title { margin: 2rem auto 0; max-width: 170mm; text-align: center; font-size: 13pt; font-weight: 800; line-height: 1.45; text-transform: uppercase; }
+.formal-metadata-table { margin-top: 1.8rem; border: 1px solid #111; text-align: left; font-size: 10.5pt; }
+.formal-metadata-table > div { display: grid; grid-template-columns: minmax(42mm, 36%) 1fr; border-bottom: 1px solid #111; }
+.formal-metadata-table > div:last-child { border-bottom: 0; }
+.formal-metadata-table dt, .formal-metadata-table dd { padding: .38rem .55rem; }
+.formal-metadata-table dt { border-right: 1px solid #111; font-weight: 800; }
+.formal-metadata-table dd { margin: 0; }
+.judicial-rich-text p { text-align: justify; text-justify: inter-word; }
+.judicial-rich-text h1, .judicial-rich-text h2, .judicial-rich-text h3 { text-transform: uppercase; }
+.judicial-rich-text strong { font-weight: 800; }
+.judicial-rich-text li { margin-block: .35rem; text-align: justify; }
+.judicial-rich-text blockquote { margin: 1rem 0 1rem 1.2cm; border-left: 2px solid #777; padding-left: .8rem; font-size: 10.5pt; }
+.judicial-footnotes { margin-top: 2rem; border-top: 1px solid #555; padding-top: .5rem; font-size: 8.5pt; line-height: 1.35; white-space: pre-line; }
+.formal-attachment-data { margin-top: 1.8rem; border-block: 1px solid #777; padding-block: .65rem; font-size: 10pt; }
+.formal-attachment-data > div { display: grid; grid-template-columns: 38mm 1fr; gap: .7rem; }
+.formal-attachment-data dt { font-weight: 700; }
+.formal-attachment-data dd { margin: 0; overflow-wrap: anywhere; }
+
 @media print {
-  @page { size: A4; margin: 16mm 15mm 18mm; }
+  @page { size: auto; margin: 19mm 20mm 18mm; }
   .no-print { display: none !important; }
   html, body { background: white !important; color: #111827 !important; font-size: 10.5pt; }
   body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .paper, .print-document, .judicial-document { position: relative; width: 100% !important; max-width: none !important; min-height: auto !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; overflow: visible !important; }
   .judicial-document { font-family: Georgia, "Times New Roman", serif; line-height: 1.55; }
+  .formal-document { font-size: 11pt; }
   .judicial-document .mono-number, .judicial-header { font-family: Arial, Helvetica, sans-serif; }
   .judicial-header { break-inside: avoid; }
   .judicial-metadata > div { break-inside: avoid; }

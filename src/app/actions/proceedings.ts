@@ -4,16 +4,29 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCaseAccess, RESOURCE_ROLES } from "@/lib/auth/permissions";
+import { TEMPLATE_STYLES } from "@/lib/document-templates";
 import { dbUuid } from "@/lib/validation";
 
 const schema = z.object({
   id: dbUuid.optional().or(z.literal("")), case_id: dbUuid, type: z.string().trim().min(2),
+  custom_type: z.string().trim().max(160).optional(),
   title: z.string().trim().max(180), chamber: z.string().trim().max(180), content_markdown: z.string().trim().max(100000),
   status: z.enum(["Borrador", "En revisión"]), visibility: z.enum(["public", "internal", "reserved"]),
   creation_mode: z.enum(["editor", "pdf", "mixed"]), providence_date: z.string().optional(), requires_signature: z.string().optional(),
+  template_key: z.string().trim().max(100).optional(), template_style: z.enum(TEMPLATE_STYLES),
+  custom_template_name: z.string().trim().max(160).optional(),
+  document_code: z.string().trim().max(80).optional(), act_number: z.string().trim().max(80).optional(),
+  city: z.string().trim().max(120).optional(), room_name: z.string().trim().max(180).optional(),
+  rapporteur_name: z.string().trim().max(180).optional(), secretary_name: z.string().trim().max(180).optional(),
+  claimant_name: z.string().trim().max(240).optional(), defendant_name: z.string().trim().max(240).optional(),
+  linked_party_name: z.string().trim().max(240).optional(), subject: z.string().trim().max(300).optional(),
+  footnotes: z.string().trim().max(5000).optional(),
 }).superRefine((value, context) => {
+  if (value.type === "__other" && (!value.custom_type || value.custom_type.length < 2)) context.addIssue({ code: "custom", path: ["custom_type"], message: "Especifique el tipo de providencia" });
   if (value.status !== "Borrador" && (value.title.length < 3 || value.chamber.length < 2)) context.addIssue({ code: "custom", message: "Título y despacho son obligatorios para enviar a revisión" });
   if (value.creation_mode === "editor" && value.content_markdown.length < 20) context.addIssue({ code: "custom", path: ["content_markdown"], message: "La providencia redactada debe tener al menos 20 caracteres" });
+  if (value.creation_mode !== "pdf" && !value.template_key) context.addIssue({ code: "custom", path: ["template_key"], message: "Seleccione una plantilla de contenido" });
+  if (value.creation_mode !== "pdf" && value.template_key === "custom" && (!value.custom_template_name || value.custom_template_name.length < 2)) context.addIssue({ code: "custom", path: ["custom_template_name"], message: "Especifique el nombre de la plantilla personalizada" });
 });
 
 function fail(path: string, message: string): never { redirect(`${path}?error=${encodeURIComponent(message)}`); }
@@ -39,6 +52,7 @@ export async function createProceeding(formData: FormData) {
   if (parsed.data.creation_mode !== "editor" && !pdf && !existing?.pdf_path) fail(errorPath, "El modo PDF requiere un archivo adjunto");
 
   const id = parsed.data.id || crypto.randomUUID();
+  const documentType = parsed.data.type === "__other" ? parsed.data.custom_type! : parsed.data.type;
   let newPath: string | null = null;
   if (pdf) {
     const safeName = pdf.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -47,16 +61,32 @@ export async function createProceeding(formData: FormData) {
     if (error) fail(errorPath, error.message);
   }
   const payload = {
-    case_id: parsed.data.case_id, type: parsed.data.type, title: parsed.data.title || "Providencia sin título",
+    case_id: parsed.data.case_id, type: documentType, title: parsed.data.title || "Providencia sin título",
     chamber: parsed.data.chamber || "Despacho por definir", content_markdown: parsed.data.content_markdown || "# Documento PDF adjunto\n",
     status: parsed.data.status, visibility: parsed.data.visibility, creation_mode: parsed.data.creation_mode,
     providence_date: parsed.data.providence_date || new Date().toISOString().slice(0, 10), requires_signature: parsed.data.requires_signature === "true",
+    template_key: parsed.data.creation_mode === "pdf" ? null : parsed.data.template_key || "blank",
+    template_style: parsed.data.template_style,
+    document_metadata: {
+      customTemplateName: parsed.data.custom_template_name || null,
+      documentCode: parsed.data.document_code || null,
+      actNumber: parsed.data.act_number || null,
+      city: parsed.data.city || null,
+      roomName: parsed.data.room_name || null,
+      rapporteurName: parsed.data.rapporteur_name || null,
+      secretaryName: parsed.data.secretary_name || null,
+      claimantName: parsed.data.claimant_name || null,
+      defendantName: parsed.data.defendant_name || null,
+      linkedPartyName: parsed.data.linked_party_name || null,
+      subject: parsed.data.subject || null,
+      footnotes: parsed.data.footnotes || null,
+    },
     ...(pdf ? { pdf_path: newPath, pdf_original_name: pdf.name, pdf_size_bytes: pdf.size } : {}),
   };
   let result;
   if (parsed.data.id) result = await supabase.from("proceedings").update(payload).eq("id", id).eq("case_id", parsed.data.case_id).is("archived_at", null).select("id").single();
   else {
-    const { data: number, error: numberError } = await supabase.rpc("generate_providence_number", { p_prefix: parsed.data.type.slice(0, 3).toUpperCase() });
+    const { data: number, error: numberError } = await supabase.rpc("generate_providence_number", { p_prefix: documentType.slice(0, 3).toUpperCase() });
     if (numberError || !number) { if (newPath) await supabase.storage.from("providence-files").remove([newPath]); fail(errorPath, numberError?.message ?? "No fue posible generar el número"); }
     result = await supabase.from("proceedings").insert({ id, ...payload, providence_number: number, judge_id: user.id, created_by: user.id }).select("id").single();
   }

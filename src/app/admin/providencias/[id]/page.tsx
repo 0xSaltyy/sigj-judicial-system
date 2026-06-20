@@ -6,18 +6,12 @@ import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ClearDrafts } from "@/components/clear-drafts";
-import {
-  JudicialDocumentHeader,
-  JudicialPrintFooter,
-  JudicialWatermark,
-} from "@/components/judicial-document";
+import { FormalProvidenceDocument } from "@/components/formal-providence-document";
 import { LifecycleActions } from "@/components/lifecycle-actions";
-import { MarkdownViewer } from "@/components/markdown-editor";
 import { PrintButton } from "@/components/print-button";
 import { ShareAccessForm } from "@/components/share-access-form";
 import {
   SignaturePanel,
-  SignaturePrintBlocks,
 } from "@/components/signature-panel";
 import { Button } from "@/components/ui/button";
 import { requireInternalUser } from "@/lib/auth/authorization";
@@ -44,7 +38,7 @@ export default async function ProceedingDetail({
       supabase
         .from("proceedings")
         .select(
-          "*,case:cases(internal_number,judicial_number,authority_type,confidentiality_level)",
+          "*,case:cases(internal_number,judicial_number,authority_type,chamber,claimant_name,defendant_name,municipality,confidentiality_level,dependency:dependencies(name))",
         )
         .eq("id", id)
         .maybeSingle(),
@@ -67,13 +61,9 @@ export default async function ProceedingDetail({
   const caseRecord = Array.isArray(proceeding.case)
     ? proceeding.case[0]
     : proceeding.case;
-  const pdfUrl = proceeding.pdf_path
-    ? ((
-        await supabase.storage
-          .from("providence-files")
-          .createSignedUrl(proceeding.pdf_path, 900)
-      ).data?.signedUrl ?? null)
-    : null;
+  const dependency = Array.isArray(caseRecord?.dependency) ? caseRecord.dependency[0] : caseRecord?.dependency;
+  const formalCaseRecord = { ...caseRecord, dependency_name: dependency?.name || null };
+  const pdfUrl = proceeding.pdf_path ? `/api/providencias/${id}/pdf` : null;
   const { data: signatureRows } = await supabase
     .from("signatures")
     .select(
@@ -118,61 +108,18 @@ export default async function ProceedingDetail({
               </Link>
             </Button>
             <PrintButton label="Imprimir providencia" />
+            {pdfUrl && (
+              <Button asChild>
+                <a href={pdfUrl} target="_blank" rel="noreferrer">
+                  <FileText className="size-4" /> PDF con hoja de firmas
+                </a>
+              </Button>
+            )}
           </div>
         }
       />
       <ActionMessage error={query.error} success={query.success} />
-      <article className="print-document judicial-document relative rounded-lg border bg-white p-8">
-        <JudicialWatermark />
-        <JudicialDocumentHeader
-          documentType={proceeding.type}
-          title={proceeding.title}
-          dependency={proceeding.chamber}
-          metadata={[
-            { label: "Providencia", value: proceeding.providence_number },
-            { label: "Radicado", value: caseRecord?.judicial_number },
-            { label: "Fecha", value: proceeding.providence_date },
-            { label: "Estado", value: proceeding.status },
-            { label: "Reserva", value: caseRecord?.confidentiality_level },
-            {
-              label: "Firma requerida",
-              value: proceeding.requires_signature ? "Sí" : "No",
-            },
-          ]}
-        />
-        {pdfUrl && (
-          <section className="mt-8 no-print">
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#153553]">
-              <FileText className="size-4" />
-              PDF original adjunto · Las firmas capturadas por SIGJ aparecen
-              debajo.
-            </div>
-            <iframe
-              src={pdfUrl}
-              title={`PDF ${proceeding.providence_number}`}
-              className="h-[760px] w-full rounded-lg border bg-slate-100"
-            />
-          </section>
-        )}
-        {proceeding.creation_mode !== "pdf" && (
-          <div className="mt-8">
-            <MarkdownViewer content={proceeding.content_markdown} />
-          </div>
-        )}
-        {proceeding.creation_mode === "pdf" && (
-          <section className="mt-8 hidden print:block">
-            <p className="rounded border p-4 text-sm">
-              La providencia original corresponde al PDF adjunto “
-              {proceeding.pdf_original_name}”. Esta hoja contiene sus metadatos
-              y firmas capturadas por el sistema.
-            </p>
-          </section>
-        )}
-        <SignaturePrintBlocks signatures={signatures} />
-        <JudicialPrintFooter
-          verification={`Providencia ${proceeding.providence_number}. Verifique su publicación en el portal institucional.`}
-        />
-      </article>
+      <FormalProvidenceDocument proceeding={proceeding} caseRecord={formalCaseRecord} signatures={signatures} pdfUrl={pdfUrl} />
       <div id="firmas">
         <SignaturePanel
           caseId={proceeding.case_id}

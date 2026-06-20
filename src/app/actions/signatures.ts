@@ -344,7 +344,7 @@ export async function completeSignature(formData: FormData) {
       `/firmar/${encodeURIComponent(token)}?error=El%20enlace%20no%20es%20válido%20o%20venció`,
     );
   const bytes = Buffer.from(parsed.data.signature_data.split(",")[1], "base64");
-  if (!bytes.length || bytes.length > 2 * 1024 * 1024)
+  if (!isValidSignaturePng(bytes))
     redirect(`/firmar/${encodeURIComponent(token)}?error=Firma%20no%20válida`);
   const signatureId = crypto.randomUUID();
   const path = `${request.case_id}/${request.target_type}/${request.target_id}/${signatureId}.png`;
@@ -403,4 +403,14 @@ export async function completeSignature(formData: FormData) {
   redirect(
     `/firmar/${encodeURIComponent(token)}?success=Firma%20registrada%20correctamente`,
   );
+}
+
+function isValidSignaturePng(bytes: Buffer) {
+  if (bytes.length < 24 || bytes.length > 2 * 1024 * 1024) return false;
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (!signature.every((value, index) => bytes[index] === value)) return false;
+  if (bytes.toString("ascii", 12, 16) !== "IHDR") return false;
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  return width >= 200 && width <= 5000 && height >= 80 && height <= 3000;
 }

@@ -329,6 +329,11 @@ export function SignaturePrintBlocks({
   }>;
 }) {
   if (!signatures.length) return null;
+  const timestamp = (value: string) => new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(new Date(value));
   return (
     <section className="judicial-signature mt-14 grid gap-10 text-center sm:grid-cols-2">
       {signatures.map((item) => (
@@ -349,10 +354,10 @@ export function SignaturePrintBlocks({
             </p>
             <p className="text-xs">{item.signer_title}</p>
             <p className="mt-1 text-[10px] text-slate-500">
-              {item.purpose} · {formatDate(item.signed_at)}
+              {item.purpose} · {timestamp(item.signed_at)}
             </p>
             <p className="font-mono text-[9px] text-slate-500">
-              {item.verification_code}
+              Código de verificación: {item.verification_code}
             </p>
           </div>
         </div>

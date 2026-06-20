@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { LockKeyhole } from "lucide-react";
+import { FormalProvidenceDocument } from "@/components/formal-providence-document";
 import { InstitutionalMark } from "@/components/institutional-mark";
 import { MarkdownViewer } from "@/components/markdown-editor";
 import { SignaturePrintBlocks } from "@/components/signature-panel";
@@ -72,7 +73,7 @@ export default async function SharedCasePage({
     admin!
       .from("cases")
       .select(
-        "id,internal_number,judicial_number,title,chamber,process_type,process_subtype,status,summary,filed_at,confidentiality_level",
+        "id,internal_number,judicial_number,title,chamber,authority_type,claimant_name,defendant_name,municipality,process_type,process_subtype,status,summary,filed_at,confidentiality_level,dependency:dependencies(name)",
       )
       .eq("id", link.case_id)
       .is("archived_at", null)
@@ -101,7 +102,7 @@ export default async function SharedCasePage({
       ? admin!
           .from("proceedings")
           .select(
-            "id,providence_number,title,type,chamber,content_markdown,status,visibility,creation_mode,pdf_path,published_at",
+            "id,providence_number,title,type,chamber,content_markdown,status,visibility,creation_mode,pdf_path,pdf_original_name,published_at,providence_date,template_style,template_key,document_metadata",
           )
           .eq("case_id", link.case_id)
           .is("archived_at", null)
@@ -138,13 +139,7 @@ export default async function SharedCasePage({
   const signedProceedings = await Promise.all(
     (proceedings ?? []).map(async (p) => ({
       ...p,
-      pdfUrl: p.pdf_path
-        ? (
-            await admin!.storage
-              .from("providence-files")
-              .createSignedUrl(p.pdf_path, 600)
-          ).data?.signedUrl
-        : null,
+      pdfUrl: p.pdf_path ? `/api/providencias/${p.id}/pdf?share=${encodeURIComponent(token)}` : null,
     })),
   );
   const hearingIds = (hearings ?? []).map((hearing) => hearing.id);
@@ -255,26 +250,16 @@ export default async function SharedCasePage({
       {link.include_proceedings && (
         <Section title="Providencias">
           {signedProceedings.map((p) => (
-            <article key={p.id} className="rounded-lg border p-4">
-              <p className="font-semibold">
-                {p.providence_number} · {p.title}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {p.type} · {p.status}
-              </p>
-              {p.pdfUrl ? (
-                <iframe
-                  src={p.pdfUrl}
-                  title={p.title}
-                  className="mt-4 h-[560px] w-full rounded border"
-                />
-              ) : (
-                <div className="mt-4">
-                  <MarkdownViewer content={p.content_markdown} />
-                </div>
-              )}
-              <SignaturePrintBlocks signatures={sharedSignatures.filter((signature) => signature.target_type === "proceeding" && signature.target_id === p.id)} />
-            </article>
+            <FormalProvidenceDocument
+              key={p.id}
+              proceeding={p}
+              caseRecord={{
+                ...item,
+                dependency_name: item.dependency?.[0]?.name,
+              }}
+              signatures={sharedSignatures.filter((signature) => signature.target_type === "proceeding" && signature.target_id === p.id)}
+              pdfUrl={p.pdfUrl}
+            />
           ))}
         </Section>
       )}
