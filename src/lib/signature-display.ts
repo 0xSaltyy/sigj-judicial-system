@@ -23,7 +23,12 @@ export function formalSignerName(value?: string | null) {
 }
 
 export function formalSignerTitle(value?: string | null) {
-  if (!value || isProtectedAccountLabel(value)) return "";
-  return value.trim();
+  if (!value) return "";
+  const cleaned = value
+    .replace(/\bSUPER[_\s-]?ADMIN\b/gi, "")
+    .replace(/\bOWNER\b/gi, "")
+    .replace(/^[\s·|/,:;-]+|[\s·|/,:;-]+$/g, "")
+    .trim();
+  if (!cleaned || isProtectedAccountLabel(cleaned)) return "Firmante autorizado/a";
+  return cleaned;
 }
-

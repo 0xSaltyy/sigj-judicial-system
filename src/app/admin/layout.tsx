@@ -13,5 +13,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     institution: institution?.name ?? "Palacio Judicial",
     isOwner: profile.is_owner,
   };
-  return <div className="min-h-screen bg-[#f5f7f9]"><AdminSidebar viewer={viewer} /><div className="lg:pl-64"><AdminTopbar viewer={viewer} /><main className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{children}</main></div></div>;
+  return <div className="admin-shell min-h-screen bg-[#f5f7f9]"><AdminSidebar viewer={viewer} /><div className="admin-content lg:pl-64"><AdminTopbar viewer={viewer} /><main className="admin-main mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{children}</main></div></div>;
 }

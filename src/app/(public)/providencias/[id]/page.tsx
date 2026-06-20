@@ -56,9 +56,10 @@ export default async function ProceedingDetail({
   return (
     <div className="mx-auto max-w-4xl px-4 py-12">
       <div className="mb-5 flex justify-end no-print">
-        <PrintButton label="Imprimir providencia" />
-        {combinedPdfUrl && <Button asChild className="ml-2"><a href={combinedPdfUrl} target="_blank" rel="noreferrer">Abrir PDF firmado</a></Button>}
+        <PrintButton label="Imprimir providencia" href={`/imprimir/providencias/${id}`} />
+        {combinedPdfUrl && <Button asChild className="ml-2"><a href={combinedPdfUrl} target="_blank" rel="noreferrer">PDF formal con firmas</a></Button>}
       </div>
+      <p className="no-print -mt-2 mb-5 text-right text-xs text-muted-foreground">Para impresión limpia, desactive encabezados y pies del navegador o use el PDF formal.</p>
       <FormalProvidenceDocument
         proceeding={{ ...proceeding, pdf_original_name: privateRecord?.pdf_original_name }}
         caseRecord={proceeding}

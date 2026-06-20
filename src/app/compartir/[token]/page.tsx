@@ -3,6 +3,7 @@ import { LockKeyhole } from "lucide-react";
 import { FormalProvidenceDocument } from "@/components/formal-providence-document";
 import { InstitutionalMark } from "@/components/institutional-mark";
 import { MarkdownViewer } from "@/components/markdown-editor";
+import { PrintButton } from "@/components/print-button";
 import { SignaturePrintBlocks } from "@/components/signature-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -251,17 +252,24 @@ export default async function SharedCasePage({
       {link.include_proceedings && (
         <Section title="Providencias">
           {signedProceedings.map((p) => (
-            <FormalProvidenceDocument
-              key={p.id}
-              proceeding={p}
-              caseRecord={{
-                ...item,
-                dependency_name: item.dependency?.[0]?.name,
-              }}
-              signatures={sharedSignatures.filter((signature) => signature.target_type === "proceeding" && signature.target_id === p.id)}
-              pdfUrl={p.pdfUrl}
-              combinedPdfUrl={p.combinedPdfUrl}
-            />
+            <div key={p.id}>
+              <div className="no-print mb-3 flex justify-end">
+                <PrintButton
+                  label="Imprimir providencia"
+                  href={`/imprimir/providencias/${p.id}?share=${encodeURIComponent(token)}`}
+                />
+              </div>
+              <FormalProvidenceDocument
+                proceeding={p}
+                caseRecord={{
+                  ...item,
+                  dependency_name: item.dependency?.[0]?.name,
+                }}
+                signatures={sharedSignatures.filter((signature) => signature.target_type === "proceeding" && signature.target_id === p.id)}
+                pdfUrl={p.pdfUrl}
+                combinedPdfUrl={p.combinedPdfUrl}
+              />
+            </div>
           ))}
         </Section>
       )}

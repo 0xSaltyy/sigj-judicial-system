@@ -115,17 +115,24 @@ export default async function ProceedingDetail({
                 Firmas
               </Link>
             </Button> : <Button variant="outline" disabled title="No tiene permiso para administrar firmas"><PenLine className="size-4" /> Firmas</Button>}
-            <PrintButton label="Imprimir providencia" />
+            <PrintButton
+              label="Imprimir providencia"
+              href={`/imprimir/providencias/${id}`}
+            />
             {combinedPdfUrl && (
               <Button asChild>
                 <a href={combinedPdfUrl} target="_blank" rel="noreferrer">
-                  <FileText className="size-4" /> PDF con hoja de firmas
+                  <FileText className="size-4" /> PDF formal con firmas
                 </a>
               </Button>
             )}
           </div>
         }
       />
+      <p className="no-print -mt-3 mb-5 text-xs text-muted-foreground">
+        Para impresión limpia, desactive encabezados y pies del navegador o use
+        el PDF formal cuando esté disponible.
+      </p>
       <ActionMessage error={query.error} success={query.success} />
       <FormalProvidenceDocument proceeding={proceeding} caseRecord={formalCaseRecord} signatures={signatures} pdfUrl={originalPdfUrl} combinedPdfUrl={combinedPdfUrl} />
       <div id="firmas">

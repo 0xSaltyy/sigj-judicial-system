@@ -37,7 +37,7 @@ export function PdfProvidencePreview({
           <div className="flex flex-wrap gap-2 border-t bg-white p-4 no-print">
             <Button asChild variant="outline"><a href={originalUrl} target="_blank" rel="noreferrer"><ExternalLink className="size-4" /> Abrir PDF en nueva pestaña</a></Button>
             {downloadUrl && <Button asChild variant="outline"><a href={downloadUrl}><Download className="size-4" /> Descargar PDF original</a></Button>}
-            {combinedUrl && <Button asChild><a href={combinedUrl} target="_blank" rel="noreferrer"><FileText className="size-4" /> PDF con hoja de firmas</a></Button>}
+            {combinedUrl && <Button asChild><a href={combinedUrl} target="_blank" rel="noreferrer"><FileText className="size-4" /> PDF formal con firmas</a></Button>}
           </div>
         </>
       ) : (

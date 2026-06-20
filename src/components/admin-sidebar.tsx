@@ -162,7 +162,7 @@ export function AdminSidebar({
       </Sheet>
     );
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-[#102d49] lg:flex">
+    <aside data-app-sidebar className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-[#102d49] lg:flex">
       {content}
     </aside>
   );
@@ -176,7 +176,7 @@ export function AdminTopbar({ viewer }: { viewer: Viewer }) {
     .join("")
     .toUpperCase();
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white/95 px-4 backdrop-blur sm:px-6">
+    <header data-app-header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white/95 px-4 backdrop-blur sm:px-6">
       <AdminSidebar mobile viewer={viewer} />
       <form
         action="/admin/expedientes"

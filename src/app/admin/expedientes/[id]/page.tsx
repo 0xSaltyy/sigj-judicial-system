@@ -163,12 +163,12 @@ export default async function CaseDetailPage({
             {canEdit && (!item.archived_at || profile.is_owner) && <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/editar`}><Pencil className="size-4" /> Editar expediente</Link></Button>}
             {canShare ? <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/compartir`}><Share2 className="size-4" /> Compartir</Link></Button> : <Button variant="outline" disabled title="No tiene permiso para compartir expedientes"><Share2 className="size-4" /> Compartir</Button>}
             <Button asChild variant="outline">
-              <Link href={`/admin/expedientes/${id}/constancia`}>
+              <Link href={`/imprimir/constancias/${id}`} target="_blank">
                 <Printer className="size-4" /> Constancia
               </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href={`/admin/expedientes/${id}/imprimir`}>
+              <Link href={`/imprimir/expedientes/${id}`} target="_blank">
                 <Printer className="size-4" /> Imprimir expediente
               </Link>
             </Button>

@@ -70,9 +70,20 @@
 
 @media print {
   @page { size: auto; margin: 19mm 20mm 18mm; }
-  .no-print { display: none !important; }
+  .no-print,
+  [data-no-print="true"],
+  [data-app-sidebar],
+  header[data-app-header],
+  .breadcrumbs,
+  .toast,
+  .alert,
+  .actions,
+  button { display: none !important; }
   html, body { background: white !important; color: #111827 !important; font-size: 10.5pt; }
   body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .admin-shell, .admin-content, .admin-main, .print-only-page { display: block !important; width: 100% !important; max-width: none !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; background: white !important; }
+  .admin-content { padding-left: 0 !important; }
+  .admin-main:has(> .print-document) > :not(.print-document) { display: none !important; }
   .paper, .print-document, .judicial-document { position: relative; width: 100% !important; max-width: none !important; min-height: auto !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; overflow: visible !important; }
   .judicial-document { font-family: "Bookman Old Style", "Bookman", "Bookman Antiqua", Georgia, serif; line-height: 1.55; }
   .formal-document { font-size: 11pt; }
@@ -87,7 +98,6 @@
   .judicial-document a { color: inherit !important; text-decoration: none !important; }
   .judicial-watermark { display: block !important; position: fixed; inset: 36% auto auto 50%; z-index: -1; transform: translate(-50%, -50%) rotate(-28deg); font: 700 92pt Arial, sans-serif; letter-spacing: .18em; color: rgba(21, 59, 92, .035); }
   .judicial-print-footer { break-inside: avoid; font-family: "Bookman Old Style", "Bookman", "Bookman Antiqua", Georgia, serif; }
-  .print-page-number::after { content: "Página " counter(page); }
   .page-break-before { break-before: page; }
   .avoid-page-break { break-inside: avoid; }
 }

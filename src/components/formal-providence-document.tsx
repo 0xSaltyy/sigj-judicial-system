@@ -20,7 +20,7 @@ export type PrintableSignature = {
   imageUrl: string | null;
 };
 
-type ProceedingDocument = {
+export type ProceedingDocument = {
   id: string;
   providence_number: string;
   title: string;
@@ -34,7 +34,7 @@ type ProceedingDocument = {
   document_metadata?: DocumentMetadata | null;
 };
 
-type CaseDocument = {
+export type CaseDocument = {
   internal_number?: string | null;
   judicial_number?: string | null;
   authority_type?: string | null;
@@ -84,7 +84,7 @@ export function FormalProvidenceDocument({
   const uploadedOnly = proceeding.creation_mode === "pdf";
   if (uploadedOnly) {
     return (
-      <div className="space-y-6">
+      <div className="print-document space-y-6">
         <PdfProvidencePreview
           title={proceeding.title}
           providenceNumber={proceeding.providence_number}
@@ -95,7 +95,7 @@ export function FormalProvidenceDocument({
           combinedUrl={combinedPdfUrl}
         />
         {signatures.length > 0 && (
-          <section className="paper judicial-document rounded-lg border bg-white p-8">
+            <section className="paper judicial-document rounded-lg border bg-white p-8">
             <h2 className="text-center text-sm font-bold uppercase tracking-wide text-[#153553]">Firmas registradas</h2>
             <SignaturePrintBlocks signatures={signatures} />
           </section>
@@ -105,7 +105,7 @@ export function FormalProvidenceDocument({
     );
   }
   return (
-    <article className={`paper judicial-document formal-document formal-document--${style} relative mx-auto bg-white`}>
+    <article className={`print-document paper judicial-document formal-document formal-document--${style} relative mx-auto bg-white`}>
       <JudicialWatermark />
       <InstitutionHeader
         style={style}

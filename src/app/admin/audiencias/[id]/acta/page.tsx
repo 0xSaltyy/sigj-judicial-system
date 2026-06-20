@@ -8,16 +8,11 @@ import { AdminPageHeader } from "@/components/admin-page";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ClearDrafts } from "@/components/clear-drafts";
 import { DraftForm } from "@/components/draft-form";
-import {
-  JudicialDocumentHeader,
-  JudicialPrintFooter,
-  JudicialWatermark,
-} from "@/components/judicial-document";
-import { MarkdownEditor, MarkdownViewer } from "@/components/markdown-editor";
+import { HearingMinuteDocument } from "@/components/hearing-minute-document";
+import { MarkdownEditor } from "@/components/markdown-editor";
 import { PrintButton } from "@/components/print-button";
 import {
   SignaturePanel,
-  SignaturePrintBlocks,
 } from "@/components/signature-panel";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
@@ -87,8 +82,9 @@ export default async function HearingMinutes({
       <AdminPageHeader
         title="Acta de audiencia"
         description={`${caseRecord?.internal_number ?? "Expediente"} · ${minute?.status ?? "Sin iniciar"}`}
-        action={<PrintButton label="Imprimir acta" />}
+        action={<PrintButton label="Imprimir acta" href={`/imprimir/actas/${id}`} />}
       />
+      <p className="no-print -mt-3 mb-5 text-xs text-muted-foreground">Para impresión limpia, desactive encabezados y pies del navegador.</p>
       <ActionMessage error={query.error} success={query.success} />
       {editable && (
         <DraftForm
@@ -237,67 +233,7 @@ export default async function HearingMinutes({
           </ConfirmSubmitButton>
         </form>
       )}
-      <article className="print-document judicial-document rounded-lg border bg-white p-10">
-        <JudicialWatermark />
-        <JudicialDocumentHeader
-          documentType="Acta de audiencia"
-          title={hearing.title}
-          dependency={caseRecord?.title}
-          metadata={[
-            { label: "Radicado", value: caseRecord?.judicial_number },
-            {
-              label: "Inicio",
-              value: new Intl.DateTimeFormat("es-CO", {
-                dateStyle: "long",
-                timeStyle: "short",
-              }).format(new Date(minute?.started_at ?? hearing.scheduled_at)),
-            },
-            {
-              label: "Cierre",
-              value: minute?.ended_at
-                ? new Intl.DateTimeFormat("es-CO", {
-                    dateStyle: "long",
-                    timeStyle: "short",
-                  }).format(new Date(minute.ended_at))
-                : "Pendiente",
-            },
-            {
-              label: "Sala",
-              value: minute?.chamber || hearing.room || "Por definir",
-            },
-            { label: "Estado", value: minute?.status || "Borrador" },
-          ]}
-        />
-        <TextSection
-          title="Intervinientes"
-          content={minute?.interveners}
-          plain
-        />
-        <TextSection title="Comparecientes" content={minute?.attendees} plain />
-        <TextSection title="Inasistencias" content={minute?.absences} plain />
-        <TextSection
-          title="Desarrollo de la audiencia"
-          content={minute?.development_markdown}
-        />
-        <TextSection
-          title="Decisiones adoptadas"
-          content={minute?.decisions_markdown}
-        />
-        <TextSection
-          title="Pruebas practicadas o decretadas"
-          content={minute?.evidence_markdown}
-        />
-        <TextSection title="Constancias" content={minute?.records_markdown} />
-        <TextSection
-          title="Observaciones"
-          content={minute?.observations_markdown}
-        />
-        <TextSection title="Cierre" content={minute?.closing_markdown} />
-        <SignaturePrintBlocks signatures={signatures} />
-        <JudicialPrintFooter
-          verification={`Acta asociada al expediente ${caseRecord?.internal_number ?? "—"}.`}
-        />
-      </article>
+      <HearingMinuteDocument hearing={hearing} minute={minute} caseRecord={caseRecord} signatures={signatures} />
     </>
   );
 }
@@ -315,28 +251,5 @@ function Field({
       <span className="mb-2 block font-medium">{label}</span>
       {children}
     </label>
-  );
-}
-function TextSection({
-  title,
-  content,
-  plain,
-}: {
-  title: string;
-  content?: string | null;
-  plain?: boolean;
-}) {
-  if (!content) return null;
-  return (
-    <section className="mt-8 break-inside-avoid">
-      <h2 className="mb-3 font-semibold uppercase text-[#153553]">{title}</h2>
-      {plain ? (
-        <p className="whitespace-pre-wrap text-sm leading-7">{content}</p>
-      ) : (
-      <div className="[&>article]:min-h-0 [&>article]:border-0 [&>article]:p-0">
-        <MarkdownViewer content={content} />
-      </div>
-      )}
-    </section>
   );
 }

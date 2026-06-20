@@ -8,7 +8,7 @@ export function JudicialDocumentHeader({ documentType, title, dependency, metada
 export function JudicialPrintFooter({ verification, verificationPath = "/" }: { verification?: string; verificationPath?: string }) {
   const generatedAt = new Intl.DateTimeFormat("es-CO", { dateStyle: "long", timeStyle: "short" }).format(new Date());
   const verificationUrl = siteUrl(verificationPath);
-  return <footer className="judicial-print-footer mt-14 border-t pt-4 text-[10px] leading-4 text-slate-500"><div className="flex justify-between gap-6"><p>{verification || "Documento generado por el Sistema Integral de Gestión Judicial."}<br /><a href={verificationUrl} className="break-all underline underline-offset-2">Verificación: {verificationUrl}</a></p><p className="shrink-0">Generado: {generatedAt}</p></div><p className="print-page-number mt-2 text-right" /></footer>;
+  return <footer className="judicial-print-footer mt-14 border-t pt-4 text-[10px] leading-4 text-slate-500"><div className="flex justify-between gap-6"><p>{verification || "Documento generado por el Sistema Integral de Gestión Judicial."}<br /><a href={verificationUrl} className="break-all underline underline-offset-2">Verificación: {verificationUrl}</a></p><p className="shrink-0">Generado: {generatedAt}</p></div></footer>;
 }
 
 export function JudicialWatermark() { return <div className="judicial-watermark" aria-hidden="true">SIGJ</div>; }
