@@ -102,6 +102,9 @@ export default async function EditCasePage({
         className="grid gap-5 rounded-xl border bg-white p-6 md:grid-cols-2"
       >
         <input type="hidden" name="case_id" value={id} />
+        <Field label="Nombre de ticket / asunto breve" optional>
+          <Input name="ticket_name" defaultValue={item.ticket_name ?? ""} maxLength={120} placeholder="Etiqueta interna de hasta 120 caracteres" />
+        </Field>
         <Field label="Título / asunto" required>
           <Input name="title" defaultValue={item.title} required />
         </Field>

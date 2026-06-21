@@ -2,10 +2,12 @@ import { Clock3, Link2, PenLine, ShieldCheck, UserRoundCheck } from "lucide-reac
 import {
   assignInternalSignature,
   completeInternalSignature,
+  completeInternalSignatureWithDefault,
   requestSignature,
   revokeCompletedSignature,
   revokeSignatureRequest,
   signNow,
+  signWithDefault,
 } from "@/app/actions/signatures";
 import { CopyLink } from "@/components/copy-link";
 import { SignaturePad } from "@/components/signature-pad";
@@ -80,7 +82,7 @@ export async function SignaturePanel({
         ? Promise.resolve({ data: null })
         : supabase
             .from("profiles")
-            .select("full_name,position_title")
+            .select("full_name,position_title,default_signature_path")
             .eq("id", user.id)
             .maybeSingle(),
     ]);
@@ -191,6 +193,7 @@ export async function SignaturePanel({
             <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" required className="mt-0.5" />Confirmo que el trazo corresponde a mi firma y al documento indicado.</label>
             <SubmitButton pendingLabel="Registrando firma…">Confirmar y firmar</SubmitButton>
           </form>
+          {currentProfile?.default_signature_path && <form action={completeInternalSignatureWithDefault} className="mt-3 space-y-3 rounded border bg-white p-3"><input type="hidden" name="request_id" value={request.id}/><input type="hidden" name="case_id" value={caseId}/><input type="hidden" name="target_type" value={targetType}/><input type="hidden" name="target_id" value={targetId}/><input type="hidden" name="destination" value={destination}/><label className="flex items-start gap-2 text-xs"><input type="checkbox" required className="mt-0.5"/>Confirmo aplicar mi firma predeterminada a este documento.</label><SubmitButton variant="outline" pendingLabel="Aplicando firma…">Usar firma guardada</SubmitButton></form>}
         </details>
       ))}
       {allowSign && (
@@ -205,6 +208,7 @@ export async function SignaturePanel({
           </form>
         </details>
       )}
+      {allowSign && currentProfile?.default_signature_path && <details className="rounded-lg border border-[#c9af70] bg-amber-50/40 p-4"><summary className="cursor-pointer font-semibold text-[#153553]"><PenLine className="mr-2 inline size-4"/>Usar firma predeterminada</summary><form action={signWithDefault} className="mt-4 grid gap-3 sm:grid-cols-2"><SignatureContext caseId={caseId} targetType={targetType} targetId={targetId} destination={destination}/><SignatureIdentityFields defaultName={suggestedName} defaultTitle={suggestedTitle}/><PurposeAndOrderFields purpose={defaultPurpose} order={nextOrder}/><label className="flex items-start gap-2 text-xs sm:col-span-2"><input type="checkbox" required className="mt-0.5"/>Confirmo que revisé el documento y autorizo aplicar mi firma predeterminada.</label><div className="sm:col-span-2"><SubmitButton pendingLabel="Aplicando firma…">Confirmar y firmar con firma guardada</SubmitButton></div></form></details>}
       {allowRequest && (
         <details className="rounded-lg border bg-white p-4">
           <summary className="cursor-pointer font-semibold text-[#153553]"><UserRoundCheck className="mr-2 inline size-4" />Asignar firma a usuario interno</summary>

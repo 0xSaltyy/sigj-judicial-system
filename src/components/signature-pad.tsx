@@ -143,6 +143,26 @@ export function SignaturePad({ name = "signature_data" }: { name?: string }) {
     setValue("");
   }
 
+  function loadPng(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || file.type !== "image/png" || file.size > 1024 * 1024) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      const image = new Image();
+      image.onload = () => {
+        const canvas = canvasRef.current; const context = canvas?.getContext("2d");
+        if (!canvas || !context) return;
+        context.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);
+        const scale=Math.min(canvas.clientWidth/image.width,canvas.clientHeight/image.height,1);
+        context.drawImage(image,(canvas.clientWidth-image.width*scale)/2,(canvas.clientHeight-image.height*scale)/2,image.width*scale,image.height*scale);
+        hasInk.current=true; strokes.current=[]; setValue(canvas.toDataURL("image/png"));
+      };
+      image.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="space-y-2">
       <div className="relative overflow-hidden rounded-lg border-2 border-dashed border-slate-300 bg-white">
@@ -150,7 +170,7 @@ export function SignaturePad({ name = "signature_data" }: { name?: string }) {
         {!value && <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 text-sm text-slate-400"><PenLine className="size-5" /> Firme dentro del recuadro</div>}
       </div>
       <input type="hidden" name={name} value={value} required />
-      <Button type="button" variant="outline" size="sm" onClick={clear}><Eraser className="size-4" /> Limpiar firma</Button>
+      <div className="flex flex-wrap items-center gap-3"><Button type="button" variant="outline" size="sm" onClick={clear}><Eraser className="size-4" /> Limpiar firma</Button><label className="cursor-pointer rounded-md border px-3 py-1.5 text-xs font-medium">Subir PNG para esta firma<input type="file" accept="image/png" onChange={loadPng} className="sr-only" /></label></div>
       <p id={helpId} className="text-xs text-muted-foreground">Use mouse, pantalla táctil o lápiz. Podrá limpiar el trazo antes de confirmar.</p>
     </div>
   );

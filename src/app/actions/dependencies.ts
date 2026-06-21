@@ -3,34 +3,41 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PERMISSIONS, requireOwnerPermission } from "@/lib/auth/permissions";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 
 export async function saveDependency(formData: FormData) {
   const parsed = z
     .object({
       id: dbUuid.optional().or(z.literal("")),
+      parent_id: dbUuid.optional().or(z.literal("")),
       name: z.string().trim().min(3),
       code: z.string().trim().min(2).max(12),
       type: z.string().trim().min(2),
+      level: z.coerce.number().int().min(1).max(10),
+      description: z.string().trim().max(1000).optional(),
       competence: z.string().trim().min(5),
       jurisdiction: z.string().trim().min(2),
       route_slug: z.string().trim().min(2),
       department: z.string().trim().min(2),
       municipality: z.string().trim().min(2),
       is_active: z.enum(["true", "false"]),
+      public_visible: z.enum(["true", "false"]),
     })
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     redirect(
       `/admin/dependencias?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase } = await requireOwnerPermission(PERMISSIONS.settingsManage);
+  const { supabase } = await requirePermission(PERMISSIONS.dependenciesManage);
   const payload = {
     ...parsed.data,
     id: undefined,
     code: parsed.data.code.toUpperCase(),
+    parent_id: parsed.data.parent_id || null,
+    description: parsed.data.description || null,
     is_active: parsed.data.is_active === "true",
+    public_visible: parsed.data.public_visible === "true",
   };
   const result = parsed.data.id
     ? await supabase

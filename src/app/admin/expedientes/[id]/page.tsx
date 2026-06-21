@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarPlus, FilePlus2, Pencil, Printer, Share2, Upload } from "lucide-react";
+import { Bell, CalendarPlus, FilePlus2, History, Pencil, Printer, Share2, Upload } from "lucide-react";
 import { generateCertificate, updateCase } from "@/app/actions/cases";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
@@ -124,7 +124,7 @@ export default async function CaseDetailPage({
     redirect(
       "/admin/expedientes?error=No%20tiene%20permiso%20para%20ver%20este%20expediente%20o%20el%20registro%20ya%20no%20existe",
     );
-  const [canEdit, canAct, canHear, canProceed, canArchive, canRestore, canHardDelete, canUpload, canDocumentPreview, canDocumentDownload, canDocumentArchive, canDocumentRestore, canDocumentHardDelete, canDocumentShare, canShare, canRepartition, canAssignPonente] = await Promise.all([
+  const [canEdit, canAct, canHear, canProceed, canArchive, canRestore, canHardDelete, canUpload, canDocumentPreview, canDocumentDownload, canDocumentArchive, canDocumentRestore, canDocumentHardDelete, canDocumentShare, canShare, canRepartition, canAssignPonente, canAudit, canNotify] = await Promise.all([
     can(profile, "edit", "expedientes", { supabase }),
     can(profile, "create", "actuaciones", { supabase }),
     can(profile, "create", "audiencias", { supabase }),
@@ -142,6 +142,8 @@ export default async function CaseDetailPage({
     can(profile, "share", "expedientes", { supabase }),
     can(profile, "repartition", "expedientes", { supabase }),
     can(profile, "assign_ponente", "expedientes", { supabase }),
+    can(profile, "view", "auditoria", { supabase }),
+    can(profile, "manage", "notificaciones", { supabase }),
   ]);
   const signedDocuments: SavedDocument[] = (documents ?? []).map((doc) => ({
     ...doc,
@@ -160,11 +162,13 @@ export default async function CaseDetailPage({
       {query.success && <ClearDrafts storageKeys={[`case-edit:${id}`, ...(query.success === "Documento agregado y auditado" ? [`sigj:case:${id}:document:new`] : [])]} />}
       <AdminPageHeader
         title={item.internal_number}
-        description={item.title}
+        description={item.ticket_name ? `${item.ticket_name} · ${item.title}` : item.title}
         action={
           <div className="flex gap-2">
             {canEdit && (!item.archived_at || profile.is_owner) && <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/editar`}><Pencil className="size-4" /> Editar expediente</Link></Button>}
             {canShare ? <Button asChild variant="outline"><Link href={`/admin/expedientes/${id}/compartir`}><Share2 className="size-4" /> Compartir</Link></Button> : <Button variant="outline" disabled title="No tiene permiso para compartir expedientes"><Share2 className="size-4" /> Compartir</Button>}
+            {canNotify ? <Button asChild variant="outline"><Link href="/admin/notificaciones"><Bell className="size-4" /> Notificar</Link></Button> : <Button variant="outline" disabled title="No tiene permiso para asignar notificaciones"><Bell className="size-4" /> Notificar</Button>}
+            {canAudit ? <Button asChild variant="outline"><Link href="/admin/auditoria?module=cases"><History className="size-4" /> Ver logs</Link></Button> : <Button variant="outline" disabled title="No tiene permiso para consultar logs"><History className="size-4" /> Ver logs</Button>}
             <Button asChild variant="outline">
               <Link href={`/imprimir/constancias/${id}`} target="_blank">
                 <Printer className="size-4" /> Constancia

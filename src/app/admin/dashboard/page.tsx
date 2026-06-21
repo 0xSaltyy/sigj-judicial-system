@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   CalendarDays,
-  FileCheck2,
   FolderKanban,
   Gavel,
   Plus,
@@ -20,7 +19,6 @@ export default async function DashboardPage() {
     { count: cases },
     { count: hearings },
     { count: pending },
-    { count: states },
     { data: recent },
     { data: next },
   ] = await Promise.all([
@@ -37,10 +35,6 @@ export default async function DashboardPage() {
       .from("proceedings")
       .select("id", { count: "exact", head: true })
       .in("status", ["Borrador", "En revisión"]),
-    supabase
-      .from("judicial_states")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "Borrador"),
       supabase
         .from("cases")
         .select("id,internal_number,title,status")
@@ -68,7 +62,7 @@ export default async function DashboardPage() {
           </Button>
         }
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           label="Expedientes activos"
           value={String(cases ?? 0)}
@@ -86,12 +80,6 @@ export default async function DashboardPage() {
           value={String(pending ?? 0)}
           detail="Borrador o en revisión"
           icon={<Gavel className="size-5" />}
-        />
-        <MetricCard
-          label="Estados por publicar"
-          value={String(states ?? 0)}
-          detail="Borradores"
-          icon={<FileCheck2 className="size-5" />}
         />
       </div>
       <div className="mt-5 grid gap-5 lg:grid-cols-2">

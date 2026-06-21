@@ -32,6 +32,12 @@ export const PERMISSION_ACTIONS = [
   "register_vote",
   "approve",
   "return",
+  "create_in_institution",
+  "create_in_dependency",
+  "assign_dependency",
+  "view_all",
+  "view_dependency",
+  "export",
 ] as const;
 
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
@@ -44,12 +50,14 @@ export const PERMISSION_CATALOG = [
   { resource: "actas", label: "Actas", actions: ["view", "create", "edit", "finalize", "reopen", "sign", "print", "archive"] },
   { resource: "documentos", label: "Documentos / pruebas", actions: ["view", "upload", "preview", "download", "archive", "restore", "hard_delete", "share"] },
   { resource: "comunicados", label: "Comunicados", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"] },
-  { resource: "estados", label: "Estados judiciales", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"] },
-  { resource: "usuarios", label: "Usuarios", actions: ["view", "create", "edit", "deactivate", "reactivate", "assign_role"] },
+  { resource: "estados", label: "Estados judiciales", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"], visible: false },
+  { resource: "usuarios", label: "Usuarios", actions: ["view", "create", "edit", "deactivate", "reactivate", "assign_role", "create_in_institution", "create_in_dependency", "assign_dependency", "view_all", "view_dependency"] },
   { resource: "roles", label: "Roles y permisos", actions: ["view", "manage"] },
   { resource: "firmas", label: "Firmas", actions: ["view", "request", "sign", "revoke"] },
   { resource: "enlaces", label: "Enlaces compartidos", actions: ["create", "view", "revoke"] },
-  { resource: "auditoria", label: "Auditoría", actions: ["view"] },
+  { resource: "auditoria", label: "Auditoría", actions: ["view", "export"] },
+  { resource: "instituciones", label: "Instituciones", actions: ["view", "manage"] },
+  { resource: "dependencias", label: "Dependencias y despachos", actions: ["view", "manage"] },
   { resource: "configuracion", label: "Configuración", actions: ["view", "manage"] },
   { resource: "edicion", label: "Edición colaborativa", actions: ["take_control"] },
   { resource: "votos", label: "Votos particulares", actions: ["view", "create", "edit", "sign", "publish", "print"] },
@@ -59,7 +67,12 @@ export const PERMISSION_CATALOG = [
   resource: string;
   label: string;
   actions: readonly PermissionAction[];
+  visible?: boolean;
 }[];
+
+export const MANAGEABLE_PERMISSION_CATALOG = PERMISSION_CATALOG.filter(
+  (item) => !("visible" in item) || item.visible !== false,
+);
 
 export type PermissionResource = (typeof PERMISSION_CATALOG)[number]["resource"];
 export type PermissionKey = `${PermissionResource}:${PermissionAction}`;
@@ -96,6 +109,12 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   register_vote: "Registrar votación",
   approve: "Aprobar",
   return: "Devolver a ponente",
+  create_in_institution: "Crear en su institución",
+  create_in_dependency: "Crear en su dependencia",
+  assign_dependency: "Asignar dependencia",
+  view_all: "Ver todos",
+  view_dependency: "Ver su dependencia",
+  export: "Exportar",
 };
 
 const allPermissionKeys = PERMISSION_CATALOG.flatMap(({ resource, actions }) =>

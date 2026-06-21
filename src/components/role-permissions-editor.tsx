@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ACTION_LABELS,
   defaultRoleCan,
-  PERMISSION_CATALOG,
+  MANAGEABLE_PERMISSION_CATALOG,
   permissionKey,
   SENSITIVE_PERMISSION_KEYS,
 } from "@/lib/permissions/catalog";
@@ -36,7 +36,7 @@ export function RolePermissionsEditor({ rules }: { rules: Rule[] }) {
     </Card>
 
     <div className="grid gap-4 xl:grid-cols-2">
-      {PERMISSION_CATALOG.map(({ resource, label, actions }) => <Card key={resource}>
+      {MANAGEABLE_PERMISSION_CATALOG.map(({ resource, label, actions }) => <Card key={resource}>
         <CardHeader className="pb-3"><CardTitle className="text-sm text-[#153553]">{label}</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           {actions.map((action) => {

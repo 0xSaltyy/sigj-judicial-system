@@ -48,13 +48,13 @@ export default async function CasesPage({
   let request = supabase
     .from("cases")
     .select(
-      "id,internal_number,judicial_number,title,chamber,status,confidentiality_level,filed_at,claimant_name,defendant_name,archived_at",
+      "id,internal_number,judicial_number,title,ticket_name,chamber,status,confidentiality_level,filed_at,claimant_name,defendant_name,archived_at",
     )
     .order("filed_at", { ascending: false })
     .limit(100);
   if (query.q)
     request = request.or(
-      `internal_number.ilike.%${query.q}%,judicial_number.ilike.%${query.q}%,title.ilike.%${query.q}%`,
+      `internal_number.ilike.%${query.q}%,judicial_number.ilike.%${query.q}%,title.ilike.%${query.q}%,ticket_name.ilike.%${query.q}%`,
     );
   if (query.status) request = request.eq("status", query.status);
   const { data: cases, error } = await request;
@@ -98,7 +98,7 @@ export default async function CasesPage({
           <Input
             name="q"
             defaultValue={query.q}
-            placeholder="Radicado, número interno o título…"
+            placeholder="Radicado, número, título o asunto breve…"
           />
           <select
             name="status"
@@ -152,8 +152,9 @@ export default async function CasesPage({
                   </TableCell>
                   <TableCell>
                     <p className="text-sm font-medium text-[#153553]">
-                      {item.title || "Expediente sin título"}
+                      {item.ticket_name || item.title || "Expediente sin título"}
                     </p>
+                    {item.ticket_name && <p className="mt-1 text-xs text-muted-foreground">{item.title}</p>}
                     <p className="mt-1 text-xs text-muted-foreground">
                       {item.claimant_name || "Parte no registrada"} / {item.defendant_name || "Parte no registrada"}
                     </p>

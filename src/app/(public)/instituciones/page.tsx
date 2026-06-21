@@ -1,1 +1,40 @@
-import {Building2} from "lucide-react";import {PageHero} from "@/components/page-hero";import {Badge} from "@/components/ui/badge";import {createClient} from "@/lib/supabase/server";export default async function InstitutionsPage(){const supabase=await createClient();const {data}=supabase?await supabase.from("public_institutions").select("*").order("name"):{data:[]};return <><PageHero eyebrow="Palacio Judicial" title="Instituciones, cortes y oficinas" description="Estructura pública y competencias."/><div className="mx-auto grid max-w-7xl gap-5 px-4 py-12 md:grid-cols-2 xl:grid-cols-3">{(data??[]).map(i=><article key={i.id} className="rounded-lg border bg-white p-6"><div className="flex justify-between"><Building2 className="size-5"/><Badge variant="outline">{i.code}</Badge></div><h2 className="mt-4 font-semibold">{i.name}</h2><p className="mt-2 text-sm text-muted-foreground">{i.competence}</p></article>)}</div></>}
+import Link from "next/link";
+import { Building2 } from "lucide-react";
+import { PageHero } from "@/components/page-hero";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
+export default async function InstitutionsPage() {
+  const supabase = await createClient();
+  const { data } = supabase
+    ? await supabase.from("public_institutions").select("*").order("name")
+    : { data: [] };
+  return (
+    <>
+      <PageHero
+        eyebrow="Palacio Judicial"
+        title="Instituciones, cortes y oficinas"
+        description="Estructura pública, miembros autorizados y competencias."
+      />
+      <div className="mx-auto grid max-w-7xl gap-5 px-4 py-12 md:grid-cols-2 xl:grid-cols-3">
+        {(data ?? []).map((i) => (
+          <article key={i.id} className="rounded-lg border bg-white p-6">
+            <div className="flex justify-between">
+              <Building2 className="size-5" />
+              <Badge variant="outline">{i.code}</Badge>
+            </div>
+            <h2 className="mt-4 font-semibold">{i.name}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {i.description || i.competence}
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-5">
+              <Link href={`/instituciones/${i.id}`}>
+                Ver panel institucional
+              </Link>
+            </Button>
+          </article>
+        ))}
+      </div>
+    </>
+  );
+}

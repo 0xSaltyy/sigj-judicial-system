@@ -13,6 +13,7 @@ import { dbUuid } from "@/lib/validation";
 import { SERVER_ACTION_FILE_MAX_BYTES } from "@/lib/file-limits";
 
 const caseSchema = z.object({
+  ticket_name: z.string().trim().max(120).optional(),
   authority_type: z.string().trim().min(1),
   chamber: z.string().trim().min(1),
   process_type: z.string().trim().min(1),
@@ -121,6 +122,7 @@ export async function createCase(formData: FormData) {
     filed_at: new Date(`${parsed.data.filed_at}T12:00:00Z`).toISOString(),
     observations: parsed.data.observations || null,
     title: `${parsed.data.process_type} · ${parsed.data.process_subtype}`,
+    ticket_name: parsed.data.ticket_name || null,
     internal_number: internalNumber,
     judicial_number: judicialNumber,
     dependency_id: dependency.id,
@@ -158,6 +160,11 @@ export async function createCase(formData: FormData) {
       "/admin/expedientes/nuevo",
       error?.message ?? "No fue posible completar la radicación",
     );
+  if (parsed.data.ticket_name) {
+    const { error: ticketError } = await supabase.from("cases").update({ ticket_name: parsed.data.ticket_name }).eq("id", record.id);
+    if (ticketError) errorRedirect(`/admin/expedientes/${record.id}`, ticketError.message);
+    await supabase.rpc("log_security_event", { p_action: "CASE_TICKET_NAME_SET", p_table: "cases", p_record_id: record.id, p_description: "Asunto breve del expediente registrado", p_metadata: { ticket_name: parsed.data.ticket_name } });
+  }
 
   for (const file of files) {
     if (!allowedTypes.has(file.type) || file.size > SERVER_ACTION_FILE_MAX_BYTES)
@@ -234,6 +241,7 @@ export async function updateCase(formData: FormData) {
 
 const fullUpdateSchema = z.object({
   case_id: dbUuid,
+  ticket_name: z.string().trim().max(120).optional(),
   title: z.string().trim().min(3).max(240),
   authority_type: z.string().trim().min(2).max(160),
   chamber: z.string().trim().min(2).max(180),
@@ -272,7 +280,7 @@ export async function updateCaseFull(formData: FormData) {
   if (current.assigned_judge_id !== (parsed.data.assigned_judge_id || null))
     await enforcePermission(session, PERMISSIONS.casesAssignPonente, parsed.data.case_id);
   const payload = {
-    title: parsed.data.title, authority_type: parsed.data.authority_type, chamber: parsed.data.chamber,
+    title: parsed.data.title, ticket_name: parsed.data.ticket_name || "", authority_type: parsed.data.authority_type, chamber: parsed.data.chamber,
     process_type: parsed.data.process_type, process_subtype: parsed.data.process_subtype,
     claimant_name: parsed.data.claimant_name, defendant_name: parsed.data.defendant_name,
     summary: parsed.data.summary, claims: parsed.data.claims, department: parsed.data.department,

@@ -7,14 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ACTION_LABELS, defaultRoleCan, PERMISSION_CATALOG, permissionKey } from "@/lib/permissions/catalog";
+import { ACTION_LABELS, defaultRoleCan, MANAGEABLE_PERMISSION_CATALOG, permissionKey } from "@/lib/permissions/catalog";
 import type { AppRole } from "@/lib/user-management";
 
 type Override = { resource: string; action: string; effect: "allow" | "deny"; reason: string | null };
 type Rule = { role: AppRole; resource: string; action: string; allowed: boolean };
 type Selection = "default" | "allow" | "deny";
 
-const permissionKeys = PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
+const permissionKeys = MANAGEABLE_PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
   actions.map((action) => permissionKey(resource, action)),
 );
 
@@ -39,7 +39,7 @@ export function UserPermissionsEditor({ userId, role, overrides, roleRules }: { 
       <CardHeader><CardTitle className="text-base">Aplicar a toda la matriz</CardTitle></CardHeader>
       <CardContent><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => applyToAll("allow")}><CheckCheck className="size-4" /> Permitir todo</Button><Button type="button" variant="outline" onClick={() => applyToAll("deny")}><XCircle className="size-4" /> Negar todo</Button><Button type="button" variant="outline" onClick={() => applyToAll("default")}><RotateCcw className="size-4" /> Usar rol para todo</Button></div><p className="mt-3 text-xs text-muted-foreground">Estos botones preparan la matriz; los cambios solo se aplican después de confirmar y guardar.</p></CardContent>
     </Card>
-    <div className="grid gap-4 xl:grid-cols-2">{PERMISSION_CATALOG.map(({ resource, label, actions }) => <Card key={resource}><CardHeader className="pb-3"><CardTitle className="text-sm text-[#153553]">{label}</CardTitle></CardHeader><CardContent className="space-y-2">{actions.map((action) => {
+    <div className="grid gap-4 xl:grid-cols-2">{MANAGEABLE_PERMISSION_CATALOG.map(({ resource, label, actions }) => <Card key={resource}><CardHeader className="pb-3"><CardTitle className="text-sm text-[#153553]">{label}</CardTitle></CardHeader><CardContent className="space-y-2">{actions.map((action) => {
       const key = permissionKey(resource, action);
       const roleAllowed = roleRuleMap.get(key) ?? defaultRoleCan(role, resource, action);
       const selection = selections[key] ?? "default";

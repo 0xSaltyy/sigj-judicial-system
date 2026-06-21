@@ -10,6 +10,10 @@ export type AuthenticatedProfile = {
   email: string;
   role: AppRole;
   dependency_id: string | null;
+  institution_id: string | null;
+  supervisor_id: string | null;
+  avatar_path: string | null;
+  default_signature_path: string | null;
   position_title: string | null;
   is_active: boolean;
   is_owner: boolean;
@@ -22,7 +26,7 @@ export async function getAuthenticatedProfile() {
   if (!user) return null;
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id,full_name,email,role,dependency_id,position_title,is_active,is_owner")
+    .select("id,full_name,email,role,dependency_id,institution_id,supervisor_id,avatar_path,default_signature_path,position_title,is_active,is_owner")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile) return null;

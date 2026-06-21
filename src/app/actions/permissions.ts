@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { PERMISSIONS, requireOwnerPermission } from "@/lib/auth/permissions";
 import {
-  PERMISSION_CATALOG,
+  MANAGEABLE_PERMISSION_CATALOG,
   type PermissionAction,
   type PermissionResource,
 } from "@/lib/permissions/catalog";
@@ -30,7 +30,7 @@ export async function updateRolePermissions(
   if (!role.success) return { error: "Seleccione un rol válido" };
   if (formData.get("confirmed") !== "true") return { error: "Debe confirmar el cambio de permisos" };
   const { supabase } = await requireOwnerPermission(PERMISSIONS.rolesManage);
-  const entries = PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
+  const entries = MANAGEABLE_PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
     actions.map((action) => ({
       resource,
       action,
@@ -79,7 +79,7 @@ export async function updateUserPermissionOverrides(
     return { error: "La cuenta propietaria no admite permisos personalizados" };
   }
 
-  const entries = PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
+  const entries = MANAGEABLE_PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
     actions.flatMap((action) => {
       const value = formPermissionValue(formData, resource, action);
       return value === "allow" || value === "deny"

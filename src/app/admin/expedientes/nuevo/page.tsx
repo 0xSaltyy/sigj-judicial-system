@@ -127,6 +127,11 @@ export default async function NewCasePage({
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2 md:col-span-2 xl:col-span-4">
+              <Label htmlFor="ticket_name">Nombre de ticket / asunto breve</Label>
+              <Input id="ticket_name" name="ticket_name" maxLength={120} placeholder="Ej. Tutela por acceso a información" />
+              <p className="text-xs text-muted-foreground">Etiqueta interna opcional. No sustituye el título formal del expediente.</p>
+            </div>
             <CatalogSelect
               label="Tipo de autoridad"
               name="authority_type"

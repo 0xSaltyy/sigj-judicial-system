@@ -293,6 +293,32 @@ export async function signNow(formData: FormData) {
   redirect(`${parsed.data.destination}?success=Firma%20registrada%20correctamente`);
 }
 
+async function formWithDefaultSignature(formData: FormData) {
+  const { user, profile } = await (await import("@/lib/auth/authorization")).requireInternalUser();
+  const admin = createAdminClient();
+  const destination = String(formData.get("destination") || "/admin/dashboard");
+  if (!admin || !profile.default_signature_path)
+    redirect(`${destination}?error=No%20tiene%20una%20firma%20predeterminada%20guardada`);
+  if (!profile.default_signature_path.startsWith(`${user.id}/`))
+    redirect(`${destination}?error=La%20firma%20predeterminada%20no%20es%20válida`);
+  const { data, error } = await admin.storage.from("profile-assets").download(profile.default_signature_path);
+  if (error || !data) redirect(`${destination}?error=No%20fue%20posible%20leer%20la%20firma%20predeterminada`);
+  const bytes = Buffer.from(await data.arrayBuffer());
+  if (!isValidSignaturePng(bytes)) redirect(`${destination}?error=La%20firma%20predeterminada%20no%20es%20válida`);
+  const next = new FormData();
+  for (const [key, value] of formData.entries()) next.append(key, value);
+  next.set("signature_data", `data:image/png;base64,${bytes.toString("base64")}`);
+  return next;
+}
+
+export async function signWithDefault(formData: FormData) {
+  return signNow(await formWithDefaultSignature(formData));
+}
+
+export async function completeInternalSignatureWithDefault(formData: FormData) {
+  return completeInternalSignature(await formWithDefaultSignature(formData));
+}
+
 export async function completeInternalSignature(formData: FormData) {
   const parsed = pendingInternalSignatureSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)

@@ -1,13 +1,19 @@
 import { AdminSidebar, AdminTopbar } from "@/components/admin-sidebar";
 import { requireInternalUser } from "@/lib/auth/authorization";
+import { can } from "@/lib/auth/permissions";
+import { profileAssetDataUrl } from "@/lib/profile-assets";
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { supabase, profile } = await requireInternalUser();
-  const [institutionResult, unreadResult, notificationsResult] = await Promise.all([
+  const [institutionResult, unreadResult, notificationsResult, avatarUrl, usersPermission, rolesPermission, auditPermission] = await Promise.all([
     profile.dependency_id ? supabase.from("dependencies").select("name").eq("id", profile.dependency_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("internal_notifications").select("id", { count: "exact", head: true }).eq("recipient_user_id", profile.id).is("read_at", null),
     supabase.from("internal_notifications").select("id,title,message,link_url,read_at").eq("recipient_user_id", profile.id).order("created_at", { ascending: false }).limit(5),
+    profileAssetDataUrl(profile.avatar_path),
+    can(profile,"view","usuarios",{supabase}),
+    can(profile,"view","roles",{supabase}),
+    can(profile,"view","auditoria",{supabase}),
   ]);
   const institution = institutionResult.data;
   const viewer = {
@@ -17,6 +23,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     isOwner: profile.is_owner,
     unreadNotifications: unreadResult.count ?? 0,
     latestNotifications: notificationsResult.data ?? [],
+    avatarUrl,
+    permissions: { users: usersPermission, roles: rolesPermission, audit: auditPermission },
   };
   return <div className="admin-shell min-h-screen bg-[#f5f7f9]"><AdminSidebar viewer={viewer} /><div className="admin-content lg:pl-64"><AdminTopbar viewer={viewer} /><main className="admin-main mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{children}</main></div></div>;
 }

@@ -8,7 +8,6 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
-  ClipboardList,
   FileSignature,
   FolderKanban,
   Gauge,
@@ -37,22 +36,21 @@ export const adminNav = [
   { label: "Actuaciones", href: "/admin/actuaciones", icon: Activity },
   { label: "Providencias", href: "/admin/providencias", icon: FileSignature },
   { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays },
-  { label: "Estados judiciales", href: "/admin/estados", icon: ClipboardList },
   { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone },
   { label: "Notificaciones", href: "/admin/notificaciones", icon: Bell },
   { label: "Instituciones", href: "/admin/dependencias", icon: Building2 },
-  { label: "Usuarios", href: "/admin/usuarios", icon: Users, ownerOnly: true },
+  { label: "Usuarios", href: "/admin/usuarios", icon: Users, permission: "users" },
   {
     label: "Roles y permisos",
     href: "/admin/roles",
     icon: ShieldCheck,
-    ownerOnly: true,
+    permission: "roles",
   },
   {
     label: "Auditoría",
     href: "/admin/auditoria",
     icon: History,
-    ownerOnly: true,
+    permission: "audit",
   },
   { label: "Configuración", href: "/admin/configuracion", icon: Settings },
 ];
@@ -64,14 +62,16 @@ type Viewer = {
   isOwner: boolean;
   unreadNotifications?: number;
   latestNotifications?: Array<{ id: string; title: string; message: string; link_url: string | null; read_at: string | null }>;
+  avatarUrl?: string | null;
+  permissions?: { users: boolean; roles: boolean; audit: boolean };
 };
 
-function SidebarLinks({ isOwner }: { isOwner: boolean }) {
+function SidebarLinks({ viewer }: { viewer: Viewer }) {
   const pathname = usePathname();
   return (
     <nav className="mt-6 grid gap-1 px-3" aria-label="Panel interno">
       {adminNav
-        .filter((item) => !item.ownerOnly || isOwner)
+        .filter((item) => !item.permission || viewer.isOwner || viewer.permissions?.[item.permission as keyof NonNullable<Viewer["permissions"]>])
         .map(({ label, href, icon: Icon }) => {
           const active =
             pathname === href ||
@@ -125,7 +125,7 @@ export function AdminSidebar({
           </div>
         </Link>
       </div>
-      <SidebarLinks isOwner={viewer.isOwner} />
+      <SidebarLinks viewer={viewer} />
       <div className="mt-auto border-t border-white/10 p-4">
         <form action={logout}>
           <button
@@ -207,12 +207,9 @@ export function AdminTopbar({ viewer }: { viewer: Viewer }) {
             {viewer.role} · {viewer.institution}
           </p>
         </div>
-        <div
-          className="flex size-9 items-center justify-center rounded-full bg-[#173b5e] text-xs font-bold text-white"
-          aria-hidden="true"
-        >
-          {initials}
-        </div>
+        <Link href="/admin/perfil" aria-label="Abrir mi perfil" className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-[#173b5e] text-xs font-bold text-white">
+          {viewer.avatarUrl ? <Image src={viewer.avatarUrl} alt="" width={36} height={36} unoptimized className="size-full object-cover" /> : initials}
+        </Link>
         <ChevronDown className="size-4 text-slate-400" />
       </div>
     </header>

@@ -33,6 +33,19 @@ export async function middleware(request: NextRequest) {
   const nextResponse = () =>
     NextResponse.next({ request: { headers: context.headers } });
 
+  if (request.nextUrl.pathname === "/estados" || request.nextUrl.pathname.startsWith("/estados/")) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = "/providencias";
+    destination.search = "";
+    return protectPreviewResponse(NextResponse.redirect(destination), context.preview);
+  }
+  if (request.nextUrl.pathname === "/admin/estados" || request.nextUrl.pathname.startsWith("/admin/estados/")) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = "/admin/dashboard";
+    destination.searchParams.set("success", "Estados Judiciales fue retirado de la navegación activa");
+    return protectPreviewResponse(NextResponse.redirect(destination), context.preview);
+  }
+
   if (!request.nextUrl.pathname.startsWith("/admin")) {
     return protectPreviewResponse(nextResponse(), context.preview);
   }

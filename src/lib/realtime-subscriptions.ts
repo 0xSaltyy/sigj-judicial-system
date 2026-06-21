@@ -29,7 +29,6 @@ export const DASHBOARD_REALTIME = [
   { table: "hearing_minutes", message: "Se actualizó el estado de un acta." },
   { table: "signature_requests", message: "Se actualizaron las firmas pendientes." },
   { table: "signatures", message: "Se registró un cambio de firma." },
-  { table: "judicial_states", message: "Se actualizaron los estados judiciales." },
 ] as const satisfies readonly RealtimeSubscription[];
 
 export const NOTICE_LIST_REALTIME = [
