@@ -19,6 +19,8 @@ export default async function DashboardPage() {
     { count: cases },
     { count: hearings },
     { count: pending },
+    { count: pendingSala },
+    { data: pendingOpinions },
     { data: recent },
     { data: next },
   ] = await Promise.all([
@@ -35,6 +37,8 @@ export default async function DashboardPage() {
       .from("proceedings")
       .select("id", { count: "exact", head: true })
       .in("status", ["Borrador", "En revisión"]),
+    supabase.from("sala_sessions").select("id", { count: "exact", head: true }).in("status", ["En sala", "En estudio", "Con salvamento/aclaración"]),
+    supabase.from("vote_documents").select("id,title,vote_type,status,proceeding_id").in("status", ["Borrador", "Presentado"]).order("updated_at", { ascending: false }).limit(5),
       supabase
         .from("cases")
         .select("id,internal_number,title,status")
@@ -62,13 +66,14 @@ export default async function DashboardPage() {
           </Button>
         }
       />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Expedientes activos"
           value={String(cases ?? 0)}
           detail="No archivados"
           icon={<FolderKanban className="size-5" />}
         />
+        <MetricCard label="Votaciones de Sala pendientes" value={String(pendingSala ?? 0)} detail="En estudio, votación o con voto particular" icon={<Gavel className="size-5" />} />
         <MetricCard
           label="Audiencias próximas"
           value={String(hearings ?? 0)}
@@ -82,6 +87,7 @@ export default async function DashboardPage() {
           icon={<Gavel className="size-5" />}
         />
       </div>
+      {(pendingOpinions ?? []).length > 0 && <Card className="mt-5"><CardHeader><CardTitle>Votos particulares pendientes</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2">{(pendingOpinions ?? []).map((vote) => <Link key={vote.id} href={`/admin/providencias/${vote.proceeding_id}/votos/${vote.id}`} className="rounded border p-3 text-sm"><b>{vote.vote_type}</b><small className="mt-1 block text-muted-foreground">{vote.title} · {vote.status}</small></Link>)}</CardContent></Card>}
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader>

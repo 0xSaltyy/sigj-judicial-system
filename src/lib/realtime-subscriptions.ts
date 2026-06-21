@@ -29,6 +29,9 @@ export const DASHBOARD_REALTIME = [
   { table: "hearing_minutes", message: "Se actualizó el estado de un acta." },
   { table: "signature_requests", message: "Se actualizaron las firmas pendientes." },
   { table: "signatures", message: "Se registró un cambio de firma." },
+  { table: "sala_sessions", message: "Se actualizó una sesión de Sala." },
+  { table: "sala_votes", message: "Se actualizó una votación nominal." },
+  { table: "vote_documents", message: "Se actualizó un voto particular." },
 ] as const satisfies readonly RealtimeSubscription[];
 
 export const NOTICE_LIST_REALTIME = [
@@ -78,6 +81,7 @@ export function proceedingDetailRealtime(
     { table: "signatures", filter: `target_id=eq.${proceedingId}`, message: "La providencia recibió una actualización de firma." },
     { table: "vote_documents", filter: `proceeding_id=eq.${proceedingId}`, message: "Se actualizó un voto particular." },
     { table: "sala_sessions", filter: `proceeding_id=eq.${proceedingId}`, message: "Se actualizó el registro de Sala." },
+    { table: "sala_votes", filter: `proceeding_id=eq.${proceedingId}`, message: "Se actualizó la votación nominal de Sala." },
   ];
 }
 

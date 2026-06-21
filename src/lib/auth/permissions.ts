@@ -81,6 +81,7 @@ export const PERMISSIONS = {
   votesEdit: { resource: "votos", action: "edit" },
   votesSign: { resource: "votos", action: "sign" },
   votesPublish: { resource: "votos", action: "publish" },
+  votesArchive: { resource: "votos", action: "archive" },
   salaView: { resource: "sala", action: "view" },
   salaSend: { resource: "sala", action: "send" },
   salaRegisterSession: { resource: "sala", action: "register_session" },

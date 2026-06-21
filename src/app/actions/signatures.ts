@@ -113,7 +113,16 @@ async function enforceTargetSignaturePermission(
   if (type === "hearing_minute")
     await enforcePermission(session, PERMISSIONS.minutesSign, targetId);
   if (type === "vote_document")
+  {
     await enforcePermission(session, PERMISSIONS.votesSign, targetId);
+    const { data: vote } = await session.supabase
+      .from("vote_documents")
+      .select("author_id")
+      .eq("id", targetId)
+      .maybeSingle();
+    if (!vote || (vote.author_id !== session.user.id && !session.profile.is_owner))
+      redirect("/admin/no-autorizado?reason=Solo%20el%20autor%20puede%20firmar%20su%20voto%20particular");
+  }
 }
 
 export async function requestSignature(formData: FormData) {
@@ -563,7 +572,7 @@ async function persistSignature(
     return requestError?.message || "La solicitud ya no está vigente";
   }
   if (request.target_type === "vote_document") {
-    await admin.from("vote_documents").update({ status: "Firmado", signed_at: new Date().toISOString() }).eq("id", request.target_id).in("status", ["Presentado", "Firmado"]);
+    await admin.from("vote_documents").update({ status: "Firmado", signed_at: new Date().toISOString(), signature_id: signatureId }).eq("id", request.target_id).in("status", ["Presentado", "Firmado"]);
   }
   await admin.from("audit_logs").insert({
     ...(actorId ? { user_id: actorId } : {}),

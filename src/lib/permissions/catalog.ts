@@ -60,7 +60,7 @@ export const PERMISSION_CATALOG = [
   { resource: "dependencias", label: "Dependencias y despachos", actions: ["view", "manage"] },
   { resource: "configuracion", label: "Configuración", actions: ["view", "manage"] },
   { resource: "edicion", label: "Edición colaborativa", actions: ["take_control"] },
-  { resource: "votos", label: "Votos particulares", actions: ["view", "create", "edit", "sign", "publish", "print"] },
+  { resource: "votos", label: "Votos particulares", actions: ["view", "create", "edit", "sign", "publish", "archive", "print"] },
   { resource: "sala", label: "Modo Sala", actions: ["view", "send", "register_session", "register_vote", "approve", "return", "publish"] },
   { resource: "notificaciones", label: "Notificaciones internas", actions: ["view", "manage"] },
 ] as const satisfies readonly {
@@ -136,8 +136,8 @@ const adjudicatorWrite = [
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
   ADMIN_INSTITUCIONAL: [...judicialView, "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create"],
-  MAGISTRADO_CORTE_SUPREMA: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
-  MAGISTRADO_TRIBUNAL: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
+  MAGISTRADO_CORTE_SUPREMA: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
+  MAGISTRADO_TRIBUNAL: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
   JUEZ_CIRCUITO: [...judicialView, ...adjudicatorWrite],
   JUEZ_MUNICIPAL: [...judicialView, ...adjudicatorWrite],
   SECRETARIO_GENERAL: [
