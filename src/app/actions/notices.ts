@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { enforcePermission, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
+import { SERVER_ACTION_FILE_MAX_BYTES } from "@/lib/file-limits";
 
 const schema = z
   .object({
@@ -91,10 +92,10 @@ export async function saveNotice(formData: FormData) {
   if (image instanceof File && image.size > 0) {
     if (
       !new Set(["image/png", "image/jpeg"]).has(image.type) ||
-      image.size > 5 * 1024 * 1024
+      image.size > SERVER_ACTION_FILE_MAX_BYTES
     )
       redirect(
-        `/admin/comunicados/${result.data.id}/editar?error=La%20imagen%20debe%20ser%20PNG%20o%20JPG%20y%20pesar%20menos%20de%205%20MB`,
+        `/admin/comunicados/${result.data.id}/editar?error=La%20imagen%20debe%20ser%20PNG%20o%20JPG%20y%20pesar%20menos%20de%203%20MB`,
       );
     const extension = image.type === "image/png" ? "png" : "jpg";
     const path = `${result.data.id}/${crypto.randomUUID()}.${extension}`;

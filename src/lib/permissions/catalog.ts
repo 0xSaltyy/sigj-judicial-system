@@ -148,5 +148,7 @@ export function permissionKey(resource: PermissionResource, action: PermissionAc
 }
 
 export function defaultRoleCan(role: AppRole, resource: PermissionResource, action: PermissionAction) {
-  return DEFAULT_ROLE_PERMISSION_KEYS[role].includes(permissionKey(resource, action));
+  return DEFAULT_ROLE_PERMISSION_KEYS[role]?.includes(
+    permissionKey(resource, action),
+  ) ?? false;
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Archive, ArchiveRestore, Save, Trash2 } from "lucide-react";
 import {
   manageCaseParty,
@@ -59,8 +59,14 @@ export default async function EditCasePage({
       .eq("case_id", id)
       .order("created_at"),
   ]);
-  if (!item) notFound();
-  if (item.archived_at && !profile.is_owner) notFound();
+  if (!item)
+    redirect(
+      "/admin/expedientes?error=No%20tiene%20permiso%20para%20editar%20este%20expediente%20o%20el%20registro%20ya%20no%20existe",
+    );
+  if (item.archived_at && !profile.is_owner)
+    redirect(
+      `/admin/expedientes/${id}?error=No%20puede%20editar%20un%20expediente%20archivado`,
+    );
   const [canRepartition, canAssignPonente] = await Promise.all([
     can(profile, "repartition", "expedientes", { supabase }),
     can(profile, "assign_ponente", "expedientes", { supabase }),

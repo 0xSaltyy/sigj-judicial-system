@@ -19,6 +19,11 @@ const contentSecurityPolicy = [
 const nextConfig: NextConfig = {
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
+  experimental: {
+    // Keep regular Server Actions below Vercel's 4.5 MB request ceiling. File
+    // inputs are capped at 3 MB in the client and validated again server-side.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   async headers() {
     return [
       {

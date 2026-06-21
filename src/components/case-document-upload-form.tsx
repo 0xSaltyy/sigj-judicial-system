@@ -71,7 +71,7 @@ export function CaseDocumentUploadForm({
           required
           accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.png,.jpg,.jpeg,.webp"
           label="Seleccionar archivo"
-          hint="PDF, Word, Excel, texto, CSV o imagen · máximo 20 MB"
+          hint="PDF, Word, Excel, texto, CSV o imagen · máximo 3 MB"
         />
         <p className="mt-2 text-xs text-muted-foreground">
           Por seguridad, el archivo no puede conservarse entre envíos y deberá seleccionarse nuevamente si ocurre un error.

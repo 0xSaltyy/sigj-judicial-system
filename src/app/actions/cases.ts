@@ -10,6 +10,7 @@ import {
   PERMISSIONS,
 } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
+import { SERVER_ACTION_FILE_MAX_BYTES } from "@/lib/file-limits";
 
 const caseSchema = z.object({
   authority_type: z.string().trim().min(1),
@@ -66,6 +67,12 @@ export async function createCase(formData: FormData) {
   const files = formData
     .getAll("attachments")
     .filter((value): value is File => value instanceof File && value.size > 0);
+  const attachmentBytes = files.reduce((total, file) => total + file.size, 0);
+  if (attachmentBytes > SERVER_ACTION_FILE_MAX_BYTES)
+    errorRedirect(
+      "/admin/expedientes/nuevo",
+      "Los anexos superan el máximo total de 3 MB. Radique sin anexos o reduzca la selección.",
+    );
   if (files.length)
     await enforcePermission(session, PERMISSIONS.documentsUpload);
   const { data: dependency } = await supabase
@@ -122,61 +129,38 @@ export async function createCase(formData: FormData) {
     created_by: user.id,
   };
   const record = { id: crypto.randomUUID() };
-  const { error } = await supabase
-    .from("cases")
-    .insert({ id: record.id, ...payload });
-  if (error)
+  const parties = [
+    {
+      name: parsed.data.claimant_name,
+      party_type: "Solicitante",
+      document_number: parsed.data.claimant_document || null,
+    },
+    ...(parsed.data.defendant_name
+      ? [
+          {
+            name: parsed.data.defendant_name,
+            party_type: "Convocada",
+            document_number: parsed.data.defendant_document || null,
+          },
+        ]
+      : []),
+  ];
+  const { data: createdId, error } = await supabase.rpc(
+    "create_case_secure",
+    {
+      p_case_id: record.id,
+      p_payload: payload,
+      p_parties: parties,
+    },
+  );
+  if (error || createdId !== record.id)
     errorRedirect(
       "/admin/expedientes/nuevo",
-      error.message,
-    );
-
-  const childOperations = await Promise.all([
-    supabase.from("case_parties").insert([
-      {
-        case_id: record.id,
-        name: parsed.data.claimant_name,
-        party_type: "Solicitante",
-        document_number: parsed.data.claimant_document || null,
-      },
-      ...(parsed.data.defendant_name
-        ? [
-            {
-              case_id: record.id,
-              name: parsed.data.defendant_name,
-              party_type: "Convocada",
-              document_number: parsed.data.defendant_document || null,
-            },
-          ]
-        : []),
-    ]),
-    supabase.from("case_actions").insert({
-      case_id: record.id,
-      action_type: "Radicación",
-      title: "Radicación del expediente",
-      description: `Expediente recibido y asignado inicialmente a ${dependency.name}.`,
-      visibility:
-        parsed.data.confidentiality_level === "Público" ? "public" : "internal",
-      created_by: user.id,
-    }),
-    supabase.from("radications").insert({
-      case_id: record.id,
-      received_by: user.id,
-      reception_method: parsed.data.reception_method,
-      validation_status: "Validado",
-      validated_at: new Date().toISOString(),
-      destination_dependency_id: dependency.id,
-    }),
-  ]);
-  const childError = childOperations.find((result) => result.error)?.error;
-  if (childError)
-    errorRedirect(
-      `/admin/expedientes/${record.id}`,
-      `Expediente creado, pero un registro relacionado falló: ${childError.message}`,
+      error?.message ?? "No fue posible completar la radicación",
     );
 
   for (const file of files) {
-    if (!allowedTypes.has(file.type) || file.size > 20 * 1024 * 1024)
+    if (!allowedTypes.has(file.type) || file.size > SERVER_ACTION_FILE_MAX_BYTES)
       errorRedirect(
         `/admin/expedientes/${record.id}`,
         `${file.name} no cumple los requisitos de archivo`,

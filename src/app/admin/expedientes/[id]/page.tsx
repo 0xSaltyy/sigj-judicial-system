@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { CalendarPlus, FilePlus2, Pencil, Printer, Share2, Upload } from "lucide-react";
 import { generateCertificate, updateCase } from "@/app/actions/cases";
 import { ActionMessage } from "@/components/action-message";
@@ -120,7 +120,10 @@ export default async function CaseDetailPage({
           .order("full_name")
       : Promise.resolve({ data: [] }),
   ]);
-  if (!item) notFound();
+  if (!item)
+    redirect(
+      "/admin/expedientes?error=No%20tiene%20permiso%20para%20ver%20este%20expediente%20o%20el%20registro%20ya%20no%20existe",
+    );
   const [canEdit, canAct, canHear, canProceed, canArchive, canRestore, canHardDelete, canUpload, canDocumentPreview, canDocumentDownload, canDocumentArchive, canDocumentRestore, canDocumentHardDelete, canDocumentShare, canShare, canRepartition, canAssignPonente] = await Promise.all([
     can(profile, "edit", "expedientes", { supabase }),
     can(profile, "create", "actuaciones", { supabase }),
@@ -197,7 +200,7 @@ export default async function CaseDetailPage({
           </div>
         </div>
         <CardContent className="grid gap-px bg-border p-0 sm:grid-cols-2 xl:grid-cols-4">
-          <Info label="Sala / despacho" value={item.chamber} />
+          <Info label="Sala / despacho" value={item.chamber || "Sin asignar"} />
           <Info
             label="Proceso"
             value={`${item.process_type} · ${item.process_subtype}`}

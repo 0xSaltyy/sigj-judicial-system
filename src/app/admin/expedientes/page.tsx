@@ -58,6 +58,12 @@ export default async function CasesPage({
     );
   if (query.status) request = request.eq("status", query.status);
   const { data: cases, error } = await request;
+  if (error) {
+    console.error("[admin/expedientes] case list query failed", {
+      code: error.code,
+      details: error.details,
+    });
+  }
   return (
     <>
       <RealtimeRefresh channel="admin-cases" subscriptions={CASE_LIST_REALTIME} />
@@ -79,7 +85,12 @@ export default async function CasesPage({
         }
       />
       <ActionMessage
-        error={query.error ?? error?.message}
+        error={
+          query.error ??
+          (error
+            ? "No fue posible consultar los expedientes. Intente nuevamente."
+            : undefined)
+        }
         success={query.success}
       />
       <div className="rounded-lg border bg-white">
@@ -133,21 +144,23 @@ export default async function CasesPage({
                       href={`/admin/expedientes/${item.id}`}
                       className="mono-number text-xs font-semibold text-[#153b5c] hover:underline"
                     >
-                      {item.internal_number}
+                      {item.internal_number || "Sin número interno"}
                     </Link>
                     <p className="mono-number mt-1 text-[10px] text-muted-foreground">
-                      {item.judicial_number}
+                      {item.judicial_number || "Sin radicado judicial"}
                     </p>
                   </TableCell>
                   <TableCell>
                     <p className="text-sm font-medium text-[#153553]">
-                      {item.title}
+                      {item.title || "Expediente sin título"}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {item.claimant_name} / {item.defendant_name}
+                      {item.claimant_name || "Parte no registrada"} / {item.defendant_name || "Parte no registrada"}
                     </p>
                   </TableCell>
-                  <TableCell className="text-xs">{item.chamber}</TableCell>
+                  <TableCell className="text-xs">
+                    {item.chamber || "Sin asignar"}
+                  </TableCell>
                   <TableCell>
                     <CaseStatusBadge status={item.status} />
                   </TableCell>
@@ -162,7 +175,7 @@ export default async function CasesPage({
                       <Button asChild variant="ghost" size="icon">
                         <Link
                           href={`/admin/expedientes/${item.id}`}
-                          aria-label={`Ver ${item.internal_number}`}
+                          aria-label={`Ver ${item.internal_number || "expediente"}`}
                         >
                           <Eye className="size-4" />
                         </Link>
@@ -170,7 +183,7 @@ export default async function CasesPage({
                       <LifecycleActions
                         resource="cases"
                         recordId={item.id}
-                        recordLabel={item.internal_number}
+                        recordLabel={item.internal_number || "Expediente sin número"}
                         destination="/admin/expedientes"
                         archived={Boolean(item.archived_at)}
                         canArchive={canArchive}
@@ -185,9 +198,9 @@ export default async function CasesPage({
             </TableBody>
           </Table>
         </div>
-        {!cases?.length && (
+        {!error && !cases?.length && (
           <p className="p-8 text-center text-sm text-muted-foreground">
-            No hay expedientes que coincidan con la búsqueda.
+            No hay expedientes disponibles para su perfil o que coincidan con la búsqueda.
           </p>
         )}
         <p className="border-t p-4 text-xs text-muted-foreground">

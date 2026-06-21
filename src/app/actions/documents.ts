@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { PERMISSIONS, requireCaseAccess } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
+import { SERVER_ACTION_FILE_MAX_BYTES } from "@/lib/file-limits";
 
-const maxSize = 20 * 1024 * 1024;
+const maxSize = SERVER_ACTION_FILE_MAX_BYTES;
 const documentTypes = [
   "Prueba",
   "Anexo",
@@ -215,7 +216,7 @@ export async function uploadCaseDocument(formData: FormData) {
     uploadRedirect(
       target.data.case_id,
       "error",
-      "El archivo supera el máximo permitido de 20 MB",
+      "El archivo supera el máximo permitido de 3 MB",
       "file",
     );
 
