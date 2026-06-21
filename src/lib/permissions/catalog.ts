@@ -38,6 +38,12 @@ export const PERMISSION_ACTIONS = [
   "view_all",
   "view_dependency",
   "assign_leader",
+  "edit_public",
+  "publish_profile",
+  "edit_institution",
+  "edit_dependency",
+  "edit_title",
+  "edit_own",
   "export",
 ] as const;
 
@@ -52,7 +58,7 @@ export const PERMISSION_CATALOG = [
   { resource: "documentos", label: "Documentos / pruebas", actions: ["view", "upload", "preview", "download", "archive", "restore", "hard_delete", "share"] },
   { resource: "comunicados", label: "Comunicados", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"] },
   { resource: "estados", label: "Estados judiciales", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"], visible: false },
-  { resource: "usuarios", label: "Usuarios", actions: ["view", "view_dependency", "view_all", "create", "create_in_dependency", "create_in_institution", "edit", "deactivate", "reactivate", "assign_role", "assign_dependency"] },
+  { resource: "usuarios", label: "Usuarios", actions: ["view", "view_dependency", "view_all", "create", "create_in_dependency", "create_in_institution", "edit", "edit_own", "deactivate", "reactivate", "assign_role", "assign_dependency"] },
   { resource: "roles", label: "Roles y permisos", actions: ["view", "manage"] },
   { resource: "firmas", label: "Firmas", actions: ["view", "request", "sign", "revoke"] },
   { resource: "enlaces", label: "Enlaces compartidos", actions: ["create", "view", "revoke"] },
@@ -64,6 +70,7 @@ export const PERMISSION_CATALOG = [
   { resource: "votos", label: "Votos particulares", actions: ["view", "create", "edit", "sign", "publish", "archive", "print"] },
   { resource: "sala", label: "Modo Sala", actions: ["view", "send", "register_session", "register_vote", "approve", "return", "publish"] },
   { resource: "notificaciones", label: "Notificaciones internas", actions: ["view", "manage"] },
+  { resource: "perfil", label: "Perfil propio", actions: ["edit", "edit_public", "publish_profile", "edit_institution", "edit_dependency", "edit_title"] },
 ] as const satisfies readonly {
   resource: string;
   label: string;
@@ -116,6 +123,12 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   view_all: "Ver todos los usuarios",
   view_dependency: "Ver usuarios de mi dependencia/despacho",
   assign_leader: "Asignar juez, magistrado/a o responsable",
+  edit_public: "Editar identidad pública",
+  publish_profile: "Publicar perfil institucional",
+  edit_institution: "Cambiar institución propia",
+  edit_dependency: "Cambiar dependencia propia",
+  edit_title: "Editar cargo propio",
+  edit_own: "Editar perfil propio",
   export: "Exportar",
 };
 
@@ -129,6 +142,7 @@ export const USER_PERMISSION_DESCRIPTIONS: Partial<Record<PermissionAction, stri
   assign_dependency: "Permite asignar o cambiar el despacho dentro del alcance autorizado.",
   assign_role: "Permite asignar roles autorizados; nunca permite crear OWNER ni evadir cuentas protegidas.",
   edit: "Permite modificar usuarios que estén dentro del alcance autorizado.",
+  edit_own: "Permite actualizar los datos seguros del perfil propio sin modificar rol, correo ni protecciones.",
   deactivate: "Permite desactivar usuarios dentro del alcance, salvo cuentas protegidas.",
   reactivate: "Permite reactivar usuarios dentro del alcance autorizado.",
 };

@@ -59,6 +59,7 @@ export const PERMISSIONS = {
   signaturesRevoke: { resource: "firmas", action: "revoke" },
   usersCreate: { resource: "usuarios", action: "create" },
   usersEdit: { resource: "usuarios", action: "edit" },
+  usersEditOwn: { resource: "usuarios", action: "edit_own" },
   usersDeactivate: { resource: "usuarios", action: "deactivate" },
   usersReactivate: { resource: "usuarios", action: "reactivate" },
   usersAssignRole: { resource: "usuarios", action: "assign_role" },
@@ -92,6 +93,12 @@ export const PERMISSIONS = {
   salaPublish: { resource: "sala", action: "publish" },
   notificationsView: { resource: "notificaciones", action: "view" },
   notificationsManage: { resource: "notificaciones", action: "manage" },
+  profileEdit: { resource: "perfil", action: "edit" },
+  profileEditPublic: { resource: "perfil", action: "edit_public" },
+  profilePublish: { resource: "perfil", action: "publish_profile" },
+  profileEditInstitution: { resource: "perfil", action: "edit_institution" },
+  profileEditDependency: { resource: "perfil", action: "edit_dependency" },
+  profileEditTitle: { resource: "perfil", action: "edit_title" },
 } as const satisfies Record<string, PermissionRequirement>;
 
 export type PermissionRequirement = {

@@ -19,12 +19,13 @@ export default async function InstitutionPage({
     { data: memberRows },
     { data: notices },
     { data: hearings },
+    { data: institutionRows },
   ] = await Promise.all([
     supabase.from("public_institutions").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("public_institution_members")
       .select(
-        "id,full_name,position_title,avatar_path,dependency_id,institution_id,is_dependency_leader",
+        "id,full_name,position_title,public_bio,public_phone,avatar_path,dependency_id,institution_id,is_dependency_leader",
       )
       .or(`institution_id.eq.${id},dependency_id.eq.${id}`)
       .order("full_name"),
@@ -40,6 +41,7 @@ export default async function InstitutionPage({
       .gte("scheduled_at", new Date().toISOString())
       .order("scheduled_at")
       .limit(5),
+    supabase.from("public_institutions").select("id,name"),
   ]);
   if (!institution) notFound();
   const members = await Promise.all(
@@ -48,6 +50,7 @@ export default async function InstitutionPage({
       avatar: await profileAssetDataUrl(member.avatar_path),
     })),
   );
+  const institutionNames = new Map((institutionRows ?? []).map((item)=>[item.id,item.name]));
   return (
     <>
       <PageHero
@@ -106,6 +109,9 @@ export default async function InstitutionPage({
                   <p className="text-xs text-muted-foreground">
                     {m.position_title || "Miembro institucional"}{m.is_dependency_leader ? ` · ${judicialResponsibilityLabel(null, `${institution.type} ${institution.name}`)}` : ""}
                   </p>
+                  <p className="text-xs text-muted-foreground">{institutionNames.get(m.dependency_id) || institutionNames.get(m.institution_id) || institution.name}</p>
+                  {m.public_bio && <p className="mt-1 text-xs leading-5">{m.public_bio}</p>}
+                  {m.public_phone && <p className="mt-1 text-xs text-muted-foreground">Oficina: {m.public_phone}</p>}
                 </div>
               </article>
             ))}
