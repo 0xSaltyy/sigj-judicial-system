@@ -2,10 +2,11 @@ import { inviteUser } from "@/app/actions/users";
 import { AdminPageHeader } from "@/components/admin-page";
 import { DraftForm } from "@/components/draft-form";
 import { SubmitButton } from "@/components/submit-button";
+import { PermissionDeniedNotice } from "@/components/access-denied";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { can, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   APP_ROLES,
@@ -87,13 +88,14 @@ export default async function InviteUserPage({
     : [{ data: [] }, { data: [] }];
   const tree = (allDependencies ?? []) as Dependency[];
   const profile = session.profile;
+  const [canCreateInstitution, canCreateDependency] = await Promise.all([can(profile, "create_in_institution", "usuarios", { supabase: session.supabase }), can(profile, "create_in_dependency", "usuarios", { supabase: session.supabase })]);
   const actorRoot =
     profile.institution_id || rootOf(profile.dependency_id, tree);
   const dependencies = profile.is_owner
     ? tree
-    : profile.role === "ADMIN_INSTITUCIONAL" && actorRoot
+    : canCreateInstitution && actorRoot
       ? tree.filter((d) => within(d.id, actorRoot, tree))
-      : tree.filter((d) => d.id === profile.dependency_id);
+      : canCreateDependency ? tree.filter((d) => d.id === profile.dependency_id) : [];
   const institutions = dependencies.filter(
     (d) => !d.parent_id || d.level === 1,
   );
@@ -107,12 +109,14 @@ export default async function InviteUserPage({
   const supervisors = (allSupervisors ?? []).filter((s) =>
     dependencies.some((d) => d.id === s.dependency_id),
   );
+  if (!profile.is_owner && !canCreateInstitution && !canCreateDependency) return <><AdminPageHeader title="Crear usuario interno" description="Alta activa con alcance institucional controlado."/><PermissionDeniedNotice>Puede abrir el módulo de usuarios, pero no tiene alcance para crear cuentas. Solicite “Crear en mi institución” o “Crear en mi dependencia/despacho”.</PermissionDeniedNotice></>;
   return (
     <>
       <AdminPageHeader
         title="Crear usuario interno"
         description="Alta activa con asignación institucional y alcance jerárquico controlado."
       />
+      <div className="mb-5 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950"><p className="font-semibold">Alcance efectivo para esta alta</p><p className="mt-1">{profile.is_owner ? "Global: puede crear usuarios en cualquier institución o dependencia autorizada." : profile.role === "ADMIN_INSTITUCIONAL" ? `Mi institución: solo puede crear usuarios dentro de ${institutions[0]?.name || "su institución asignada"}.` : `Solo mi dependencia: ${dependencies[0]?.name || "sin dependencia asignada"}. No puede asignar otro despacho ni crear roles superiores.`}</p><p className="mt-2 text-xs">“Mi dependencia” es el despacho, juzgado, sala u oficina del perfil. “Mi institución” es su corporación superior. “Global” comprende toda la estructura autorizada.</p></div>
       {query.error && (
         <p className="mb-5 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           {query.error} Los campos no sensibles se conservaron; vuelva a
@@ -206,6 +210,7 @@ export default async function InviteUserPage({
                 institución. El correo nunca se publica.
               </span>
             </label>
+            {profile.is_owner && <label className="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" name="is_dependency_leader" value="true" className="mt-1"/><span><strong>Encargado/Líder de dependencia.</strong> Habilita la jefatura del despacho; crear personal seguirá requiriendo el permiso correspondiente.</span></label>}
             <div className="flex items-end justify-end md:col-span-2">
               <SubmitButton pendingLabel="Creando usuario…">
                 Crear usuario activo

@@ -73,6 +73,7 @@ export const PERMISSIONS = {
   institutionsManage: { resource: "instituciones", action: "manage" },
   dependenciesView: { resource: "dependencias", action: "view" },
   dependenciesManage: { resource: "dependencias", action: "manage" },
+  dependenciesAssignLeader: { resource: "dependencias", action: "assign_leader" },
   rolesManage: { resource: "roles", action: "manage" },
   settingsManage: { resource: "configuracion", action: "manage" },
   editTakeControl: { resource: "edicion", action: "take_control" },

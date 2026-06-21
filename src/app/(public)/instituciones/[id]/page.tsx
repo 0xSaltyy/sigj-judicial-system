@@ -23,7 +23,7 @@ export default async function InstitutionPage({
     supabase
       .from("public_institution_members")
       .select(
-        "id,full_name,position_title,avatar_path,dependency_id,institution_id",
+        "id,full_name,position_title,avatar_path,dependency_id,institution_id,is_dependency_leader",
       )
       .or(`institution_id.eq.${id},dependency_id.eq.${id}`)
       .order("full_name"),
@@ -103,7 +103,7 @@ export default async function InstitutionPage({
                 <div>
                   <p className="text-sm font-semibold">{m.full_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {m.position_title || "Miembro institucional"}
+                    {m.position_title || "Miembro institucional"}{m.is_dependency_leader ? " · Encargado/Líder" : ""}
                   </p>
                 </div>
               </article>

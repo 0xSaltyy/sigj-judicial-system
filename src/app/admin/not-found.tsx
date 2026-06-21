@@ -1,1 +1,5 @@
-import Link from "next/link";import {Button} from "@/components/ui/button";export default function AdminNotFound(){return <div className="mx-auto max-w-xl rounded-lg border bg-white p-8 text-center"><h1 className="text-xl font-semibold">Recurso no encontrado</h1><p className="mt-2 text-sm text-muted-foreground">El registro no existe o su perfil no tiene acceso.</p><Button asChild className="mt-5"><Link href="/admin/dashboard">Volver al panel</Link></Button></div>}
+import { AccessDenied } from "@/components/access-denied";
+
+export default function AdminNotFound() {
+  return <AccessDenied title="Registro no disponible" message="El registro no existe o su perfil no tiene acceso por institución, dependencia o nivel de reserva. Su sesión permanece activa." />;
+}

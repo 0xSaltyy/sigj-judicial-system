@@ -37,6 +37,7 @@ export const PERMISSION_ACTIONS = [
   "assign_dependency",
   "view_all",
   "view_dependency",
+  "assign_leader",
   "export",
 ] as const;
 
@@ -51,13 +52,13 @@ export const PERMISSION_CATALOG = [
   { resource: "documentos", label: "Documentos / pruebas", actions: ["view", "upload", "preview", "download", "archive", "restore", "hard_delete", "share"] },
   { resource: "comunicados", label: "Comunicados", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"] },
   { resource: "estados", label: "Estados judiciales", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"], visible: false },
-  { resource: "usuarios", label: "Usuarios", actions: ["view", "create", "edit", "deactivate", "reactivate", "assign_role", "create_in_institution", "create_in_dependency", "assign_dependency", "view_all", "view_dependency"] },
+  { resource: "usuarios", label: "Usuarios", actions: ["view", "view_dependency", "view_all", "create", "create_in_dependency", "create_in_institution", "edit", "deactivate", "reactivate", "assign_role", "assign_dependency"] },
   { resource: "roles", label: "Roles y permisos", actions: ["view", "manage"] },
   { resource: "firmas", label: "Firmas", actions: ["view", "request", "sign", "revoke"] },
   { resource: "enlaces", label: "Enlaces compartidos", actions: ["create", "view", "revoke"] },
   { resource: "auditoria", label: "Auditoría", actions: ["view", "export"] },
   { resource: "instituciones", label: "Instituciones", actions: ["view", "manage"] },
-  { resource: "dependencias", label: "Dependencias y despachos", actions: ["view", "manage"] },
+  { resource: "dependencias", label: "Dependencias y despachos", actions: ["view", "manage", "assign_leader"] },
   { resource: "configuracion", label: "Configuración", actions: ["view", "manage"] },
   { resource: "edicion", label: "Edición colaborativa", actions: ["take_control"] },
   { resource: "votos", label: "Votos particulares", actions: ["view", "create", "edit", "sign", "publish", "archive", "print"] },
@@ -112,9 +113,24 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   create_in_institution: "Crear en su institución",
   create_in_dependency: "Crear en su dependencia",
   assign_dependency: "Asignar dependencia",
-  view_all: "Ver todos",
-  view_dependency: "Ver su dependencia",
+  view_all: "Ver todos los usuarios",
+  view_dependency: "Ver usuarios de mi dependencia/despacho",
+  assign_leader: "Asignar encargado/líder",
   export: "Exportar",
+};
+
+export const USER_PERMISSION_DESCRIPTIONS: Partial<Record<PermissionAction, string>> = {
+  view: "Permite abrir el módulo de usuarios, según el alcance permitido.",
+  view_dependency: "Permite ver usuarios asignados a la misma dependencia, despacho, juzgado, sala u oficina.",
+  view_all: "Permite ver usuarios de todas las instituciones y dependencias autorizadas.",
+  create: "Permite crear usuarios; el destino depende del alcance institucional o de dependencia.",
+  create_in_dependency: "Permite crear personal únicamente en la dependencia o despacho asignado al usuario.",
+  create_in_institution: "Permite crear usuarios dentro de la misma institución o corporación.",
+  assign_dependency: "Permite asignar o cambiar el despacho dentro del alcance autorizado.",
+  assign_role: "Permite asignar roles autorizados; nunca permite crear OWNER ni evadir cuentas protegidas.",
+  edit: "Permite modificar usuarios que estén dentro del alcance autorizado.",
+  deactivate: "Permite desactivar usuarios dentro del alcance, salvo cuentas protegidas.",
+  reactivate: "Permite reactivar usuarios dentro del alcance autorizado.",
 };
 
 const allPermissionKeys = PERMISSION_CATALOG.flatMap(({ resource, actions }) =>
@@ -135,7 +151,7 @@ const adjudicatorWrite = [
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
-  ADMIN_INSTITUCIONAL: [...judicialView, "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create"],
+  ADMIN_INSTITUCIONAL: [...judicialView, "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create", "usuarios:view", "usuarios:view_dependency", "usuarios:create", "usuarios:create_in_institution", "usuarios:create_in_dependency", "usuarios:edit", "usuarios:deactivate", "usuarios:reactivate", "usuarios:assign_role", "usuarios:assign_dependency", "instituciones:view", "dependencias:view"],
   MAGISTRADO_CORTE_SUPREMA: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
   MAGISTRADO_TRIBUNAL: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
   JUEZ_CIRCUITO: [...judicialView, ...adjudicatorWrite],

@@ -99,6 +99,7 @@ export async function middleware(request: NextRequest) {
   if (!profile?.is_active || profile.role === "CONSULTA_PUBLICA") {
     const denied = request.nextUrl.clone();
     denied.pathname = "/no-autorizado";
+    denied.searchParams.set("state", profile ? "disabled" : "profile");
     return protectPreviewResponse(
       NextResponse.redirect(denied),
       context.preview,

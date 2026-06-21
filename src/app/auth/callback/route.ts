@@ -54,10 +54,9 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
     : { data: null };
   if (!profile?.is_active || profile.role === "CONSULTA_PUBLICA") {
-    await supabase.auth.signOut();
     return NextResponse.redirect(
       new URL(
-        `/login?error=${encodeURIComponent("La cuenta no tiene acceso institucional activo")}`,
+        `/no-autorizado?state=${profile ? "disabled" : "profile"}`,
         appUrl("/"),
       ),
     );

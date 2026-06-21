@@ -81,7 +81,7 @@ export default async function DependenciesPage({
                 archived={Boolean(dependency.archived_at)}
                 canArchive
                 canRestore
-                canHardDelete
+                canHardDelete={profile.is_owner}
                 compact
               />
             </div>}

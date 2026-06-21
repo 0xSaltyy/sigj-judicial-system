@@ -29,7 +29,10 @@ export async function saveDependency(formData: FormData) {
     redirect(
       `/admin/dependencias?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const { supabase } = await requirePermission(PERMISSIONS.dependenciesManage);
+  const session = await requirePermission(PERMISSIONS.dependenciesManage);
+  const { supabase } = session;
+  if (!parsed.data.parent_id && !session.profile.is_owner)
+    redirect("/admin/dependencias?error=Solo%20la%20superadministración%20puede%20crear%20o%20editar%20instituciones%20raíz");
   const payload = {
     ...parsed.data,
     id: undefined,

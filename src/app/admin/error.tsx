@@ -1,2 +1,10 @@
 "use client";
-import {useEffect} from "react";import {Button} from "@/components/ui/button";export default function AdminError({error,reset}:{error:Error&{digest?:string};reset:()=>void}){useEffect(()=>console.error(error),[error]);return <div className="mx-auto max-w-xl rounded-lg border border-red-200 bg-red-50 p-8 text-center"><h1 className="text-lg font-semibold text-red-900">No fue posible completar la operación</h1><p className="mt-2 text-sm text-red-800">{error.message||"Ocurrió un error inesperado. Intente nuevamente."}</p><Button onClick={reset} className="mt-5">Reintentar</Button></div>}
+
+import { useEffect } from "react";
+import { AccessDenied } from "@/components/access-denied";
+import { Button } from "@/components/ui/button";
+
+export default function AdminError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { console.error("Admin route error", error.digest || error.name); }, [error]);
+  return <div><AccessDenied title="No fue posible abrir el recurso" message="La operación no pudo completarse. Su sesión continúa activa; vuelva al panel o intente cargar nuevamente." /><div className="-mt-16 mb-8 text-center"><Button type="button" onClick={reset} variant="outline">Intentar nuevamente</Button></div></div>;
+}

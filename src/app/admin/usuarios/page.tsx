@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { requirePermission } from "@/lib/auth/permissions";
+import { can, requirePermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { profileAssetDataUrl } from "@/lib/profile-assets";
 import {
@@ -71,7 +71,7 @@ export default async function UsersPage({
         admin
           .from("profiles")
           .select(
-            "id,full_name,email,role,institution_id,dependency_id,supervisor_id,position_title,is_active,is_owner,public_profile,last_access_at,created_at,avatar_path",
+            "id,full_name,email,role,institution_id,dependency_id,supervisor_id,position_title,is_active,is_owner,public_profile,last_access_at,created_at,avatar_path,is_dependency_leader",
           )
           .order("is_owner", { ascending: false })
           .order("full_name"),
@@ -85,15 +85,16 @@ export default async function UsersPage({
       ])
     : [{ data: [], error: null }, { data: [] }];
   const deps = (allDependencies ?? []) as Dep[];
+  const [canViewAll, canViewDependency] = await Promise.all([can(session.profile, "view_all", "usuarios", { supabase: session.supabase }), can(session.profile, "view_dependency", "usuarios", { supabase: session.supabase })]);
   const actorRoot =
     session.profile.institution_id ||
     rootOf(session.profile.dependency_id, deps);
   const scopedProfiles = (allProfiles ?? []).filter(
     (item) =>
-      session.profile.is_owner ||
+      session.profile.is_owner || canViewAll ||
       (session.profile.role === "ADMIN_INSTITUCIONAL"
         ? within(item.dependency_id || item.institution_id, actorRoot, deps)
-        : item.dependency_id === session.profile.dependency_id),
+        : canViewDependency && item.dependency_id === session.profile.dependency_id),
   );
   const profiles = await Promise.all(
     scopedProfiles.map(async (item) => ({
@@ -206,6 +207,7 @@ export default async function UsersPage({
                         ? names.get(item.dependency_id)
                         : "Sin despacho"}
                     </p>
+                    {item.is_dependency_leader && <Badge className="mt-2 bg-blue-50 text-blue-900">Encargado/Líder de dependencia</Badge>}
                     <p className="mt-1 text-xs text-muted-foreground">
                       Superior:{" "}
                       {item.supervisor_id
@@ -331,6 +333,7 @@ export default async function UsersPage({
                               />{" "}
                               Perfil público
                             </label>
+                            {session.profile.is_owner ? <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_dependency_leader" value="true" defaultChecked={item.is_dependency_leader}/> Encargado/Líder de dependencia</label> : <input type="hidden" name="is_dependency_leader" value={String(item.is_dependency_leader)}/>}
                             <Button
                               type="submit"
                               size="sm"

@@ -14,12 +14,12 @@ const inviteSchema = z.object({
   email: z.string().trim().email(), full_name: z.string().trim().min(3).max(140), role: z.enum(APP_ROLES),
   institution_id: optionalUuid, dependency_id: optionalUuid, supervisor_id: optionalUuid,
   position_title: z.string().trim().max(120).optional(), creation_method: z.literal("temporary_password"),
-  temporary_password: z.string().min(8), is_active: z.enum(["true", "false"]), public_profile: z.string().optional(),
+  temporary_password: z.string().min(8), is_active: z.enum(["true", "false"]), public_profile: z.string().optional(), is_dependency_leader: z.string().optional(),
 });
 const updateSchema = z.object({
   target_id: dbUuid, full_name: z.string().trim().min(3).max(140), role: z.enum(APP_ROLES),
   institution_id: optionalUuid, dependency_id: optionalUuid, supervisor_id: optionalUuid,
-  position_title: z.string().trim().max(120).optional(), is_active: z.enum(["true", "false"]), public_profile: z.string().optional(),
+  position_title: z.string().trim().max(120).optional(), is_active: z.enum(["true", "false"]), public_profile: z.string().optional(), is_dependency_leader: z.string().optional(),
 });
 const targetSchema = z.object({ target_id: dbUuid });
 type Dependency = { id: string; parent_id: string | null; is_active: boolean };
@@ -40,6 +40,10 @@ function isWithin(child: string | null, parent: string | null, dependencies: Dep
   const byId = new Map(dependencies.map((item) => [item.id, item])); let current = byId.get(child); const seen = new Set<string>();
   while (current && !seen.has(current.id)) { if (current.id === parent) return true; seen.add(current.id); current = current.parent_id ? byId.get(current.parent_id) : undefined; }
   return false;
+}
+async function scopeDenied(session: Awaited<ReturnType<typeof requirePermission>>, message: string, targetId?: string): Promise<never> {
+  await session.supabase.rpc("log_security_event", { p_action: "USER_CREATION_SCOPE_DENIED", p_table: "profiles", p_record_id: targetId || null, p_description: message, p_metadata: { actor_dependency: session.profile.dependency_id, actor_institution: session.profile.institution_id } });
+  usersRedirect("error", message);
 }
 
 async function assertManagementScope(
@@ -63,19 +67,26 @@ async function assertManagementScope(
   }
   const actor = session.profile;
   if (actor.is_owner && actor.role === "SUPER_ADMIN") return { admin, institutionId: targetInstitution };
-  if (target.role === "SUPER_ADMIN") usersRedirect("error", "Solo la cuenta propietaria puede asignar SUPER_ADMIN");
+  if (target.role === "SUPER_ADMIN") await scopeDenied(session, "Solo la cuenta propietaria puede asignar SUPER_ADMIN", targetId);
   const actorInstitution = actor.institution_id || rootOf(actor.dependency_id, tree);
   if (actor.role === "ADMIN_INSTITUCIONAL") {
-    if (!actorInstitution || !targetInstitution || !isWithin(target.dependency_id || targetInstitution, actorInstitution, tree)) usersRedirect("error", "Solo puede gestionar usuarios dentro de su institución");
+    if (!targetId) await enforcePermission(session, PERMISSIONS.usersCreateInInstitution);
+    if (!actorInstitution || !targetInstitution || !isWithin(target.dependency_id || targetInstitution, actorInstitution, tree)) await scopeDenied(session, "Solo puede gestionar usuarios dentro de su institución", targetId);
     return { admin, institutionId: targetInstitution };
   }
   const headRoles: AppRole[] = ["MAGISTRADO_CORTE_SUPREMA","MAGISTRADO_TRIBUNAL","JUEZ_CIRCUITO","JUEZ_MUNICIPAL"];
   const workerRoles: AppRole[] = ["SECRETARIO_DESPACHO","OFICIAL_MAYOR","RADICADOR","ARCHIVO","CONSULTA_PUBLICA"];
   if (headRoles.includes(actor.role)) {
-    if (!actor.dependency_id || target.dependency_id !== actor.dependency_id || !workerRoles.includes(target.role)) usersRedirect("error", "La jefatura solo puede crear personal operativo de su propio despacho");
+    if (!actor.is_dependency_leader) {
+      await session.supabase.rpc("log_security_event", { p_action: "USER_CREATION_SCOPE_DENIED", p_table: "profiles", p_record_id: targetId || null, p_description: "El usuario no es líder del despacho", p_metadata: { dependency_id: actor.dependency_id } });
+      usersRedirect("error", "Solo el encargado/líder del despacho puede crear personal en esta dependencia");
+    }
+    if (!targetId) await enforcePermission(session, PERMISSIONS.usersCreateInDependency);
+    if (!actor.dependency_id || target.dependency_id !== actor.dependency_id || !workerRoles.includes(target.role)) await scopeDenied(session, "La jefatura solo puede crear personal operativo de su propio despacho", targetId);
     return { admin, institutionId: actorInstitution };
   }
-  if (!actor.dependency_id || target.dependency_id !== actor.dependency_id || !workerRoles.includes(target.role)) usersRedirect("error", "El permiso concedido se limita a personal de su propia dependencia");
+  if (!targetId) await enforcePermission(session, PERMISSIONS.usersCreateInDependency);
+  if (!actor.dependency_id || target.dependency_id !== actor.dependency_id || !workerRoles.includes(target.role)) await scopeDenied(session, "El permiso concedido se limita a personal de su propia dependencia", targetId);
   if (targetId === actor.id) usersRedirect("error", "No puede modificar su propio alcance desde esta operación");
   return { admin, institutionId: actorInstitution };
 }
@@ -93,7 +104,8 @@ export async function inviteUser(formData: FormData) {
   const email = parsed.data.email.toLowerCase();
   const { data, error } = await admin.auth.admin.createUser({ email, password: parsed.data.temporary_password, email_confirm: true, user_metadata: { full_name: parsed.data.full_name } });
   if (error || !data.user) usersRedirect("error", error?.message ?? "No fue posible crear el usuario", "/admin/usuarios/nuevo");
-  const profile = { id: data.user.id, email, full_name: parsed.data.full_name, role: parsed.data.role, institution_id: institutionId, dependency_id: parsed.data.dependency_id || null, supervisor_id: parsed.data.supervisor_id || null, position_title: parsed.data.position_title || null, is_active: parsed.data.is_active === "true", public_profile: parsed.data.public_profile === "true", is_owner: false };
+  if (parsed.data.is_dependency_leader === "true") await enforcePermission(session, PERMISSIONS.dependenciesAssignLeader);
+  const profile = { id: data.user.id, email, full_name: parsed.data.full_name, role: parsed.data.role, institution_id: institutionId, dependency_id: parsed.data.dependency_id || null, supervisor_id: parsed.data.supervisor_id || null, position_title: parsed.data.position_title || null, is_active: parsed.data.is_active === "true", public_profile: parsed.data.public_profile === "true", is_dependency_leader: parsed.data.is_dependency_leader === "true", is_owner: false };
   const { error: profileError } = await admin.from("profiles").upsert(profile, { onConflict: "id" });
   if (profileError) { await admin.auth.admin.deleteUser(data.user.id); usersRedirect("error", profileError.message, "/admin/usuarios/nuevo"); }
   await writeAudit(admin, session.user.id, data.user.id, "USER_CREATED", "Usuario activo creado y asignado institucionalmente", null, { role: profile.role, institution_id: profile.institution_id, dependency_id: profile.dependency_id, supervisor_id: profile.supervisor_id, is_active: profile.is_active });
@@ -106,16 +118,18 @@ export async function updateManagedUser(formData: FormData) {
   if (!parsed.success) usersRedirect("error", parsed.error.issues[0].message);
   const session = await requirePermission(PERMISSIONS.usersEdit);
   const adminClient = createAdminClient(); if (!adminClient) usersRedirect("error", "Falta SUPABASE_SERVICE_ROLE_KEY");
-  const { data: current } = await adminClient.from("profiles").select("id,full_name,role,institution_id,dependency_id,supervisor_id,position_title,is_active,is_owner,public_profile").eq("id", parsed.data.target_id).maybeSingle();
+  const { data: current } = await adminClient.from("profiles").select("id,full_name,role,institution_id,dependency_id,supervisor_id,position_title,is_active,is_owner,public_profile,is_dependency_leader").eq("id", parsed.data.target_id).maybeSingle();
   if (!current) usersRedirect("error", "El usuario no existe");
   if (current.is_owner) { await session.supabase.rpc("log_security_event", { p_action: "OWNER_PROTECTION_DENIED", p_table: "profiles", p_record_id: current.id, p_description: "Se impidió modificar la cuenta propietaria protegida", p_metadata: {} }); usersRedirect("error", "La cuenta propietaria está protegida"); }
   const { admin, institutionId } = await assertManagementScope(session, parsed.data, current.id);
   if (current.role !== parsed.data.role) await enforcePermission(session, PERMISSIONS.usersAssignRole, current.id);
   if (current.dependency_id !== (parsed.data.dependency_id || null)) await enforcePermission(session, PERMISSIONS.usersAssignDependency, current.id);
+  const nextLeader = parsed.data.is_dependency_leader === "true";
+  if (current.is_dependency_leader !== nextLeader) await enforcePermission(session, PERMISSIONS.dependenciesAssignLeader, current.id);
   const nextActive = parsed.data.is_active === "true";
   if (current.is_active && !nextActive) await enforcePermission(session, PERMISSIONS.usersDeactivate, current.id);
   if (!current.is_active && nextActive) await enforcePermission(session, PERMISSIONS.usersReactivate, current.id);
-  const next = { full_name: parsed.data.full_name, role: parsed.data.role, institution_id: institutionId, dependency_id: parsed.data.dependency_id || null, supervisor_id: parsed.data.supervisor_id || null, position_title: parsed.data.position_title || null, public_profile: parsed.data.public_profile === "true", is_active: nextActive };
+  const next = { full_name: parsed.data.full_name, role: parsed.data.role, institution_id: institutionId, dependency_id: parsed.data.dependency_id || null, supervisor_id: parsed.data.supervisor_id || null, position_title: parsed.data.position_title || null, public_profile: parsed.data.public_profile === "true", is_dependency_leader: nextLeader, is_active: nextActive };
   const { error } = await admin.from("profiles").update(next).eq("id", current.id).eq("is_owner", false);
   if (error) usersRedirect("error", error.message);
   await writeAudit(admin, session.user.id, current.id, "USER_ACCESS_UPDATED", "Usuario, cargo y asignación institucional actualizados", current, next);

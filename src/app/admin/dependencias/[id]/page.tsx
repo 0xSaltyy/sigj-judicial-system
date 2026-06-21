@@ -26,7 +26,7 @@ export default async function DependencyPanel({
     admin.from("dependencies").select("*").eq("id", id).maybeSingle(),
     admin
       .from("profiles")
-      .select("id,full_name,email,position_title,role,is_active,is_owner")
+      .select("id,full_name,email,position_title,role,is_active,is_owner,is_dependency_leader")
       .or(`dependency_id.eq.${id},institution_id.eq.${id}`)
       .order("full_name"),
     admin
@@ -82,7 +82,7 @@ export default async function DependencyPanel({
                     {m.is_owner ? "Correo protegido" : maskEmail(m.email)}
                   </p>
                 </div>
-                <Badge>{m.is_active ? "Activo" : "Inactivo"}</Badge>
+                <div className="flex flex-col items-end gap-1"><Badge>{m.is_active ? "Activo" : "Inactivo"}</Badge>{m.is_dependency_leader && <Badge variant="outline">Encargado/Líder</Badge>}</div>
               </article>
             ))}
             {!members?.length && (
