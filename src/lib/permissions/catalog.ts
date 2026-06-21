@@ -115,7 +115,7 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   assign_dependency: "Asignar dependencia",
   view_all: "Ver todos los usuarios",
   view_dependency: "Ver usuarios de mi dependencia/despacho",
-  assign_leader: "Asignar encargado/líder",
+  assign_leader: "Asignar juez, magistrado/a o responsable",
   export: "Exportar",
 };
 

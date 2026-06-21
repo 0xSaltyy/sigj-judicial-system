@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
+import { defaultJurisdiction } from "@/lib/institutional-language";
 
 export async function saveDependency(formData: FormData) {
   const parsed = z
@@ -17,7 +18,7 @@ export async function saveDependency(formData: FormData) {
       level: z.coerce.number().int().min(1).max(10),
       description: z.string().trim().max(1000).optional(),
       competence: z.string().trim().min(5),
-      jurisdiction: z.string().trim().min(2),
+      jurisdiction: z.string().trim().max(240).optional(),
       route_slug: z.string().trim().min(2),
       department: z.string().trim().min(2),
       municipality: z.string().trim().min(2),
@@ -39,6 +40,7 @@ export async function saveDependency(formData: FormData) {
     code: parsed.data.code.toUpperCase(),
     parent_id: parsed.data.parent_id || null,
     description: parsed.data.description || null,
+    jurisdiction: parsed.data.jurisdiction || defaultJurisdiction(parsed.data.type, parsed.data.name),
     is_active: parsed.data.is_active === "true",
     public_visible: parsed.data.public_visible === "true",
   };

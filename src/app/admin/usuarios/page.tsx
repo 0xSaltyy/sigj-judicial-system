@@ -23,6 +23,7 @@ import {
   maskEmail,
   type AppRole,
 } from "@/lib/user-management";
+import { judicialResponsibilityLabel } from "@/lib/institutional-language";
 
 type Query = { error?: string; success?: string };
 type Dep = {
@@ -207,7 +208,7 @@ export default async function UsersPage({
                         ? names.get(item.dependency_id)
                         : "Sin despacho"}
                     </p>
-                    {item.is_dependency_leader && <Badge className="mt-2 bg-blue-50 text-blue-900">Encargado/Líder de dependencia</Badge>}
+                    {item.is_dependency_leader && <Badge className="mt-2 bg-blue-50 text-blue-900">{judicialResponsibilityLabel(role)}</Badge>}
                     <p className="mt-1 text-xs text-muted-foreground">
                       Superior:{" "}
                       {item.supervisor_id
@@ -333,7 +334,7 @@ export default async function UsersPage({
                               />{" "}
                               Perfil público
                             </label>
-                            {session.profile.is_owner ? <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_dependency_leader" value="true" defaultChecked={item.is_dependency_leader}/> Encargado/Líder de dependencia</label> : <input type="hidden" name="is_dependency_leader" value={String(item.is_dependency_leader)}/>}
+                            {session.profile.is_owner ? <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_dependency_leader" value="true" defaultChecked={item.is_dependency_leader}/> {judicialResponsibilityLabel(role)}</label> : <input type="hidden" name="is_dependency_leader" value={String(item.is_dependency_leader)}/>}
                             <Button
                               type="submit"
                               size="sm"

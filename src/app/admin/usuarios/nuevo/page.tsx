@@ -210,7 +210,7 @@ export default async function InviteUserPage({
                 institución. El correo nunca se publica.
               </span>
             </label>
-            {profile.is_owner && <label className="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" name="is_dependency_leader" value="true" className="mt-1"/><span><strong>Encargado/Líder de dependencia.</strong> Habilita la jefatura del despacho; crear personal seguirá requiriendo el permiso correspondiente.</span></label>}
+            {profile.is_owner && <label className="flex items-start gap-2 text-sm md:col-span-2"><input type="checkbox" name="is_dependency_leader" value="true" className="mt-1"/><span><strong>Juez/Magistrado del despacho o responsable de oficina.</strong> Identifica a la persona responsable; crear personal seguirá requiriendo el permiso correspondiente.</span></label>}
             <div className="flex items-end justify-end md:col-span-2">
               <SubmitButton pendingLabel="Creando usuario…">
                 Crear usuario activo

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { maskEmail } from "@/lib/user-management";
+import { defaultJurisdiction, judicialResponsibilityLabel } from "@/lib/institutional-language";
 
 export default async function DependencyPanel({
   params,
@@ -55,7 +56,7 @@ export default async function DependencyPanel({
     <>
       <AdminPageHeader
         title={dep.name}
-        description={`${dep.type} · ${dep.competence}`}
+        description={`${dep.type} · ${dep.competence} · ${dep.jurisdiction || defaultJurisdiction(dep.type, dep.name)}`}
         action={
           <Button asChild>
             <Link href="/admin/usuarios/nuevo">Agregar miembro</Link>
@@ -82,7 +83,7 @@ export default async function DependencyPanel({
                     {m.is_owner ? "Correo protegido" : maskEmail(m.email)}
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-1"><Badge>{m.is_active ? "Activo" : "Inactivo"}</Badge>{m.is_dependency_leader && <Badge variant="outline">Encargado/Líder</Badge>}</div>
+                <div className="flex flex-col items-end gap-1"><Badge>{m.is_active ? "Activo" : "Inactivo"}</Badge>{m.is_dependency_leader && <Badge variant="outline">{judicialResponsibilityLabel(m.role)}</Badge>}</div>
               </article>
             ))}
             {!members?.length && (

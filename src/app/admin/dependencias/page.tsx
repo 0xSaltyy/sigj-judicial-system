@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { can, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { defaultJurisdiction, LOCAL_JURISDICTION_DEFAULT } from "@/lib/institutional-language";
 
 export default async function DependenciesPage({
   searchParams,
@@ -64,6 +65,8 @@ export default async function DependenciesPage({
             <p className="mt-2 text-xs text-muted-foreground">
               {dependency.competence}
             </p>
+            <p className="mt-2 text-xs text-muted-foreground"><strong>Jurisdicción:</strong> {dependency.jurisdiction || defaultJurisdiction(dependency.type, dependency.name)}</p>
+            <p className="mt-1 text-xs text-muted-foreground"><strong>Ciudad / sede:</strong> {dependency.municipality || "Sin definir"}</p>
             {canManage && !dependency.archived_at && (
               <details className="mt-4">
                 <summary className="cursor-pointer text-xs font-semibold">
@@ -126,9 +129,9 @@ function DependencyForm({ data, dependencies }: { data?: Record<string, unknown>
       <Input
         name="jurisdiction"
         defaultValue={String(data?.jurisdiction ?? "")}
-        placeholder="Jurisdicción *"
-        required
+        placeholder={LOCAL_JURISDICTION_DEFAULT}
       />
+      <p className="-mt-2 text-xs text-muted-foreground">Distrito / Circuito / Territorio. Si queda vacío, se asigna el valor correspondiente al tipo de institución.</p>
       <Input
         name="route_slug"
         defaultValue={String(data?.route_slug ?? "")}
@@ -137,12 +140,12 @@ function DependencyForm({ data, dependencies }: { data?: Record<string, unknown>
       />
       <Input
         name="department"
-        defaultValue={String(data?.department ?? "Bogotá D.C.")}
+        defaultValue={String(data?.department ?? "Valle del Cauca")}
         required
       />
       <Input
         name="municipality"
-        defaultValue={String(data?.municipality ?? "Bogotá D.C.")}
+        defaultValue={String(data?.municipality ?? "Santiago de Cali")}
         required
       />
       <select

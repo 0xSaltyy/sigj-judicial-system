@@ -234,13 +234,13 @@ export default async function NewCasePage({
             <TextField
               label="Departamento"
               name="department"
-              defaultValue="Bogotá D.C."
+              defaultValue="Valle del Cauca"
               required
             />
             <TextField
               label="Municipio"
               name="municipality"
-              defaultValue="Bogotá D.C."
+              defaultValue="Santiago de Cali"
               required
             />
             <TextField

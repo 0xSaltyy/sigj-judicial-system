@@ -5,6 +5,7 @@ import { PageHero } from "@/components/page-hero";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import { profileAssetDataUrl } from "@/lib/profile-assets";
+import { defaultJurisdiction, judicialResponsibilityLabel } from "@/lib/institutional-language";
 export default async function InstitutionPage({
   params,
 }: {
@@ -66,7 +67,7 @@ export default async function InstitutionPage({
               <b>Competencia:</b> {institution.competence}
             </p>
             <p>
-              <b>Jurisdicción:</b> {institution.jurisdiction}
+              <b>Jurisdicción:</b> {institution.jurisdiction || defaultJurisdiction(institution.type, institution.name)}
             </p>
           </CardContent>
         </Card>
@@ -103,7 +104,7 @@ export default async function InstitutionPage({
                 <div>
                   <p className="text-sm font-semibold">{m.full_name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {m.position_title || "Miembro institucional"}{m.is_dependency_leader ? " · Encargado/Líder" : ""}
+                    {m.position_title || "Miembro institucional"}{m.is_dependency_leader ? ` · ${judicialResponsibilityLabel(null, `${institution.type} ${institution.name}`)}` : ""}
                   </p>
                 </div>
               </article>

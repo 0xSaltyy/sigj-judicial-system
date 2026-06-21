@@ -78,8 +78,8 @@ async function assertManagementScope(
   const workerRoles: AppRole[] = ["SECRETARIO_DESPACHO","OFICIAL_MAYOR","RADICADOR","ARCHIVO","CONSULTA_PUBLICA"];
   if (headRoles.includes(actor.role)) {
     if (!actor.is_dependency_leader) {
-      await session.supabase.rpc("log_security_event", { p_action: "USER_CREATION_SCOPE_DENIED", p_table: "profiles", p_record_id: targetId || null, p_description: "El usuario no es líder del despacho", p_metadata: { dependency_id: actor.dependency_id } });
-      usersRedirect("error", "Solo el encargado/líder del despacho puede crear personal en esta dependencia");
+      await session.supabase.rpc("log_security_event", { p_action: "USER_CREATION_SCOPE_DENIED", p_table: "profiles", p_record_id: targetId || null, p_description: "El usuario no es juez o magistrado responsable del despacho", p_metadata: { dependency_id: actor.dependency_id } });
+      usersRedirect("error", "Solo el juez o magistrado asignado al despacho puede crear personal en esta dependencia");
     }
     if (!targetId) await enforcePermission(session, PERMISSIONS.usersCreateInDependency);
     if (!actor.dependency_id || target.dependency_id !== actor.dependency_id || !workerRoles.includes(target.role)) await scopeDenied(session, "La jefatura solo puede crear personal operativo de su propio despacho", targetId);
