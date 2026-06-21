@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { can, canManageDependency } from "@/lib/auth/permissions";
+import { requireInternalUser } from "@/lib/auth/authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { maskEmail } from "@/lib/user-management";
 import { defaultJurisdiction, judicialResponsibilityLabel } from "@/lib/institutional-language";
@@ -15,7 +16,13 @@ export default async function DependencyPanel({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await requirePermission(PERMISSIONS.dependenciesView);
+  const session = await requireInternalUser();
+  const [canView, canCreate, canEdit] = await Promise.all([
+    can(session.profile, "view", "dependencias", { supabase: session.supabase }),
+    canManageDependency(session.profile, "create", { supabase: session.supabase }),
+    canManageDependency(session.profile, "edit", { supabase: session.supabase }),
+  ]);
+  if (!canView && !canCreate && !canEdit) redirect("/no-autorizado");
   const admin = createAdminClient();
   if (!admin) notFound();
   const [
@@ -45,12 +52,12 @@ export default async function DependencyPanel({
       .limit(20),
   ]);
   if (!dep) notFound();
-  if (!session.profile.is_owner) {
+  if (!session.profile.is_owner && session.profile.role !== "SUPER_ADMIN") {
     const scopeRoot = session.profile.institution_id ?? session.profile.dependency_id;
     const { data: inScope } = scopeRoot
       ? await session.supabase.rpc("dependency_is_within", { p_child: id, p_parent: scopeRoot })
       : { data: false };
-    if (!inScope) notFound();
+    if (!inScope) redirect("/admin/dependencias?error=Esta%20dependencia%20pertenece%20a%20otra%20institución.");
   }
   return (
     <>

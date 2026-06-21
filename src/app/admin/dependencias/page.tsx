@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Building2 } from "lucide-react";
 import { saveDependency } from "@/app/actions/dependencies";
 import { AdminPageHeader } from "@/components/admin-page";
@@ -9,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DraftForm } from "@/components/draft-form";
-import { can, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { can, canManageDependency } from "@/lib/auth/permissions";
+import { requireInternalUser } from "@/lib/auth/authorization";
 import { defaultJurisdiction, LOCAL_JURISDICTION_DEFAULT } from "@/lib/institutional-language";
 
 type DependencyRow = { id:string; parent_id:string|null; name:string; code:string; type:string; competence:string; jurisdiction:string|null; municipality:string|null; is_active:boolean; archived_at:string|null; [key:string]:unknown };
@@ -21,17 +23,26 @@ export default async function DependenciesPage({
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
   const [{ supabase, profile }, query] = await Promise.all([
-    requirePermission(PERMISSIONS.dependenciesView),
+    requireInternalUser(),
     searchParams,
   ]);
+  const [canView, canCreate, canEdit, canManageInstitutions] = await Promise.all([
+    can(profile, "view", "dependencias", { supabase }),
+    canManageDependency(profile, "create", { supabase }),
+    canManageDependency(profile, "edit", { supabase }),
+    can(profile, "manage", "instituciones", { supabase }),
+  ]);
+  if (!canView && !canCreate && !canEdit) redirect("/no-autorizado");
   const { data, error } = await supabase
     .from("dependencies")
     .select("*")
     .order("name");
-  const canManage = await can(profile, "manage", "dependencias", { supabase });
   const allRows=(data??[]) as DependencyRow[];
   const scopeRoot=profile.institution_id||profile.dependency_id;
-  const visibleRows=profile.is_owner?allRows:allRows.filter((item)=>within(item.id,scopeRoot,allRows));
+  const globalScope=profile.is_owner||profile.role==="SUPER_ADMIN";
+  const hasManagementScope=globalScope||Boolean(scopeRoot);
+  const showCreate=canCreate&&hasManagementScope;
+  const visibleRows=globalScope?allRows:allRows.filter((item)=>within(item.id,scopeRoot,allRows));
   return (
     <>
       <AdminPageHeader
@@ -42,12 +53,12 @@ export default async function DependenciesPage({
         error={query.error ?? (error ? "No fue posible cargar la estructura institucional." : undefined)}
         success={query.success}
       />
-      {canManage ? <details className="mb-5 rounded-lg border bg-white p-5">
+      {showCreate ? <details className="mb-5 rounded-lg border bg-white p-5">
         <summary className="cursor-pointer font-semibold">
           Crear dependencia
         </summary>
-        <DependencyForm dependencies={visibleRows} />
-      </details> : <p className="mb-5 rounded-lg border bg-white p-4 text-sm text-muted-foreground">Puede consultar la estructura y sus miembros. No tiene permiso para crear o modificar dependencias.</p>}
+        <DependencyForm dependencies={visibleRows} allowRoot={globalScope} defaultParentId={globalScope ? null : scopeRoot} />
+      </details> : <p className="mb-5 rounded-lg border bg-white p-4 text-sm text-muted-foreground">{canCreate && !hasManagementScope ? "Su perfil no tiene alcance institucional suficiente." : canEdit ? "Puede editar las dependencias autorizadas, pero no tiene permiso para crear dependencias." : "Puede consultar la estructura y sus miembros. No tiene permiso para crear ni editar dependencias."}</p>}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {visibleRows.map((dependency) => (
           <article
@@ -74,15 +85,15 @@ export default async function DependenciesPage({
             </p>
             <p className="mt-2 text-xs text-muted-foreground"><strong>Jurisdicción:</strong> {dependency.jurisdiction || defaultJurisdiction(dependency.type, dependency.name)}</p>
             <p className="mt-1 text-xs text-muted-foreground"><strong>Ciudad / sede:</strong> {dependency.municipality || "Sin definir"}</p>
-            {canManage && !dependency.archived_at && (
+            {canEdit && !dependency.archived_at && (globalScope || dependency.id !== profile.institution_id || canManageInstitutions) && (
               <details className="mt-4">
                 <summary className="cursor-pointer text-xs font-semibold">
                   Editar
                 </summary>
-                <DependencyForm data={dependency} dependencies={visibleRows.filter((item) => item.id !== dependency.id)} />
+                <DependencyForm data={dependency} dependencies={visibleRows.filter((item) => item.id !== dependency.id)} allowRoot={globalScope} defaultParentId={scopeRoot} />
               </details>
             )}
-            {canManage && <div className="mt-4">
+            {globalScope && <div className="mt-4">
               <LifecycleActions
                 resource="dependencies"
                 recordId={dependency.id}
@@ -102,7 +113,7 @@ export default async function DependenciesPage({
   );
 }
 
-function DependencyForm({ data, dependencies }: { data?: Record<string, unknown>; dependencies: Array<Record<string, unknown>> }) {
+function DependencyForm({ data, dependencies, allowRoot, defaultParentId }: { data?: Record<string, unknown>; dependencies: Array<Record<string, unknown>>; allowRoot: boolean; defaultParentId: string | null }) {
   return (
     <DraftForm action={saveDependency} storageKey={`sigj:dependency:${String(data?.id??"new")}`} className="mt-4 grid gap-3">
       <input type="hidden" name="id" value={String(data?.id ?? "")} />
@@ -124,7 +135,10 @@ function DependencyForm({ data, dependencies }: { data?: Record<string, unknown>
         placeholder="Tipo *"
         required
       />
-      <select name="parent_id" defaultValue={String(data?.parent_id ?? "")} className="h-9 rounded-md border px-3"><option value="">Sin superior (institución raíz)</option>{dependencies.map((item) => <option key={String(item.id)} value={String(item.id)}>{String(item.name)}</option>)}</select>
+      <select name="parent_id" defaultValue={String(data?.parent_id ?? defaultParentId ?? "")} className="h-9 rounded-md border px-3">
+        {allowRoot && <option value="">Sin superior (institución raíz)</option>}
+        {dependencies.map((item) => <option key={String(item.id)} value={String(item.id)}>{String(item.name)}</option>)}
+      </select>
       <Input name="level" type="number" min={1} max={10} defaultValue={String(data?.level ?? 1)} required />
       <Textarea name="description" defaultValue={String(data?.description ?? "")} placeholder="Descripción pública" />
       <Textarea

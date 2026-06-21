@@ -73,6 +73,8 @@ export const PERMISSIONS = {
   institutionsView: { resource: "instituciones", action: "view" },
   institutionsManage: { resource: "instituciones", action: "manage" },
   dependenciesView: { resource: "dependencias", action: "view" },
+  dependenciesCreate: { resource: "dependencias", action: "create" },
+  dependenciesEdit: { resource: "dependencias", action: "edit" },
   dependenciesManage: { resource: "dependencias", action: "manage" },
   dependenciesAssignLeader: { resource: "dependencias", action: "assign_leader" },
   rolesManage: { resource: "roles", action: "manage" },
@@ -146,6 +148,19 @@ export async function can(
   if (!overrideError && override?.effect === "allow") return true;
   if (!roleError && typeof roleRule?.allowed === "boolean") return roleRule.allowed;
   return defaultRoleCan(profile.role, resource, action);
+}
+
+export async function canManageDependency(
+  profile: { id: string; is_owner: boolean; role: AppRole },
+  action: "create" | "edit",
+  context: PermissionContext,
+) {
+  if (profile.is_owner || profile.role === "SUPER_ADMIN") return true;
+  const { data, error } = await context.supabase.rpc(
+    "can_manage_dependency_action",
+    { p_action: action },
+  );
+  return !error && data === true;
 }
 
 export async function requirePermission(allowed: readonly AppRole[] | PermissionRequirement) {

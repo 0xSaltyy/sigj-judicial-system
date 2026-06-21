@@ -1,6 +1,6 @@
 import { AdminSidebar, AdminTopbar } from "@/components/admin-sidebar";
 import { requireInternalUser } from "@/lib/auth/authorization";
-import { can } from "@/lib/auth/permissions";
+import { can, canManageDependency } from "@/lib/auth/permissions";
 import { profileAssetDataUrl } from "@/lib/profile-assets";
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     supabase.from("internal_notifications").select("id,title,message,link_url,read_at").eq("recipient_user_id", profile.id).order("created_at", { ascending: false }).limit(5),
     profileAssetDataUrl(profile.avatar_path),
     can(profile,"view","expedientes",{supabase}), can(profile,"view","actuaciones",{supabase}), can(profile,"view","providencias",{supabase}),
-    can(profile,"view","audiencias",{supabase}), can(profile,"view","comunicados",{supabase}), can(profile,"view","notificaciones",{supabase}), can(profile,"view","dependencias",{supabase}),
+    can(profile,"view","audiencias",{supabase}), can(profile,"view","comunicados",{supabase}), can(profile,"view","notificaciones",{supabase}),
+    Promise.all([can(profile,"view","dependencias",{supabase}), canManageDependency(profile,"create",{supabase}), canManageDependency(profile,"edit",{supabase})]).then((values) => values.some(Boolean)),
     can(profile,"view","usuarios",{supabase}),
     can(profile,"view","roles",{supabase}),
     can(profile,"view","auditoria",{supabase}),

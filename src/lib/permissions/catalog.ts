@@ -64,7 +64,7 @@ export const PERMISSION_CATALOG = [
   { resource: "enlaces", label: "Enlaces compartidos", actions: ["create", "view", "revoke"] },
   { resource: "auditoria", label: "Auditoría", actions: ["view", "export"] },
   { resource: "instituciones", label: "Instituciones", actions: ["view", "manage"] },
-  { resource: "dependencias", label: "Dependencias y despachos", actions: ["view", "manage", "assign_leader"] },
+  { resource: "dependencias", label: "Dependencias y despachos", actions: ["view", "create", "edit", "manage", "assign_leader"] },
   { resource: "configuracion", label: "Configuración", actions: ["view", "manage"] },
   { resource: "edicion", label: "Edición colaborativa", actions: ["take_control"] },
   { resource: "votos", label: "Votos particulares", actions: ["view", "create", "edit", "sign", "publish", "archive", "print"] },
@@ -165,7 +165,7 @@ const adjudicatorWrite = [
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
-  ADMIN_INSTITUCIONAL: [...judicialView, "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create", "usuarios:view", "usuarios:view_dependency", "usuarios:create", "usuarios:create_in_institution", "usuarios:create_in_dependency", "usuarios:edit", "usuarios:deactivate", "usuarios:reactivate", "usuarios:assign_role", "usuarios:assign_dependency", "instituciones:view", "dependencias:view", "dependencias:manage"],
+  ADMIN_INSTITUCIONAL: [...judicialView, "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create", "usuarios:view", "usuarios:view_dependency", "usuarios:create", "usuarios:create_in_institution", "usuarios:create_in_dependency", "usuarios:edit", "usuarios:deactivate", "usuarios:reactivate", "usuarios:assign_role", "usuarios:assign_dependency", "instituciones:view", "dependencias:view", "dependencias:create", "dependencias:edit", "dependencias:manage"],
   MAGISTRADO_CORTE_SUPREMA: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
   MAGISTRADO_TRIBUNAL: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
   JUEZ_CIRCUITO: [...judicialView, ...adjudicatorWrite],

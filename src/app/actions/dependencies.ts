@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { canManageDependency } from "@/lib/auth/permissions";
+import { requireInternalUser } from "@/lib/auth/authorization";
 import { dbUuid } from "@/lib/validation";
 import { defaultJurisdiction } from "@/lib/institutional-language";
 import { safeActionError } from "@/lib/action-errors";
@@ -31,9 +32,31 @@ export async function saveDependency(formData: FormData) {
     redirect(
       `/admin/dependencias?error=${encodeURIComponent(parsed.error.issues[0].message)}`,
     );
-  const session = await requirePermission(PERMISSIONS.dependenciesManage);
+  const session = await requireInternalUser();
   const { supabase } = session;
-  if (!parsed.data.parent_id && !session.profile.is_owner)
+  const action = parsed.data.id ? "edit" : "create";
+  const allowed = await canManageDependency(session.profile, action, { supabase });
+  if (!allowed) {
+    if (process.env.NODE_ENV === "development") {
+      console.info("Dependency permission denied", {
+        userId: session.user.id,
+        role: session.profile.role,
+        institutionId: session.profile.institution_id,
+        dependencyId: session.profile.dependency_id,
+        action,
+      });
+    }
+    await supabase.rpc("log_security_event", {
+      p_action: "DEPENDENCY_MANAGEMENT_DENIED",
+      p_table: "dependencies",
+      p_record_id: parsed.data.id || null,
+      p_description: `Intento de ${action === "create" ? "crear" : "editar"} una dependencia sin permiso efectivo`,
+      p_metadata: { action },
+    });
+    redirect(`/admin/dependencias?error=${encodeURIComponent(action === "create" ? "No tiene permiso para crear dependencias." : "No tiene permiso para editar dependencias.")}`);
+  }
+  const globalScope = session.profile.is_owner || session.profile.role === "SUPER_ADMIN";
+  if (!parsed.data.parent_id && !globalScope)
     redirect("/admin/dependencias?error=Solo%20la%20superadministración%20puede%20crear%20o%20editar%20instituciones%20raíz");
   const payload = {
     ...parsed.data,
@@ -46,10 +69,21 @@ export async function saveDependency(formData: FormData) {
     public_visible: parsed.data.public_visible === "true",
   };
   const result = await supabase.rpc("save_dependency_scoped", { p_id: parsed.data.id || null, p_payload: payload });
-  if (result.error)
+  if (result.error) {
+    if (process.env.NODE_ENV === "development") {
+      console.info("Dependency scope rejected", {
+        userId: session.user.id,
+        role: session.profile.role,
+        institutionId: session.profile.institution_id,
+        dependencyId: session.profile.dependency_id,
+        action,
+        reason: result.error.message,
+      });
+    }
     redirect(
       `/admin/dependencias?error=${encodeURIComponent(safeActionError(result.error,"No fue posible guardar la dependencia"))}`,
     );
+  }
   revalidatePath("/admin/dependencias");
   redirect(
     `/admin/dependencias?success=${encodeURIComponent("Dependencia guardada")}`,
