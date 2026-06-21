@@ -52,8 +52,8 @@ export async function GET(
     });
   if (signedError || !data?.signedUrl)
     return NextResponse.json(
-      { error: signedError?.message ?? "No fue posible abrir el archivo" },
-      { status: 400 },
+      { error: "No fue posible abrir el archivo en este momento" },
+      { status: 503 },
     );
 
   await supabase.rpc("log_security_event", {

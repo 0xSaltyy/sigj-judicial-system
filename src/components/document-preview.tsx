@@ -7,6 +7,7 @@ import { DocumentShareButton } from "@/components/document-share-button";
 import { formatBytes } from "@/components/document-uploader";
 import { LifecycleActions } from "@/components/lifecycle-actions";
 import { Button } from "@/components/ui/button";
+import { SecurePdfPreview } from "@/components/secure-pdf-preview";
 
 export type SavedDocument = {
   id: string;
@@ -54,12 +55,10 @@ export function DocumentPreview({ document, caseId }: { document: SavedDocument;
   const uploadedAt = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(document.created_at));
 
   return (
-    <article className={`overflow-hidden rounded-lg border bg-white ${document.archived_at ? "opacity-75" : ""}`}>
+    <article className={`app-card-enter min-w-0 overflow-hidden rounded-lg border bg-white ${document.archived_at ? "opacity-75" : ""}`}>
       <div className="bg-slate-50">
         {document.previewUrl && document.file_type === "application/pdf" ? (
-          <object data={document.previewUrl} type="application/pdf" className="h-80 w-full" aria-label={`Vista previa de ${name}`}>
-            <FileFallback />
-          </object>
+          <SecurePdfPreview url={document.previewUrl} title={`Vista previa de ${name}`} className="h-80" />
         ) : document.previewUrl && document.file_type.startsWith("image/") && !imageFailed ? (
           <div className="grid h-80 place-items-center p-3">
             <img src={document.previewUrl} alt={name} className="max-h-full max-w-full object-contain" onError={() => setImageFailed(true)} />
@@ -70,7 +69,7 @@ export function DocumentPreview({ document, caseId }: { document: SavedDocument;
       </div>
       <div className="space-y-3 border-t p-4">
         <div>
-          <p className="text-sm font-semibold text-[#153553]">{document.title}</p>
+          <p className="break-words text-sm font-semibold text-[#153553]">{document.title}</p>
           <p className="mt-1 break-all text-xs text-muted-foreground">{name}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {document.document_type || "Documento"} · {formatBytes(document.size_bytes)} · {visibilityLabels[document.visibility] ?? document.visibility}{document.archived_at ? " · Archivado" : ""}
@@ -84,7 +83,7 @@ export function DocumentPreview({ document, caseId }: { document: SavedDocument;
               {document.folios ? `${document.folios} folio${document.folios === 1 ? "" : "s"}` : ""}{document.folios && document.source ? " · " : ""}{document.source ? `Origen: ${document.source}` : ""}
             </p>
           )}
-          {document.description && <p className="mt-2 text-sm leading-relaxed text-slate-700">{document.description}</p>}
+          {document.description && <p className="mt-2 break-words text-sm leading-relaxed text-slate-700">{document.description}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           {document.previewUrl && (

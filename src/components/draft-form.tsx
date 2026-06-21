@@ -27,6 +27,10 @@ export function DraftForm({
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("success")) {
+      sessionStorage.removeItem(storageKey);
+      return;
+    }
     const raw = sessionStorage.getItem(storageKey);
     if (!raw || !formRef.current) return;
     try {

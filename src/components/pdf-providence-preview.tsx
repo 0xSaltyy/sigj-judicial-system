@@ -1,5 +1,6 @@
 import { Download, ExternalLink, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SecurePdfPreview } from "@/components/secure-pdf-preview";
 
 export function PdfProvidencePreview({
   title,
@@ -25,15 +26,13 @@ export function PdfProvidencePreview({
     <section className="overflow-hidden rounded-lg border bg-white shadow-sm">
       <div className="border-b bg-slate-50 p-5">
         <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#8a6a2c]">Providencia PDF original</p>
-        <h2 className="mt-1 text-lg font-semibold text-[#153553]">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{providenceNumber} · {documentType}{documentDate ? ` · ${documentDate}` : ""}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">Archivo: {originalName || "Documento PDF"}</p>
+        <h2 className="mt-1 break-words text-lg font-semibold text-[#153553]">{title}</h2>
+        <p className="mt-1 break-words text-sm text-muted-foreground">{providenceNumber} · {documentType}{documentDate ? ` · ${documentDate}` : ""}</p>
+        <p className="mt-1 break-all text-xs text-muted-foreground">Archivo: {originalName || "Documento PDF"}</p>
       </div>
       {originalUrl ? (
         <>
-          <object data={originalUrl} type="application/pdf" className="h-[780px] w-full bg-slate-100" aria-label={`PDF original ${providenceNumber}`}>
-            <PdfFallback originalUrl={originalUrl} downloadUrl={downloadUrl} />
-          </object>
+          <SecurePdfPreview url={originalUrl} title={`PDF original ${providenceNumber}`} className="h-[min(780px,75vh)]" />
           <div className="flex flex-wrap gap-2 border-t bg-white p-4 no-print">
             <Button asChild variant="outline"><a href={originalUrl} target="_blank" rel="noreferrer"><ExternalLink className="size-4" /> Abrir PDF en nueva pestaña</a></Button>
             {downloadUrl && <Button asChild variant="outline"><a href={downloadUrl}><Download className="size-4" /> Descargar PDF original</a></Button>}
@@ -44,18 +43,5 @@ export function PdfProvidencePreview({
         <div className="grid min-h-72 place-items-center p-8 text-center text-sm text-muted-foreground">No se pudo previsualizar el PDF porque el archivo no está disponible.</div>
       )}
     </section>
-  );
-}
-
-function PdfFallback({ originalUrl, downloadUrl }: { originalUrl: string; downloadUrl: string | null }) {
-  return (
-    <div className="grid h-full min-h-72 place-items-center p-8 text-center">
-      <div>
-        <FileText className="mx-auto size-10 text-slate-400" />
-        <p className="mt-3 font-semibold text-[#153553]">No se pudo previsualizar el PDF.</p>
-        <p className="mt-1 text-sm text-muted-foreground">Puede abrirlo en una nueva pestaña o descargarlo de forma segura.</p>
-        <div className="mt-4 flex flex-wrap justify-center gap-2"><Button asChild variant="outline"><a href={originalUrl} target="_blank" rel="noreferrer">Abrir PDF en nueva pestaña</a></Button>{downloadUrl && <Button asChild variant="outline"><a href={downloadUrl}>Descargar PDF</a></Button>}</div>
-      </div>
-    </div>
   );
 }

@@ -88,43 +88,52 @@ export default async function NotificationsPage({
             action={createAssignedNotification}
             className="mt-4 grid gap-3 md:grid-cols-2"
           >
-            <select
-              name="recipient_user_id"
-              required
-              className="h-9 rounded-md border px-3 text-sm"
-            >
-              <option value="">Asignar usuario…</option>
-              {recipients.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.is_owner ? "Lilith D'Amico" : r.full_name}
-                  {r.position_title ? ` · ${r.position_title}` : ""}
-                </option>
-              ))}
-            </select>
-            <select
-              name="priority"
-              defaultValue="normal"
-              className="h-9 rounded-md border px-3 text-sm"
-            >
-              <option value="low">Baja</option>
-              <option value="normal">Normal</option>
-              <option value="high">Alta</option>
-              <option value="urgent">Urgente</option>
-            </select>
-            <Input
-              name="title"
-              maxLength={120}
-              required
-              placeholder="Título seguro"
-            />
-            <Input name="link_url" placeholder="/admin/expedientes/…" />
-            <Textarea
-              name="message"
-              maxLength={500}
-              required
-              placeholder="Mensaje sin contenido reservado"
-              className="md:col-span-2"
-            />
+            <label className="grid gap-1 text-sm font-medium">
+              Destinatario
+              <select
+                name="recipient_user_id"
+                required
+                className="h-9 min-w-0 rounded-md border px-3 text-sm font-normal"
+              >
+                <option value="">Seleccione un usuario…</option>
+                {recipients.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.is_owner ? "Lilith D'Amico" : r.full_name}
+                    {r.position_title ? ` · ${r.position_title}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Prioridad
+              <select
+                name="priority"
+                defaultValue="normal"
+                className="h-9 min-w-0 rounded-md border px-3 text-sm font-normal"
+              >
+                <option value="low">Baja</option>
+                <option value="normal">Normal</option>
+                <option value="high">Alta</option>
+                <option value="urgent">Urgente</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Título
+              <Input name="title" maxLength={120} required placeholder="Asunto del aviso" />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Enlace interno (opcional)
+              <Input name="link_url" placeholder="/admin/expedientes/…" />
+            </label>
+            <label className="grid gap-1 text-sm font-medium md:col-span-2">
+              Mensaje
+              <Textarea
+                name="message"
+                maxLength={500}
+                required
+                placeholder="Mensaje sin contenido reservado"
+              />
+            </label>
             <p className="text-xs text-muted-foreground md:col-span-2">
               El enlace se vuelve a autorizar al abrirse; la notificación no
               concede acceso al registro.

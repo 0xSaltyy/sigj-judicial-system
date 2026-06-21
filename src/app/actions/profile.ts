@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { can, enforcePermission, PERMISSIONS } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
+import { safeActionError } from "@/lib/action-errors";
 
 const imageTypes = new Set(["image/png","image/jpeg","image/webp"]);
 function fail(message:string):never{redirect(`/admin/perfil?error=${encodeURIComponent(message)}`)}
@@ -22,7 +23,6 @@ export async function updateSelfProfile(formData: FormData) {
   if (!parsed.success) fail(parsed.error.issues[0].message);
   const session = await requireInternalUser();
   await enforcePermission(session, PERMISSIONS.profileEdit, session.user.id);
-  await enforcePermission(session, PERMISSIONS.usersEditOwn, session.user.id);
   const admin = createAdminClient(); if (!admin) fail("Servicio de perfil no configurado");
   const { data: current } = await admin.from("profiles").select("id,full_name,position_title,institution_id,dependency_id,public_display_name,public_title,public_bio,public_phone,public_profile,public_institution_id,public_dependency_id,is_owner,role").eq("id",session.user.id).maybeSingle();
   if (!current) fail("El perfil institucional no está disponible");
@@ -58,7 +58,8 @@ export async function updateSelfProfile(formData: FormData) {
     public_dependency_id: editPublic ? parsed.data.public_dependency_id || null : current.public_dependency_id,
     public_profile: publish ? requestedPublic : current.public_profile,
   };
-  const { error } = await admin.from("profiles").update(next).eq("id",session.user.id); if(error) fail("No fue posible guardar el perfil");
+  const { error } = await session.supabase.rpc("update_self_profile_secure", { p_payload: next });
+  if(error) fail(safeActionError(error,"No fue posible guardar el perfil institucional"));
   const changed = Object.fromEntries(Object.entries(next).filter(([key,value]) => value !== (current as Record<string,unknown>)[key]));
   const oldValues=Object.fromEntries(Object.keys(changed).map((key)=>[key,(current as Record<string,unknown>)[key]]));
   const auditRows=[{user_id:session.user.id,target_user_id:session.user.id,action:"SELF_PROFILE_UPDATED",table_name:"profiles",record_id:session.user.id,description:"Perfil institucional propio actualizado",old_values:oldValues,new_values:changed,metadata:{source:"self_profile"}}];
@@ -74,8 +75,8 @@ export async function uploadProfilePhoto(formData:FormData){
   const file=formData.get("photo"); if(!(file instanceof File)||!file.size)fail("Seleccione una imagen");
   if(!imageTypes.has(file.type)||file.size>1024*1024)fail("Use PNG, JPG o WebP de máximo 1 MB");
   const ext=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg"; const path=`${user.id}/avatar.${ext}`;
-  const {error}=await admin.storage.from("profile-assets").upload(path,file,{contentType:file.type,upsert:true}); if(error)fail(error.message);
-  const {error:updateError}=await admin.from("profiles").update({avatar_path:path}).eq("id",user.id); if(updateError)fail(updateError.message);
+  const {error}=await admin.storage.from("profile-assets").upload(path,file,{contentType:file.type,upsert:true}); if(error)fail(safeActionError(error,"No fue posible subir la foto de perfil"));
+  const {error:updateError}=await admin.from("profiles").update({avatar_path:path}).eq("id",user.id); if(updateError)fail(safeActionError(updateError,"La foto se cargó, pero no fue posible asociarla al perfil"));
   await admin.from("audit_logs").insert({user_id:user.id,target_user_id:user.id,action:"PROFILE_PHOTO_UPDATED",table_name:"profiles",record_id:user.id,description:"Foto de perfil actualizada",metadata:{private_storage:true}});
   revalidatePath("/admin","layout"); redirect("/admin/perfil?success=Foto%20de%20perfil%20actualizada");
 }
@@ -86,8 +87,8 @@ export async function uploadDefaultSignature(formData:FormData){
   if(file.type!=="image/png"||file.size>1024*1024)fail("La firma predeterminada debe ser PNG de máximo 1 MB");
   const bytes=Buffer.from(await file.arrayBuffer()); const png=[137,80,78,71,13,10,26,10]; if(bytes.length<24||!png.every((v,i)=>bytes[i]===v))fail("El archivo PNG no es válido");
   const width=bytes.readUInt32BE(16),height=bytes.readUInt32BE(20); if(width<200||height<80||width>5000||height>3000)fail("La firma debe medir entre 200×80 y 5000×3000 px");
-  const path=`${user.id}/default-signature.png`; const {error}=await admin.storage.from("profile-assets").upload(path,bytes,{contentType:"image/png",upsert:true}); if(error)fail(error.message);
-  const {error:updateError}=await admin.from("profiles").update({default_signature_path:path}).eq("id",user.id); if(updateError)fail(updateError.message);
+  const path=`${user.id}/default-signature.png`; const {error}=await admin.storage.from("profile-assets").upload(path,bytes,{contentType:"image/png",upsert:true}); if(error)fail(safeActionError(error,"No fue posible guardar la firma privada"));
+  const {error:updateError}=await admin.from("profiles").update({default_signature_path:path}).eq("id",user.id); if(updateError)fail(safeActionError(updateError,"La firma se cargó, pero no fue posible asociarla al perfil"));
   await admin.from("audit_logs").insert({user_id:user.id,target_user_id:user.id,action:"DEFAULT_SIGNATURE_UPDATED",table_name:"profiles",record_id:user.id,description:"Firma predeterminada privada actualizada",metadata:{requires_confirmation_for_use:true}});
   revalidatePath("/admin/perfil"); redirect("/admin/perfil?success=Firma%20predeterminada%20guardada");
 }

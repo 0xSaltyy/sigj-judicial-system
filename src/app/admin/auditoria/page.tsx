@@ -124,43 +124,57 @@ export default async function AuditPage({
         </p>
       )}
       <form className="mb-5 grid gap-3 rounded-lg border bg-white p-4 md:grid-cols-3 xl:grid-cols-6">
-        <Input
-          name="module"
-          defaultValue={query.module}
-          placeholder="Módulo / tabla"
-        />
-        <Input name="action" defaultValue={query.action} placeholder="Acción" />
-        <select
-          name="user"
-          defaultValue={query.user ?? ""}
-          className="h-9 rounded-md border px-3 text-sm"
-        >
-          <option value="">Cualquier usuario</option>
-          {(profiles ?? [])
-            .filter(
-              (p) =>
-                profile.is_owner || p.dependency_id === profile.dependency_id,
-            )
-            .map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.is_owner ? "Lilith D'Amico" : p.full_name}
+        <label className="grid gap-1 text-xs font-medium text-slate-700">
+          Módulo o tabla
+          <Input name="module" defaultValue={query.module} placeholder="Ej. profiles" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-slate-700">
+          Acción
+          <Input name="action" defaultValue={query.action} placeholder="Ej. UPDATE" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-slate-700">
+          Usuario relacionado
+          <select
+            name="user"
+            defaultValue={query.user ?? ""}
+            className="h-9 min-w-0 rounded-md border px-3 text-sm font-normal"
+          >
+            <option value="">Cualquier usuario</option>
+            {(profiles ?? [])
+              .filter(
+                (p) =>
+                  profile.is_owner || p.dependency_id === profile.dependency_id,
+              )
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.is_owner ? "Lilith D'Amico" : p.full_name}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-slate-700">
+          Dependencia
+          <select
+            name="dependency"
+            defaultValue={query.dependency ?? ""}
+            className="h-9 min-w-0 rounded-md border px-3 text-sm font-normal"
+          >
+            <option value="">Cualquier dependencia</option>
+            {(dependencies ?? []).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
               </option>
             ))}
-        </select>
-        <select
-          name="dependency"
-          defaultValue={query.dependency ?? ""}
-          className="h-9 rounded-md border px-3 text-sm"
-        >
-          <option value="">Cualquier dependencia</option>
-          {(dependencies ?? []).map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <Input type="date" name="from" defaultValue={query.from} />
-        <Input type="date" name="to" defaultValue={query.to} />
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-slate-700">
+          Desde
+          <Input type="date" name="from" defaultValue={query.from} />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-slate-700">
+          Hasta
+          <Input type="date" name="to" defaultValue={query.to} />
+        </label>
         <div className="flex gap-2 md:col-span-3 xl:col-span-6">
           <Button type="submit">Filtrar logs</Button>
           <Button asChild variant="outline">

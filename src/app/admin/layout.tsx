@@ -2,6 +2,8 @@ import { AdminSidebar, AdminTopbar } from "@/components/admin-sidebar";
 import { requireInternalUser } from "@/lib/auth/authorization";
 import { can, canManageDependency } from "@/lib/auth/permissions";
 import { profileAssetDataUrl } from "@/lib/profile-assets";
+import { AdminScrollPreserver } from "@/components/admin-scroll-preserver";
+import { Suspense } from "react";
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -13,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     profileAssetDataUrl(profile.avatar_path),
     can(profile,"view","expedientes",{supabase}), can(profile,"view","actuaciones",{supabase}), can(profile,"view","providencias",{supabase}),
     can(profile,"view","audiencias",{supabase}), can(profile,"view","comunicados",{supabase}), can(profile,"view","notificaciones",{supabase}),
-    Promise.all([can(profile,"view","dependencias",{supabase}), canManageDependency(profile,"create",{supabase}), canManageDependency(profile,"edit",{supabase})]).then((values) => values.some(Boolean)),
+    Promise.all([can(profile,"view","dependencias",{supabase}), can(profile,"view","instituciones",{supabase}), canManageDependency(profile,"create",{supabase}), canManageDependency(profile,"edit",{supabase})]).then((values) => values.some(Boolean)),
     can(profile,"view","usuarios",{supabase}),
     can(profile,"view","roles",{supabase}),
     can(profile,"view","auditoria",{supabase}),
@@ -30,5 +32,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     avatarUrl,
     permissions: { cases:casesPermission,actions:actionsPermission,proceedings:proceedingsPermission,hearings:hearingsPermission,notices:noticesPermission,notifications:notificationsPermission,dependencies:dependenciesPermission,users:usersPermission,roles:rolesPermission,audit:auditPermission,settings:settingsPermission },
   };
-  return <div className="admin-shell min-h-screen bg-[#f5f7f9]"><AdminSidebar viewer={viewer} /><div className="admin-content lg:pl-64"><AdminTopbar viewer={viewer} /><main className="admin-main mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{children}</main></div></div>;
+  return <div className="admin-shell min-h-screen bg-[#f5f7f9]"><Suspense fallback={null}><AdminScrollPreserver /></Suspense><AdminSidebar viewer={viewer} /><div className="admin-content lg:pl-64"><AdminTopbar viewer={viewer} /><main className="admin-main mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{children}</main></div></div>;
 }

@@ -17,12 +17,13 @@ export default async function DependencyPanel({
 }) {
   const { id } = await params;
   const session = await requireInternalUser();
-  const [canView, canCreate, canEdit] = await Promise.all([
+  const [canViewDependencies, canViewInstitutions, canCreate, canEdit] = await Promise.all([
     can(session.profile, "view", "dependencias", { supabase: session.supabase }),
+    can(session.profile, "view", "instituciones", { supabase: session.supabase }),
     canManageDependency(session.profile, "create", { supabase: session.supabase }),
     canManageDependency(session.profile, "edit", { supabase: session.supabase }),
   ]);
-  if (!canView && !canCreate && !canEdit) redirect("/no-autorizado");
+  if (!canViewDependencies && !canViewInstitutions && !canCreate && !canEdit) redirect("/no-autorizado");
   const admin = createAdminClient();
   if (!admin) notFound();
   const [
@@ -79,13 +80,13 @@ export default async function DependencyPanel({
             {(members ?? []).map((m) => (
               <article
                 key={m.id}
-                className="flex justify-between rounded border p-3"
+                className="flex min-w-0 flex-col justify-between gap-3 rounded border p-3 transition-colors duration-200 hover:bg-slate-50 sm:flex-row"
               >
-                <div>
-                  <p className="text-sm font-semibold">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold">
                     {m.is_owner ? "Lilith D'Amico" : m.full_name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="break-words text-xs text-muted-foreground">
                     {m.position_title || m.role} ·{" "}
                     {m.is_owner ? "Correo protegido" : maskEmail(m.email)}
                   </p>

@@ -254,7 +254,7 @@ export function ProvidenceForm({
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-2"><Label>{label}</Label>{children}</div>;
+  return <label className="block space-y-2 text-sm"><span className="font-medium">{label}</span>{children}</label>;
 }
 
 function MetaField({ label, name, value }: { label: string; name: string; value?: string | null }) {

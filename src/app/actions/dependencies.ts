@@ -17,7 +17,7 @@ export async function saveDependency(formData: FormData) {
       name: z.string().trim().min(3),
       code: z.string().trim().min(2).max(12),
       type: z.string().trim().min(2),
-      level: z.coerce.number().int().min(1).max(10),
+      level: z.coerce.number().int("El nivel jerárquico debe ser un número entero").min(1,"El nivel jerárquico mínimo es 1").max(10,"El nivel jerárquico máximo es 10"),
       description: z.string().trim().max(1000).optional(),
       competence: z.string().trim().min(5),
       jurisdiction: z.string().trim().max(240).optional(),

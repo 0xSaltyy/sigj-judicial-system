@@ -58,14 +58,14 @@ export const PERMISSION_CATALOG = [
   { resource: "documentos", label: "Documentos / pruebas", actions: ["view", "upload", "preview", "download", "archive", "restore", "hard_delete", "share"] },
   { resource: "comunicados", label: "Comunicados", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"] },
   { resource: "estados", label: "Estados judiciales", actions: ["view", "create", "edit", "publish", "archive", "restore", "hard_delete"], visible: false },
-  { resource: "usuarios", label: "Usuarios", actions: ["view", "view_dependency", "view_all", "create", "create_in_dependency", "create_in_institution", "edit", "edit_own", "deactivate", "reactivate", "assign_role", "assign_dependency"] },
+  { resource: "usuarios", label: "Usuarios", actions: ["view", "view_dependency", "view_all", "create", "create_in_dependency", "create_in_institution", "edit", "deactivate", "reactivate", "assign_role", "assign_dependency"] },
   { resource: "roles", label: "Roles y permisos", actions: ["view", "manage"] },
   { resource: "firmas", label: "Firmas", actions: ["view", "request", "sign", "revoke"] },
   { resource: "enlaces", label: "Enlaces compartidos", actions: ["create", "view", "revoke"] },
   { resource: "auditoria", label: "Auditoría", actions: ["view", "export"] },
   { resource: "instituciones", label: "Instituciones", actions: ["view", "manage"] },
   { resource: "dependencias", label: "Dependencias y despachos", actions: ["view", "create", "edit", "manage", "assign_leader"] },
-  { resource: "configuracion", label: "Configuración", actions: ["view", "manage"] },
+  { resource: "configuracion", label: "Configuración", actions: ["view"] },
   { resource: "edicion", label: "Edición colaborativa", actions: ["take_control"] },
   { resource: "votos", label: "Votos particulares", actions: ["view", "create", "edit", "sign", "publish", "archive", "print"] },
   { resource: "sala", label: "Modo Sala", actions: ["view", "send", "register_session", "register_vote", "approve", "return", "publish"] },
@@ -81,6 +81,30 @@ export const PERMISSION_CATALOG = [
 export const MANAGEABLE_PERMISSION_CATALOG = PERMISSION_CATALOG.filter(
   (item) => !("visible" in item) || item.visible !== false,
 );
+
+export const PERMISSION_GROUP_DESCRIPTIONS: Record<PermissionResource,string> = {
+  expedientes:"Radicación, consulta, reparto y ciclo de vida de expedientes.",
+  providencias:"Redacción, publicación, firma e impresión de decisiones.",
+  actuaciones:"Registro y mantenimiento de actuaciones procesales.",
+  audiencias:"Programación, edición y control de audiencias.",
+  actas:"Elaboración, cierre, firma e impresión de actas.",
+  documentos:"Carga, consulta, descarga y custodia de archivos.",
+  comunicados:"Creación y publicación de comunicaciones institucionales.",
+  estados:"Gestión técnica de estados judiciales.",
+  usuarios:"Directorio, creación y administración de usuarios dentro del alcance asignado.",
+  roles:"Administración de reglas generales y permisos personalizados.",
+  firmas:"Solicitud, aplicación y revocación de firmas documentales.",
+  enlaces:"Creación y revocación de accesos compartidos temporales.",
+  auditoria:"Consulta y exportación de trazabilidad institucional.",
+  instituciones:"Consulta y administración de instituciones raíz.",
+  dependencias:"Creación, edición y liderazgo de salas, despachos y juzgados.",
+  configuracion:"Ajustes globales del sistema.",
+  edicion:"Control de edición colaborativa y recuperación de bloqueos.",
+  votos:"Creación, firma y publicación de votos particulares.",
+  sala:"Sesiones, votaciones y aprobación en Modo Sala.",
+  notificaciones:"Consulta propia y envío institucional autorizado.",
+  perfil:"Identidad privada/pública, cargo y asignación del perfil propio.",
+};
 
 export type PermissionResource = (typeof PERMISSION_CATALOG)[number]["resource"];
 export type PermissionKey = `${PermissionResource}:${PermissionAction}`;
@@ -162,34 +186,35 @@ const adjudicatorWrite = [
   "actas:create", "actas:edit", "actas:finalize", "actas:reopen", "actas:sign", "actas:print",
   "documentos:upload", "documentos:share", "enlaces:create", "firmas:sign", "firmas:request", "firmas:revoke",
 ] as PermissionKey[];
+const selfService = ["perfil:edit","perfil:edit_public"] as PermissionKey[];
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
-  ADMIN_INSTITUCIONAL: [...judicialView, "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create", "usuarios:view", "usuarios:view_dependency", "usuarios:create", "usuarios:create_in_institution", "usuarios:create_in_dependency", "usuarios:edit", "usuarios:deactivate", "usuarios:reactivate", "usuarios:assign_role", "usuarios:assign_dependency", "instituciones:view", "dependencias:view", "dependencias:create", "dependencias:edit", "dependencias:manage"],
-  MAGISTRADO_CORTE_SUPREMA: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
-  MAGISTRADO_TRIBUNAL: [...judicialView, ...adjudicatorWrite, "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
-  JUEZ_CIRCUITO: [...judicialView, ...adjudicatorWrite],
-  JUEZ_MUNICIPAL: [...judicialView, ...adjudicatorWrite],
+  ADMIN_INSTITUCIONAL: [...judicialView, ...selfService, "perfil:publish_profile", "perfil:edit_title", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create", "usuarios:view", "usuarios:view_dependency", "usuarios:create", "usuarios:create_in_institution", "usuarios:create_in_dependency", "usuarios:edit", "usuarios:deactivate", "usuarios:reactivate", "usuarios:assign_role", "usuarios:assign_dependency", "instituciones:view", "dependencias:view", "dependencias:create", "dependencias:edit", "dependencias:manage"],
+  MAGISTRADO_CORTE_SUPREMA: [...judicialView, ...adjudicatorWrite, ...selfService, "perfil:publish_profile", "perfil:edit_title", "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
+  MAGISTRADO_TRIBUNAL: [...judicialView, ...adjudicatorWrite, ...selfService, "perfil:publish_profile", "perfil:edit_title", "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
+  JUEZ_CIRCUITO: [...judicialView, ...adjudicatorWrite, ...selfService, "perfil:publish_profile", "perfil:edit_title"],
+  JUEZ_MUNICIPAL: [...judicialView, ...adjudicatorWrite, ...selfService, "perfil:publish_profile", "perfil:edit_title"],
   SECRETARIO_GENERAL: [
-    ...judicialView, "expedientes:create", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente",
+    ...judicialView, ...selfService, "expedientes:create", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente",
     "actuaciones:create", "audiencias:create", "audiencias:edit", "audiencias:reschedule", "audiencias:cancel",
     "actas:create", "actas:edit", "actas:finalize", "actas:reopen", "actas:sign", "actas:print",
     "documentos:upload", "documentos:share", "comunicados:view", "comunicados:create", "comunicados:edit", "comunicados:publish",
     "estados:view", "estados:create", "estados:edit", "estados:publish", "enlaces:create", "firmas:sign", "firmas:request", "firmas:revoke",
   ],
   SECRETARIO_DESPACHO: [
-    ...judicialView, "expedientes:edit", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create",
+    ...judicialView, ...selfService, "expedientes:edit", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create",
     "audiencias:create", "audiencias:edit", "audiencias:reschedule", "audiencias:cancel",
     "actas:create", "actas:edit", "actas:finalize", "actas:reopen", "actas:sign", "actas:print",
     "documentos:upload", "documentos:share", "estados:view", "estados:create", "estados:edit", "estados:publish",
     "enlaces:create", "firmas:sign", "firmas:request", "firmas:revoke",
   ],
-  OFICIAL_MAYOR: [...judicialView, "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "documentos:share"],
-  AUXILIAR: [...judicialView, "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "notificaciones:view", "perfil:edit", "perfil:edit_public", "usuarios:edit_own"],
-  RADICADOR: ["expedientes:view", "expedientes:create", "expedientes:edit", "documentos:view", "documentos:upload", "documentos:preview", "documentos:download"],
-  REPARTO: ["expedientes:view", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:view", "documentos:preview", "documentos:download"],
-  ARCHIVO: ["expedientes:view", "expedientes:archive", "documentos:view", "documentos:preview", "documentos:download", "documentos:archive", "actuaciones:view", "audiencias:view", "providencias:view", "providencias:print"],
-  GOBERNACION_COMUNICACIONES: ["comunicados:view", "comunicados:create", "comunicados:edit", "comunicados:publish"],
+  OFICIAL_MAYOR: [...judicialView, ...selfService, "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "documentos:share"],
+  AUXILIAR: [...judicialView, ...selfService, "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "notificaciones:view"],
+  RADICADOR: [...selfService, "expedientes:view", "expedientes:create", "expedientes:edit", "documentos:view", "documentos:upload", "documentos:preview", "documentos:download"],
+  REPARTO: [...selfService, "expedientes:view", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:view", "documentos:preview", "documentos:download"],
+  ARCHIVO: [...selfService, "expedientes:view", "expedientes:archive", "documentos:view", "documentos:preview", "documentos:download", "documentos:archive", "actuaciones:view", "audiencias:view", "providencias:view", "providencias:print"],
+  GOBERNACION_COMUNICACIONES: [...selfService, "comunicados:view", "comunicados:create", "comunicados:edit", "comunicados:publish"],
   CONSULTA_PUBLICA: [],
 };
 

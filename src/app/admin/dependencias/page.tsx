@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { DraftForm } from "@/components/draft-form";
 import { can, canManageDependency } from "@/lib/auth/permissions";
 import { requireInternalUser } from "@/lib/auth/authorization";
@@ -26,13 +27,14 @@ export default async function DependenciesPage({
     requireInternalUser(),
     searchParams,
   ]);
-  const [canView, canCreate, canEdit, canManageInstitutions] = await Promise.all([
+  const [canViewDependencies, canViewInstitutions, canCreate, canEdit, canManageInstitutions] = await Promise.all([
     can(profile, "view", "dependencias", { supabase }),
+    can(profile, "view", "instituciones", { supabase }),
     canManageDependency(profile, "create", { supabase }),
     canManageDependency(profile, "edit", { supabase }),
     can(profile, "manage", "instituciones", { supabase }),
   ]);
-  if (!canView && !canCreate && !canEdit) redirect("/no-autorizado");
+  if (!canViewDependencies && !canViewInstitutions && !canCreate && !canEdit) redirect("/no-autorizado");
   const { data, error } = await supabase
     .from("dependencies")
     .select("*")
@@ -63,9 +65,9 @@ export default async function DependenciesPage({
         {visibleRows.map((dependency) => (
           <article
             key={dependency.id}
-            className={`rounded-lg border bg-white p-5 ${dependency.archived_at ? "opacity-75" : ""}`}
+            className={`app-card-enter min-w-0 overflow-hidden rounded-lg border bg-white p-5 transition-shadow duration-200 hover:shadow-md ${dependency.archived_at ? "opacity-75" : ""}`}
           >
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-2">
               <Building2 className="size-5" />
               <div className="flex gap-2">
                 <Badge variant="outline">{dependency.code}</Badge>
@@ -78,7 +80,7 @@ export default async function DependenciesPage({
                 </Badge>
               </div>
             </div>
-            <h2 className="mt-4 font-semibold">{dependency.name}</h2>
+            <h2 className="mt-4 break-words font-semibold">{dependency.name}</h2>
             <Link href={`/admin/dependencias/${dependency.id}`} className="mt-2 inline-block text-xs font-semibold text-[#153b5c] hover:underline">Abrir panel · miembros y actividad</Link>
             <p className="mt-2 text-xs text-muted-foreground">
               {dependency.competence}
@@ -114,71 +116,38 @@ export default async function DependenciesPage({
 }
 
 function DependencyForm({ data, dependencies, allowRoot, defaultParentId }: { data?: Record<string, unknown>; dependencies: Array<Record<string, unknown>>; allowRoot: boolean; defaultParentId: string | null }) {
+  const prefix=`dependency-${String(data?.id??"new")}`;
   return (
     <DraftForm action={saveDependency} storageKey={`sigj:dependency:${String(data?.id??"new")}`} className="mt-4 grid gap-3">
       <input type="hidden" name="id" value={String(data?.id ?? "")} />
-      <Input
-        name="name"
-        defaultValue={String(data?.name ?? "")}
-        placeholder="Nombre *"
-        required
-      />
-      <Input
-        name="code"
-        defaultValue={String(data?.code ?? "")}
-        placeholder="Código *"
-        required
-      />
-      <Input
-        name="type"
-        defaultValue={String(data?.type ?? "")}
-        placeholder="Tipo *"
-        required
-      />
-      <select name="parent_id" defaultValue={String(data?.parent_id ?? defaultParentId ?? "")} className="h-9 rounded-md border px-3">
-        {allowRoot && <option value="">Sin superior (institución raíz)</option>}
-        {dependencies.map((item) => <option key={String(item.id)} value={String(item.id)}>{String(item.name)}</option>)}
-      </select>
-      <Input name="level" type="number" min={1} max={10} defaultValue={String(data?.level ?? 1)} required />
-      <Textarea name="description" defaultValue={String(data?.description ?? "")} placeholder="Descripción pública" />
-      <Textarea
-        name="competence"
-        defaultValue={String(data?.competence ?? "")}
-        placeholder="Competencia *"
-        required
-      />
-      <Input
-        name="jurisdiction"
-        defaultValue={String(data?.jurisdiction ?? "")}
-        placeholder={LOCAL_JURISDICTION_DEFAULT}
-      />
-      <p className="-mt-2 text-xs text-muted-foreground">Distrito / Circuito / Territorio. Si queda vacío, se asigna el valor correspondiente al tipo de institución.</p>
-      <Input
-        name="route_slug"
-        defaultValue={String(data?.route_slug ?? "")}
-        placeholder="slug-ruta *"
-        required
-      />
-      <Input
-        name="department"
-        defaultValue={String(data?.department ?? "Valle del Cauca")}
-        required
-      />
-      <Input
-        name="municipality"
-        defaultValue={String(data?.municipality ?? "Santiago de Cali")}
-        required
-      />
-      <select
-        name="is_active"
-        defaultValue={String(data?.is_active ?? true)}
-        className="h-9 rounded-md border px-3"
-      >
-        <option value="true">Activa</option>
-        <option value="false">Inactiva</option>
-      </select>
-      <select name="public_visible" defaultValue={String(data?.public_visible ?? true)} className="h-9 rounded-md border px-3"><option value="true">Visible en panel público</option><option value="false">Solo interna</option></select>
+      <DependencyField id={`${prefix}-name`} label="Nombre institucional *"><Input id={`${prefix}-name`} name="name" defaultValue={String(data?.name ?? "")} placeholder="Ej. Juzgado Primero Civil del Circuito" required /></DependencyField>
+      <DependencyField id={`${prefix}-code`} label="Código *"><Input id={`${prefix}-code`} name="code" defaultValue={String(data?.code ?? "")} placeholder="Ej. J01CCTO" required /></DependencyField>
+      <DependencyField id={`${prefix}-type`} label="Tipo de dependencia *"><Input id={`${prefix}-type`} name="type" defaultValue={String(data?.type ?? "")} placeholder="Juzgado, sala, secretaría…" required /></DependencyField>
+      <DependencyField id={`${prefix}-parent`} label="Dependencia superior" helper="Determina dónde aparece este despacho dentro del árbol institucional.">
+        <select id={`${prefix}-parent`} name="parent_id" defaultValue={String(data?.parent_id ?? defaultParentId ?? "")} className="h-9 w-full rounded-md border px-3">
+          {allowRoot && <option value="">Sin superior (institución raíz)</option>}
+          {dependencies.map((item) => <option key={String(item.id)} value={String(item.id)}>{String(item.name)}</option>)}
+        </select>
+      </DependencyField>
+      <DependencyField id={`${prefix}-competence`} label="Competencia *"><Textarea id={`${prefix}-competence`} name="competence" defaultValue={String(data?.competence ?? "")} placeholder="Describa brevemente los asuntos que conoce" required /></DependencyField>
+      <DependencyField id={`${prefix}-jurisdiction`} label="Jurisdicción" helper="Distrito, circuito o territorio. Si queda vacío se asignará según el tipo institucional."><Input id={`${prefix}-jurisdiction`} name="jurisdiction" defaultValue={String(data?.jurisdiction ?? "")} placeholder={LOCAL_JURISDICTION_DEFAULT} /></DependencyField>
+      <DependencyField id={`${prefix}-description`} label="Descripción pública"><Textarea id={`${prefix}-description`} name="description" defaultValue={String(data?.description ?? "")} placeholder="Descripción breve para el directorio institucional" /></DependencyField>
+      <details className="rounded-md border bg-slate-50 p-4">
+        <summary className="cursor-pointer font-medium">Opciones avanzadas</summary>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <DependencyField id={`${prefix}-level`} label="Nivel jerárquico" helper="Profundidad de esta dependencia en el árbol institucional, entre 1 y 10."><Input id={`${prefix}-level`} name="level" type="number" min={1} max={10} placeholder="Ej. 1" defaultValue={String(data?.level ?? 1)} required /></DependencyField>
+          <DependencyField id={`${prefix}-slug`} label="Identificador de ruta *" helper="Texto corto usado en enlaces internos; utilice letras, números y guiones."><Input id={`${prefix}-slug`} name="route_slug" defaultValue={String(data?.route_slug ?? "")} placeholder="juzgado-primero-civil" required /></DependencyField>
+          <DependencyField id={`${prefix}-department`} label="Departamento *"><Input id={`${prefix}-department`} name="department" defaultValue={String(data?.department ?? "Valle del Cauca")} required /></DependencyField>
+          <DependencyField id={`${prefix}-municipality`} label="Municipio o sede *"><Input id={`${prefix}-municipality`} name="municipality" defaultValue={String(data?.municipality ?? "Santiago de Cali")} required /></DependencyField>
+          <DependencyField id={`${prefix}-active`} label="Estado"><select id={`${prefix}-active`} name="is_active" defaultValue={String(data?.is_active ?? true)} className="h-9 w-full rounded-md border px-3"><option value="true">Activa</option><option value="false">Inactiva</option></select></DependencyField>
+          <DependencyField id={`${prefix}-visibility`} label="Visibilidad"><select id={`${prefix}-visibility`} name="public_visible" defaultValue={String(data?.public_visible ?? true)} className="h-9 w-full rounded-md border px-3"><option value="true">Visible en panel público</option><option value="false">Solo interna</option></select></DependencyField>
+        </div>
+      </details>
       <SubmitButton pendingLabel="Guardando…">Guardar dependencia</SubmitButton>
     </DraftForm>
   );
+}
+
+function DependencyField({id,label,helper,children}:{id:string;label:string;helper?:string;children:React.ReactNode}) {
+  return <div className="min-w-0 space-y-2"><Label htmlFor={id}>{label}</Label>{children}{helper&&<p className="text-xs leading-5 text-muted-foreground">{helper}</p>}</div>;
 }

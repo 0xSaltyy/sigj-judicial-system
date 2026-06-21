@@ -86,7 +86,13 @@ export default async function UsersPage({
       ])
     : [{ data: [], error: null }, { data: [] }];
   const deps = (allDependencies ?? []) as Dep[];
-  const [canViewAll, canViewDependency] = await Promise.all([can(session.profile, "view_all", "usuarios", { supabase: session.supabase }), can(session.profile, "view_dependency", "usuarios", { supabase: session.supabase })]);
+  const [canViewAll, canViewDependency, canCreateUsers, canEditUsers, canAssignRole, canAssignDependency, canDeactivate, canReactivate, canAssignLeader] = await Promise.all([
+    can(session.profile, "view_all", "usuarios", { supabase: session.supabase }), can(session.profile, "view_dependency", "usuarios", { supabase: session.supabase }),
+    can(session.profile, "create", "usuarios", { supabase: session.supabase }), can(session.profile, "edit", "usuarios", { supabase: session.supabase }),
+    can(session.profile, "assign_role", "usuarios", { supabase: session.supabase }), can(session.profile, "assign_dependency", "usuarios", { supabase: session.supabase }),
+    can(session.profile, "deactivate", "usuarios", { supabase: session.supabase }), can(session.profile, "reactivate", "usuarios", { supabase: session.supabase }),
+    can(session.profile, "assign_leader", "dependencias", { supabase: session.supabase }),
+  ]);
   const actorRoot =
     session.profile.institution_id ||
     rootOf(session.profile.dependency_id, deps);
@@ -120,15 +126,15 @@ export default async function UsersPage({
         title="Usuarios internos"
         description="Directorio institucional con asignación por corporación, despacho y superior responsable."
         action={
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
+          <div className="flex flex-wrap gap-2">
+            {session.profile.is_owner&&<Button asChild variant="outline">
               <Link href="/admin/roles">Roles y permisos</Link>
-            </Button>
-            <Button asChild className="gap-2 bg-[#153b5c]">
+            </Button>}
+            {canCreateUsers&&<Button asChild className="gap-2 bg-[#153b5c]">
               <Link href="/admin/usuarios/nuevo">
                 <UserPlus className="size-4" /> Agregar miembro
               </Link>
-            </Button>
+            </Button>}
           </div>
         }
       />
@@ -161,7 +167,7 @@ export default async function UsersPage({
               return (
                 <TableRow key={item.id}>
                   <TableCell className="min-w-64 align-top">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <div className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-[#173b5e] text-xs font-bold text-white">
                         {item.avatar ? <Image src={item.avatar} alt="" width={40} height={40} unoptimized className="size-full object-cover" /> : item.full_name
                           .split(/\s+/)
@@ -169,8 +175,8 @@ export default async function UsersPage({
                           .map((p: string) => p[0])
                           .join("")}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-[#153553]">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-semibold text-[#153553]">
                           {item.full_name}
                         </p>
                         <p className="text-xs text-muted-foreground">
@@ -239,7 +245,7 @@ export default async function UsersPage({
                       </div>
                     ) : (
                       <>
-                        <details>
+                        {canEditUsers&&<details>
                           <summary className="cursor-pointer text-xs font-semibold text-[#153b5c]">
                             Editar acceso y asignación
                           </summary>
@@ -265,6 +271,7 @@ export default async function UsersPage({
                             <select
                               name="role"
                               defaultValue={role}
+                              disabled={!canAssignRole}
                               className="h-9 rounded-md border bg-white px-3 text-xs"
                             >
                               {APP_ROLES.filter(
@@ -275,6 +282,7 @@ export default async function UsersPage({
                                 <option key={v}>{v}</option>
                               ))}
                             </select>
+                            {!canAssignRole&&<input type="hidden" name="role" value={role}/>}
                             <select
                               name="institution_id"
                               defaultValue={item.institution_id ?? ""}
@@ -294,6 +302,7 @@ export default async function UsersPage({
                             <select
                               name="dependency_id"
                               defaultValue={item.dependency_id ?? ""}
+                              disabled={!canAssignDependency}
                               className="h-9 rounded-md border bg-white px-3 text-xs"
                             >
                               <option value="">Sin despacho</option>
@@ -303,6 +312,9 @@ export default async function UsersPage({
                                 </option>
                               ))}
                             </select>
+                            {!canAssignDependency && (
+                              <input type="hidden" name="dependency_id" value={item.dependency_id ?? ""} />
+                            )}
                             <select
                               name="supervisor_id"
                               defaultValue={item.supervisor_id ?? ""}
@@ -320,11 +332,15 @@ export default async function UsersPage({
                             <select
                               name="is_active"
                               defaultValue={String(item.is_active)}
+                              disabled={item.is_active?!canDeactivate:!canReactivate}
                               className="h-9 rounded-md border bg-white px-3 text-xs"
                             >
                               <option value="true">Activo</option>
                               <option value="false">Inactivo</option>
                             </select>
+                            {(item.is_active ? !canDeactivate : !canReactivate) && (
+                              <input type="hidden" name="is_active" value={String(item.is_active)} />
+                            )}
                             <label className="flex items-center gap-2 text-xs">
                               <input
                                 type="checkbox"
@@ -334,7 +350,11 @@ export default async function UsersPage({
                               />{" "}
                               Perfil público
                             </label>
-                            {session.profile.is_owner ? <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_dependency_leader" value="true" defaultChecked={item.is_dependency_leader}/> {judicialResponsibilityLabel(role)}</label> : <input type="hidden" name="is_dependency_leader" value={String(item.is_dependency_leader)}/>}
+                            {canAssignLeader ? (
+                              <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="is_dependency_leader" value="true" defaultChecked={item.is_dependency_leader}/> {judicialResponsibilityLabel(role)}</label>
+                            ) : (
+                              <input type="hidden" name="is_dependency_leader" value={String(item.is_dependency_leader)} />
+                            )}
                             <Button
                               type="submit"
                               size="sm"
@@ -343,8 +363,8 @@ export default async function UsersPage({
                               Guardar cambio
                             </Button>
                           </form>
-                        </details>
-                        <Button
+                        </details>}
+                        {session.profile.is_owner&&<Button
                           asChild
                           variant="outline"
                           size="sm"
@@ -354,16 +374,16 @@ export default async function UsersPage({
                             <ShieldCheck className="size-3.5" /> Permisos
                             personalizados
                           </Link>
-                        </Button>
+                        </Button>}
                       </>
                     )}
-                    <form action={sendPasswordSetup} className="mt-3">
+                    {canEditUsers&&<form action={sendPasswordSetup} className="mt-3">
                       <input type="hidden" name="target_id" value={item.id} />
                       <Button type="submit" variant="outline" size="sm">
                         <KeyRound className="size-3.5" /> Enviar configuración
                         de contraseña
                       </Button>
-                    </form>
+                    </form>}
                   </TableCell>
                 </TableRow>
               );
