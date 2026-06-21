@@ -32,13 +32,13 @@ import { logout } from "@/app/actions/auth";
 
 export const adminNav = [
   { label: "Panel general", href: "/admin/dashboard", icon: Gauge },
-  { label: "Expedientes", href: "/admin/expedientes", icon: FolderKanban },
-  { label: "Actuaciones", href: "/admin/actuaciones", icon: Activity },
-  { label: "Providencias", href: "/admin/providencias", icon: FileSignature },
-  { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays },
-  { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone },
-  { label: "Notificaciones", href: "/admin/notificaciones", icon: Bell },
-  { label: "Instituciones", href: "/admin/dependencias", icon: Building2 },
+  { label: "Expedientes", href: "/admin/expedientes", icon: FolderKanban, permission: "cases" },
+  { label: "Actuaciones", href: "/admin/actuaciones", icon: Activity, permission: "actions" },
+  { label: "Providencias", href: "/admin/providencias", icon: FileSignature, permission: "proceedings" },
+  { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays, permission: "hearings" },
+  { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone, permission: "notices" },
+  { label: "Notificaciones", href: "/admin/notificaciones", icon: Bell, permission: "notifications" },
+  { label: "Instituciones", href: "/admin/dependencias", icon: Building2, permission: "dependencies" },
   { label: "Usuarios", href: "/admin/usuarios", icon: Users, permission: "users" },
   {
     label: "Roles y permisos",
@@ -52,7 +52,7 @@ export const adminNav = [
     icon: History,
     permission: "audit",
   },
-  { label: "Configuración", href: "/admin/configuracion", icon: Settings },
+  { label: "Configuración", href: "/admin/configuracion", icon: Settings, permission: "settings" },
 ];
 
 type Viewer = {
@@ -63,7 +63,7 @@ type Viewer = {
   unreadNotifications?: number;
   latestNotifications?: Array<{ id: string; title: string; message: string; link_url: string | null; read_at: string | null }>;
   avatarUrl?: string | null;
-  permissions?: { users: boolean; roles: boolean; audit: boolean };
+  permissions?: Record<string, boolean>;
 };
 
 function SidebarLinks({ viewer }: { viewer: Viewer }) {

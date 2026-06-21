@@ -218,7 +218,8 @@ export async function requireCaseAccess(caseId: string, allowed: readonly AppRol
     .eq("id", caseId)
     .maybeSingle();
   if (!record) redirect("/admin/expedientes?error=Expediente%20no%20encontrado%20o%20sin%20acceso");
-  if (!session.profile.is_owner && session.profile.role === "ADMIN_INSTITUCIONAL" && record.dependency_id !== session.profile.dependency_id) redirect("/no-autorizado");
-  if (!session.profile.is_owner && ["MAGISTRADO_CORTE_SUPREMA", "MAGISTRADO_TRIBUNAL", "JUEZ_CIRCUITO", "JUEZ_MUNICIPAL"].includes(session.profile.role) && record.assigned_judge_id !== session.user.id) redirect("/no-autorizado");
+  // The row is already filtered by can_access_case() through RLS. Avoid adding
+  // narrower role checks here that would contradict institution scope or a
+  // deliberate custom permission override.
   return { ...session, record };
 }

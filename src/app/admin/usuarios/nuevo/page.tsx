@@ -30,6 +30,7 @@ const headRoles: AppRole[] = [
 const workerRoles: AppRole[] = [
   "SECRETARIO_DESPACHO",
   "OFICIAL_MAYOR",
+  "AUXILIAR",
   "RADICADOR",
   "ARCHIVO",
   "CONSULTA_PUBLICA",

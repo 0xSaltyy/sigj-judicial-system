@@ -18,7 +18,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
 
   return <>
     <AdminPageHeader title="Roles y permisos" description="Matriz efectiva de acceso. Cada cambio se valida en el servidor, se refuerza con RLS y queda auditado." />
-    <ActionMessage error={query.error ?? error?.message} success={query.success} />
+    <ActionMessage error={query.error ?? (error ? "No fue posible cargar la matriz de permisos." : undefined)} success={query.success} />
     <div className="mb-5 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><ShieldCheck className="size-5 shrink-0" /><p>La cuenta propietaria permanece protegida. Sus permisos de administración no pueden retirarse desde esta matriz y el correo continúa oculto.</p></div>
     <RolePermissionsEditor rules={(rules ?? []) as { role: AppRole; resource: string; action: string; allowed: boolean }[]} />
   </>;

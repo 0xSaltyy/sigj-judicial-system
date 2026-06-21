@@ -75,7 +75,7 @@ async function assertManagementScope(
     return { admin, institutionId: targetInstitution };
   }
   const headRoles: AppRole[] = ["MAGISTRADO_CORTE_SUPREMA","MAGISTRADO_TRIBUNAL","JUEZ_CIRCUITO","JUEZ_MUNICIPAL"];
-  const workerRoles: AppRole[] = ["SECRETARIO_DESPACHO","OFICIAL_MAYOR","RADICADOR","ARCHIVO","CONSULTA_PUBLICA"];
+  const workerRoles: AppRole[] = ["SECRETARIO_DESPACHO","OFICIAL_MAYOR","AUXILIAR","RADICADOR","ARCHIVO","CONSULTA_PUBLICA"];
   if (headRoles.includes(actor.role)) {
     if (!actor.is_dependency_leader) {
       await session.supabase.rpc("log_security_event", { p_action: "USER_CREATION_SCOPE_DENIED", p_table: "profiles", p_record_id: targetId || null, p_description: "El usuario no es juez o magistrado responsable del despacho", p_metadata: { dependency_id: actor.dependency_id } });

@@ -64,7 +64,7 @@ export default async function AdminProceedingsPage({
         }
       />
       <ActionMessage
-        error={query.error ?? error?.message}
+        error={query.error ?? (error ? "No fue posible cargar las providencias disponibles para su perfil." : undefined)}
         success={query.success}
       />
       <div className="overflow-x-auto rounded-lg border bg-white">

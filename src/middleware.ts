@@ -95,8 +95,8 @@ export async function middleware(request: NextRequest) {
     .from("profiles")
     .select("is_active, role")
     .eq("id", user.id)
-    .single();
-  if (!profile?.is_active || profile.role === "CONSULTA_PUBLICA") {
+    .maybeSingle();
+  if (!profile?.is_active) {
     const denied = request.nextUrl.clone();
     denied.pathname = "/no-autorizado";
     denied.searchParams.set("state", profile ? "disabled" : "profile");

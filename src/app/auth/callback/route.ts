@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         .eq("id", auth.user.id)
         .maybeSingle()
     : { data: null };
-  if (!profile?.is_active || profile.role === "CONSULTA_PUBLICA") {
+  if (!profile?.is_active) {
     return NextResponse.redirect(
       new URL(
         `/no-autorizado?state=${profile ? "disabled" : "profile"}`,

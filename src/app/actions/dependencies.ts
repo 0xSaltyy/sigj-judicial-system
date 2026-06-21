@@ -6,6 +6,7 @@ import { z } from "zod";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { dbUuid } from "@/lib/validation";
 import { defaultJurisdiction } from "@/lib/institutional-language";
+import { safeActionError } from "@/lib/action-errors";
 
 export async function saveDependency(formData: FormData) {
   const parsed = z
@@ -44,15 +45,10 @@ export async function saveDependency(formData: FormData) {
     is_active: parsed.data.is_active === "true",
     public_visible: parsed.data.public_visible === "true",
   };
-  const result = parsed.data.id
-    ? await supabase
-        .from("dependencies")
-        .update(payload)
-        .eq("id", parsed.data.id)
-    : await supabase.from("dependencies").insert(payload);
+  const result = await supabase.rpc("save_dependency_scoped", { p_id: parsed.data.id || null, p_payload: payload });
   if (result.error)
     redirect(
-      `/admin/dependencias?error=${encodeURIComponent(result.error.message)}`,
+      `/admin/dependencias?error=${encodeURIComponent(safeActionError(result.error,"No fue posible guardar la dependencia"))}`,
     );
   revalidatePath("/admin/dependencias");
   redirect(

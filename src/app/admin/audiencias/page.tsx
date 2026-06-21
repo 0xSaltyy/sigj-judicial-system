@@ -17,7 +17,7 @@ export default async function AdminHearingsPage({ searchParams }: { searchParams
   return <>
     <RealtimeRefresh channel="admin-hearings" subscriptions={HEARING_LIST_REALTIME} />
     <AdminPageHeader title="Agenda de audiencias" description="Programación y gestión de sesiones físicas y virtuales." action={canCreate ? <Button asChild className="bg-[#153b5c]"><Link href="/admin/audiencias/nueva"><CalendarPlus className="size-4" /> Programar audiencia</Link></Button> : <Button disabled title="No tiene permiso para crear audiencias"><CalendarPlus className="size-4" /> Programar audiencia</Button>} />
-    <ActionMessage error={query.error ?? error?.message} success={query.success} />
+    <ActionMessage error={query.error ?? (error ? "No fue posible cargar las audiencias." : undefined)} success={query.success} />
     <div className="grid gap-4 lg:grid-cols-2">
       {(data ?? []).map((hearing) => {
         const minute = Array.isArray(hearing.minute) ? hearing.minute[0] : hearing.minute;

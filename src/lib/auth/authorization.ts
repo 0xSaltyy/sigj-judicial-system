@@ -41,7 +41,7 @@ export async function requireInternalUser() {
   if (!user) redirect("/login?error=Su%20sesión%20expiró.%20Inicie%20sesión%20nuevamente");
   const { data: profile } = await supabase.from("profiles").select("id,full_name,email,role,dependency_id,institution_id,supervisor_id,avatar_path,default_signature_path,position_title,is_active,is_owner,is_dependency_leader").eq("id", user.id).maybeSingle();
   if (!profile) redirect("/no-autorizado?state=profile");
-  if (!profile.is_active || profile.role === "CONSULTA_PUBLICA") redirect("/no-autorizado?state=disabled");
+  if (!profile.is_active) redirect("/no-autorizado?state=disabled");
   return { supabase, user, profile: profile as AuthenticatedProfile };
 }
 

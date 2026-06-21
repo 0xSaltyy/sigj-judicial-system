@@ -8,8 +8,12 @@ import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DraftForm } from "@/components/draft-form";
 import { can, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 import { defaultJurisdiction, LOCAL_JURISDICTION_DEFAULT } from "@/lib/institutional-language";
+
+type DependencyRow = { id:string; parent_id:string|null; name:string; code:string; type:string; competence:string; jurisdiction:string|null; municipality:string|null; is_active:boolean; archived_at:string|null; [key:string]:unknown };
+function within(child:string|null,parent:string|null,rows:DependencyRow[]){if(!child||!parent)return false;const map=new Map(rows.map((item)=>[item.id,item]));let item=map.get(child);const seen=new Set<string>();while(item&&!seen.has(item.id)){if(item.id===parent)return true;seen.add(item.id);item=item.parent_id?map.get(item.parent_id):undefined;}return false;}
 
 export default async function DependenciesPage({
   searchParams,
@@ -25,6 +29,9 @@ export default async function DependenciesPage({
     .select("*")
     .order("name");
   const canManage = await can(profile, "manage", "dependencias", { supabase });
+  const allRows=(data??[]) as DependencyRow[];
+  const scopeRoot=profile.institution_id||profile.dependency_id;
+  const visibleRows=profile.is_owner?allRows:allRows.filter((item)=>within(item.id,scopeRoot,allRows));
   return (
     <>
       <AdminPageHeader
@@ -32,17 +39,17 @@ export default async function DependenciesPage({
         description="Estructura utilizada por usuarios y expedientes."
       />
       <ActionMessage
-        error={query.error ?? error?.message}
+        error={query.error ?? (error ? "No fue posible cargar la estructura institucional." : undefined)}
         success={query.success}
       />
       {canManage ? <details className="mb-5 rounded-lg border bg-white p-5">
         <summary className="cursor-pointer font-semibold">
           Crear dependencia
         </summary>
-        <DependencyForm dependencies={data ?? []} />
+        <DependencyForm dependencies={visibleRows} />
       </details> : <p className="mb-5 rounded-lg border bg-white p-4 text-sm text-muted-foreground">Puede consultar la estructura y sus miembros. No tiene permiso para crear o modificar dependencias.</p>}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {(data ?? []).map((dependency) => (
+        {visibleRows.map((dependency) => (
           <article
             key={dependency.id}
             className={`rounded-lg border bg-white p-5 ${dependency.archived_at ? "opacity-75" : ""}`}
@@ -72,7 +79,7 @@ export default async function DependenciesPage({
                 <summary className="cursor-pointer text-xs font-semibold">
                   Editar
                 </summary>
-                <DependencyForm data={dependency} dependencies={(data ?? []).filter((item) => item.id !== dependency.id)} />
+                <DependencyForm data={dependency} dependencies={visibleRows.filter((item) => item.id !== dependency.id)} />
               </details>
             )}
             {canManage && <div className="mt-4">
@@ -82,8 +89,8 @@ export default async function DependenciesPage({
                 recordLabel={dependency.name}
                 destination="/admin/dependencias"
                 archived={Boolean(dependency.archived_at)}
-                canArchive
-                canRestore
+                canArchive={profile.is_owner}
+                canRestore={profile.is_owner}
                 canHardDelete={profile.is_owner}
                 compact
               />
@@ -97,7 +104,7 @@ export default async function DependenciesPage({
 
 function DependencyForm({ data, dependencies }: { data?: Record<string, unknown>; dependencies: Array<Record<string, unknown>> }) {
   return (
-    <form action={saveDependency} className="mt-4 grid gap-3">
+    <DraftForm action={saveDependency} storageKey={`sigj:dependency:${String(data?.id??"new")}`} className="mt-4 grid gap-3">
       <input type="hidden" name="id" value={String(data?.id ?? "")} />
       <Input
         name="name"
@@ -158,6 +165,6 @@ function DependencyForm({ data, dependencies }: { data?: Record<string, unknown>
       </select>
       <select name="public_visible" defaultValue={String(data?.public_visible ?? true)} className="h-9 rounded-md border px-3"><option value="true">Visible en panel público</option><option value="false">Solo interna</option></select>
       <SubmitButton pendingLabel="Guardando…">Guardar dependencia</SubmitButton>
-    </form>
+    </DraftForm>
   );
 }
