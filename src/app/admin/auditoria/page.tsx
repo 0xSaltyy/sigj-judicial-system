@@ -1,6 +1,8 @@
 import { History } from "lucide-react";
+import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin-page";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireOwner } from "@/lib/auth/authorization";
 
@@ -18,7 +20,7 @@ export default async function AuditPage() {
   ]);
   const names = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
   return <>
-    <AdminPageHeader title="Auditoría del sistema" description="Registro privado e inmutable de acciones sensibles y cambios de usuarios. Acceso exclusivo del propietario." />
+    <AdminPageHeader title="Auditoría del sistema" description="Registro privado e inmutable de acciones sensibles y cambios de usuarios. Acceso exclusivo del propietario." action={<Button asChild variant="outline"><Link href="/admin/auditoria/exportar" target="_blank">Informe de trazabilidad interna</Link></Button>} />
     {error && <p className="mb-5 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">No fue posible cargar la auditoría: {error.message}</p>}
     <div className="overflow-x-auto rounded-lg border bg-white"><Table><TableHeader><TableRow className="bg-slate-50"><TableHead>Fecha</TableHead><TableHead>Actor / objetivo</TableHead><TableHead>Acción</TableHead><TableHead>Descripción</TableHead><TableHead>Valor anterior</TableHead><TableHead>Valor nuevo</TableHead></TableRow></TableHeader><TableBody>{(logs ?? []).map((log) => <TableRow key={log.id}><TableCell className="mono-number whitespace-nowrap text-xs">{new Intl.DateTimeFormat("es-CO", { dateStyle: "short", timeStyle: "medium" }).format(new Date(log.created_at))}</TableCell><TableCell className="min-w-44 text-xs"><p className="font-semibold">{log.user_id ? names.get(log.user_id) ?? "Cuenta del sistema" : "Proceso del sistema"}</p>{log.target_user_id && <p className="mt-1 text-muted-foreground">Objetivo: {names.get(log.target_user_id) ?? "Perfil interno"}</p>}</TableCell><TableCell><Badge variant="outline" className="mono-number text-[10px]">{log.action}</Badge><p className="mono-number mt-1 text-[10px] text-muted-foreground">{log.table_name}</p></TableCell><TableCell className="max-w-xs text-xs">{log.description}</TableCell><TableCell className="max-w-xs whitespace-normal break-words font-mono text-[10px] text-muted-foreground">{summarize(log.old_values)}</TableCell><TableCell className="max-w-xs whitespace-normal break-words font-mono text-[10px] text-muted-foreground">{summarize(log.new_values)}</TableCell></TableRow>)}</TableBody></Table>{!logs?.length && !error && <p className="p-8 text-center text-sm text-muted-foreground">No hay eventos registrados.</p>}<div className="flex items-center gap-2 border-t bg-slate-50 p-4 text-xs text-muted-foreground"><History className="size-4" /> Los registros no pueden editarse ni eliminarse desde la aplicación.</div></div>
   </>;

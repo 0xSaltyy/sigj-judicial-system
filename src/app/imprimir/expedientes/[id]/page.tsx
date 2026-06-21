@@ -36,6 +36,11 @@ export default async function CasePrintPage({
     supabase.from("documents").select("title,file_type,created_at").eq("case_id", id),
   ]);
   if (!caseRecord) notFound();
+  const formalActions = (actions ?? []).filter((action) => {
+    const text = `${action.action_type ?? ""} ${action.title ?? ""} ${action.description ?? ""}`.toLowerCase();
+    return !/(audit|permiso|descarg|previsual|usuario .* (creó|editó|modificó)|inicio de sesión|lock|bloqueo)/.test(text);
+  });
+  await supabase.rpc("log_security_event", { p_action: "FORMAL_CASE_PDF_EXPORTED", p_table: "cases", p_record_id: id, p_description: "Expediente formal exportado sin eventos internos de auditoría", p_metadata: { formal_actions: formalActions.length } });
 
   return (
     <PrintDocumentShell>
@@ -58,7 +63,7 @@ export default async function CasePrintPage({
           <p className="mt-3 text-sm"><b>Partes:</b> {caseRecord.claimant_name} / {caseRecord.defendant_name}</p>
           <p className="mt-3 text-sm">{caseRecord.summary}</p>
         </section>
-        <PrintList title="Actuaciones" items={(actions ?? []).map((action) => `${action.action_date} · ${action.title}: ${action.description}`)} />
+        <PrintList title="Actuaciones judiciales formales" items={formalActions.map((action) => `${action.action_date} · ${action.title}: ${action.description}`)} />
         <PrintList title="Audiencias" items={(hearings ?? []).map((hearing) => `${hearing.scheduled_at} · ${hearing.title} · ${hearing.status}`)} />
         <PrintList title="Providencias" items={(proceedings ?? []).map((proceeding) => `${proceeding.providence_number} · ${proceeding.title} · ${proceeding.status}`)} />
         <PrintList title="Documentos" items={(documents ?? []).map((document) => `${document.title} · ${document.file_type}`)} />

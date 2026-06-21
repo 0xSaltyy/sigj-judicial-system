@@ -77,6 +77,8 @@ export function proceedingDetailRealtime(
     { table: "cases", filter: `id=eq.${caseId}`, message: "El expediente asociado fue actualizado." },
     { table: "signature_requests", filter: `target_id=eq.${proceedingId}`, message: "Las solicitudes de firma fueron actualizadas." },
     { table: "signatures", filter: `target_id=eq.${proceedingId}`, message: "La providencia recibió una actualización de firma." },
+    { table: "vote_documents", filter: `proceeding_id=eq.${proceedingId}`, message: "Se actualizó un voto particular." },
+    { table: "sala_sessions", filter: `proceeding_id=eq.${proceedingId}`, message: "Se actualizó el registro de Sala." },
   ];
 }
 

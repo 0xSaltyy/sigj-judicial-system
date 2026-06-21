@@ -14,12 +14,21 @@ export function MarkdownEditor({
   initialValue,
   name = "content_markdown",
   previewContext,
+  value: controlledValue,
+  onValueChange,
 }: {
   initialValue: string;
   name?: string;
   previewContext?: PlaceholderContext;
+  value?: string;
+  onValueChange?: (value: string) => void;
 }) {
-  const [value, setValue] = useState(initialValue);
+  const [internalValue, setInternalValue] = useState(initialValue);
+  const value = controlledValue ?? internalValue;
+  const setValue = (next: string) => {
+    if (controlledValue === undefined) setInternalValue(next);
+    onValueChange?.(next);
+  };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function insert(before: string, after = "", fallback = "texto") {

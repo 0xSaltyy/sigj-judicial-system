@@ -20,6 +20,7 @@ const targetTypes = z.enum([
   "hearing_minute",
   "certificate",
   "document",
+  "vote_document",
 ]);
 const requestBase = {
   case_id: dbUuid,
@@ -83,6 +84,10 @@ async function targetExists(
       .maybeSingle();
     return Boolean(data && ["Finalizada", "Firmada"].includes(data.status));
   }
+  if (type === "vote_document") {
+    const { data } = await supabase.from("vote_documents").select("id,status").eq("id", id).eq("case_id", caseId).maybeSingle();
+    return Boolean(data && ["Presentado", "Firmado", "Publicado"].includes(data.status));
+  }
   const table =
     type === "proceeding"
       ? "proceedings"
@@ -107,6 +112,8 @@ async function enforceTargetSignaturePermission(
     await enforcePermission(session, PERMISSIONS.proceedingsSign, targetId);
   if (type === "hearing_minute")
     await enforcePermission(session, PERMISSIONS.minutesSign, targetId);
+  if (type === "vote_document")
+    await enforcePermission(session, PERMISSIONS.votesSign, targetId);
 }
 
 export async function requestSignature(formData: FormData) {
@@ -223,6 +230,16 @@ export async function assignInternalSignature(formData: FormData) {
     p_record_id: parsed.data.target_id,
     p_description: "Firma asignada a un usuario interno sin generar enlace externo",
     p_metadata: { target_type: parsed.data.target_type, signer_user_id: signer.id },
+  });
+  if (signer.id !== user.id) await supabase.rpc("create_internal_notification", {
+    p_recipient: signer.id,
+    p_title: "Documento pendiente de firma",
+    p_message: "Tiene una solicitud interna de firma. Abra el registro para revisar el contenido autorizado.",
+    p_type: "firma_solicitada",
+    p_link_url: parsed.data.destination,
+    p_priority: "high",
+    p_record_type: parsed.data.target_type,
+    p_record_id: parsed.data.target_id,
   });
   revalidatePath(parsed.data.destination);
   redirect(`${parsed.data.destination}?success=${encodeURIComponent(signer.id === user.id ? "Firma interna lista. Use Firmar ahora" : "Firma interna asignada sin enlace externo")}`);
@@ -518,6 +535,9 @@ async function persistSignature(
     await admin.from("signatures").delete().eq("id", signatureId);
     await admin.storage.from("signatures").remove([path]);
     return requestError?.message || "La solicitud ya no está vigente";
+  }
+  if (request.target_type === "vote_document") {
+    await admin.from("vote_documents").update({ status: "Firmado", signed_at: new Date().toISOString() }).eq("id", request.target_id).in("status", ["Presentado", "Firmado"]);
   }
   await admin.from("audit_logs").insert({
     ...(actorId ? { user_id: actorId } : {}),

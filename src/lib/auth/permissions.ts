@@ -64,6 +64,21 @@ export const PERMISSIONS = {
   usersAssignRole: { resource: "usuarios", action: "assign_role" },
   rolesManage: { resource: "roles", action: "manage" },
   settingsManage: { resource: "configuracion", action: "manage" },
+  editTakeControl: { resource: "edicion", action: "take_control" },
+  votesView: { resource: "votos", action: "view" },
+  votesCreate: { resource: "votos", action: "create" },
+  votesEdit: { resource: "votos", action: "edit" },
+  votesSign: { resource: "votos", action: "sign" },
+  votesPublish: { resource: "votos", action: "publish" },
+  salaView: { resource: "sala", action: "view" },
+  salaSend: { resource: "sala", action: "send" },
+  salaRegisterSession: { resource: "sala", action: "register_session" },
+  salaRegisterVote: { resource: "sala", action: "register_vote" },
+  salaApprove: { resource: "sala", action: "approve" },
+  salaReturn: { resource: "sala", action: "return" },
+  salaPublish: { resource: "sala", action: "publish" },
+  notificationsView: { resource: "notificaciones", action: "view" },
+  notificationsManage: { resource: "notificaciones", action: "manage" },
 } as const satisfies Record<string, PermissionRequirement>;
 
 export type PermissionRequirement = {

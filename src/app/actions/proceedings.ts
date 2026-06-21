@@ -40,6 +40,10 @@ export async function createProceeding(formData: FormData) {
     parsed.data.case_id,
     parsed.data.id ? PERMISSIONS.proceedingsEdit : PERMISSIONS.proceedingsCreate,
   );
+  if (parsed.data.id) {
+    const { error: lockError } = await supabase.rpc("assert_edit_lock", { p_record_type: "proceeding", p_record_id: parsed.data.id });
+    if (lockError) fail(errorPath, lockError.message);
+  }
   const [{ data: caseRecord }, { data: existing }] = await Promise.all([
     supabase.from("cases").select("confidentiality_level,public_visibility,archived_at").eq("id", parsed.data.case_id).maybeSingle(),
     parsed.data.id ? supabase.from("proceedings").select("id,status,pdf_path,case_id").eq("id", parsed.data.id).eq("case_id", parsed.data.case_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -100,7 +104,8 @@ export async function createProceeding(formData: FormData) {
   }
   if (result.error || !result.data) { if (newPath) await supabase.storage.from("providence-files").remove([newPath]); fail(errorPath, result.error?.message ?? "No fue posible guardar"); }
   if (newPath && existing?.pdf_path && existing.pdf_path !== newPath) await supabase.storage.from("providence-files").remove([existing.pdf_path]);
-  await supabase.rpc("log_security_event", { p_action: pdf ? (existing?.pdf_path ? "PROVIDENCE_PDF_REPLACED" : "PROVIDENCE_PDF_UPLOADED") : "PROVIDENCE_SAVED", p_table: "proceedings", p_record_id: id, p_description: "Providencia guardada", p_metadata: { creation_mode: parsed.data.creation_mode, has_pdf: Boolean(newPath || existing?.pdf_path), requires_signature: parsed.data.requires_signature === "true" } });
+  await supabase.rpc("log_security_event", { p_action: !parsed.data.id && parsed.data.creation_mode !== "pdf" ? "SMART_TEMPLATE_INSERTED" : pdf ? (existing?.pdf_path ? "PROVIDENCE_PDF_REPLACED" : "PROVIDENCE_PDF_UPLOADED") : "PROVIDENCE_SAVED", p_table: "proceedings", p_record_id: id, p_description: !parsed.data.id && parsed.data.creation_mode !== "pdf" ? "Providencia creada desde plantilla inteligente" : "Providencia guardada", p_metadata: { creation_mode: parsed.data.creation_mode, template_key: parsed.data.template_key, template_style: parsed.data.template_style, has_pdf: Boolean(newPath || existing?.pdf_path), requires_signature: parsed.data.requires_signature === "true" } });
+  if (parsed.data.id) await supabase.rpc("release_edit_lock", { p_record_type: "proceeding", p_record_id: id });
   revalidatePath("/admin/providencias"); revalidatePath(`/admin/expedientes/${parsed.data.case_id}`);
   redirect(`/admin/providencias/${id}?success=${encodeURIComponent("Providencia guardada")}`);
 }
@@ -118,6 +123,8 @@ export async function publishProceeding(formData: FormData) {
   ]);
   const path = `/admin/providencias/${parsed.data.id}`;
   if (!proceeding || proceeding.archived_at || !caseRecord || caseRecord.archived_at) fail(path, "La providencia o su expediente no están disponibles");
+  const { data: activeLock } = await supabase.from("edit_locks").select("locked_by,expires_at").eq("record_type", "proceeding").eq("record_id", parsed.data.id).gt("expires_at", new Date().toISOString()).maybeSingle();
+  if (activeLock && activeLock.locked_by !== user.id) fail(path, "La providencia está siendo editada por otro usuario. Espere a que termine o tome control autorizado.");
   if (proceeding.title.trim().length < 3 || proceeding.chamber.trim().length < 2 || !proceeding.providence_date || (proceeding.creation_mode === "editor" && proceeding.content_markdown.trim().length < 20) || (proceeding.creation_mode !== "editor" && !proceeding.pdf_path)) fail(`${path}/editar`, "Complete título, fecha, despacho y contenido o PDF antes de publicar");
   if (proceeding.visibility === "public" && (caseRecord.confidentiality_level !== "Público" || !caseRecord.public_visibility)) fail(path, "Una providencia reservada no puede publicarse en el portal público");
   const { count } = await supabase.from("signatures").select("id", { count: "exact", head: true }).eq("target_type", "proceeding").eq("target_id", parsed.data.id).eq("status", "signed");

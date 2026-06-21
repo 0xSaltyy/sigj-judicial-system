@@ -1,0 +1,14 @@
+import Link from "next/link";
+import { Bell, CheckCheck } from "lucide-react";
+import { markAllNotificationsRead, markNotificationRead } from "@/app/actions/notifications";
+import { ActionMessage } from "@/components/action-message";
+import { AdminPageHeader } from "@/components/admin-page";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { Button } from "@/components/ui/button";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+
+export default async function NotificationsPage({ searchParams }: { searchParams: Promise<{ error?: string; success?: string }> }) {
+  const [query, { supabase, user }] = await Promise.all([searchParams, requirePermission(PERMISSIONS.notificationsView)]);
+  const { data, error } = await supabase.from("internal_notifications").select("id,title,message,type,link_url,read_at,priority,created_at").eq("recipient_user_id", user.id).order("created_at", { ascending: false }).limit(100);
+  return <><RealtimeRefresh channel={`notifications-${user.id}`} subscriptions={[{ table: "internal_notifications", filter: `recipient_user_id=eq.${user.id}`, message: "Tiene una nueva notificación interna." }]} /><AdminPageHeader title="Notificaciones internas" description="Avisos de asignación, firma, Sala y actividad judicial sin envío de correo." action={<form action={markAllNotificationsRead}><Button type="submit" variant="outline"><CheckCheck className="size-4" /> Marcar todas como leídas</Button></form>} /><ActionMessage error={query.error ?? (error ? "No fue posible consultar las notificaciones" : undefined)} success={query.success} /><div className="space-y-3">{(data ?? []).map((item) => <article key={item.id} className={`rounded-xl border p-5 ${item.read_at ? "bg-white" : "border-amber-300 bg-amber-50"}`}><div className="flex items-start gap-3"><Bell className="mt-1 size-5 text-[#9a752f]" /><div className="min-w-0 flex-1"><div className="flex flex-wrap justify-between gap-2"><h2 className="font-semibold text-[#153553]">{item.title}</h2><time className="text-xs text-muted-foreground">{new Intl.DateTimeFormat("es-CO",{dateStyle:"medium",timeStyle:"short"}).format(new Date(item.created_at))}</time></div><p className="mt-1 text-sm text-slate-700">{item.message}</p><p className="mt-2 text-[11px] uppercase tracking-wide text-muted-foreground">{item.type} · prioridad {item.priority}</p><div className="mt-3 flex gap-2">{item.link_url && <Button asChild size="sm"><Link href={item.link_url}>Abrir registro</Link></Button>}{!item.read_at && <form action={markNotificationRead}><input type="hidden" name="id" value={item.id} /><Button type="submit" size="sm" variant="outline">Marcar como leída</Button></form>}</div></div></div></article>)}{!data?.length && !error && <p className="rounded-xl border bg-white p-10 text-center text-sm text-muted-foreground">No tiene notificaciones internas.</p>}</div></>;
+}

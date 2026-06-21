@@ -4,14 +4,19 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { supabase, profile } = await requireInternalUser();
-  const { data: institution } = profile.dependency_id
-    ? await supabase.from("dependencies").select("name").eq("id", profile.dependency_id).maybeSingle()
-    : { data: null };
+  const [institutionResult, unreadResult, notificationsResult] = await Promise.all([
+    profile.dependency_id ? supabase.from("dependencies").select("name").eq("id", profile.dependency_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("internal_notifications").select("id", { count: "exact", head: true }).eq("recipient_user_id", profile.id).is("read_at", null),
+    supabase.from("internal_notifications").select("id,title,message,link_url,read_at").eq("recipient_user_id", profile.id).order("created_at", { ascending: false }).limit(5),
+  ]);
+  const institution = institutionResult.data;
   const viewer = {
     fullName: profile.full_name,
     role: profile.role,
     institution: institution?.name ?? "Palacio Judicial",
     isOwner: profile.is_owner,
+    unreadNotifications: unreadResult.count ?? 0,
+    latestNotifications: notificationsResult.data ?? [],
   };
   return <div className="admin-shell min-h-screen bg-[#f5f7f9]"><AdminSidebar viewer={viewer} /><div className="admin-content lg:pl-64"><AdminTopbar viewer={viewer} /><main className="admin-main mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{children}</main></div></div>;
 }

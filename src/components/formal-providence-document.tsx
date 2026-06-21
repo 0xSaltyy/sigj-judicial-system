@@ -205,6 +205,8 @@ function InstitutionHeader({
         {tribunal ? `TRIBUNAL SUPERIOR DE ${city.replace(/,\s*D\.C\.$/i, "").toUpperCase()}` : dependency.toUpperCase()}
       </p>
       <p className="formal-room">{room}</p>
+      {tribunal && metadata.sessionDate && <p className="mt-2 text-sm">Decisión aprobada en sesión de Sala del {writtenDate(metadata.sessionDate)}</p>}
+      {tribunal && metadata.voteResult && <p className="mt-1 text-sm">Resultado: {metadata.voteResult}</p>}
       <p className="mt-1 font-bold">Radicado No. {radicado}</p>
       <MetadataTable
         rows={

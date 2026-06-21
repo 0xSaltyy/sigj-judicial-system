@@ -4,11 +4,13 @@ import {
   reopenHearingMinutes,
   saveHearingMinutes,
 } from "@/app/actions/hearings";
+import { acquireEditLock } from "@/app/actions/edit-locks";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { ClearDrafts } from "@/components/clear-drafts";
 import { DraftForm } from "@/components/draft-form";
+import { EditLockBanner } from "@/components/edit-lock-banner";
 import { HearingMinuteDocument } from "@/components/hearing-minute-document";
 import { MarkdownEditor } from "@/components/markdown-editor";
 import { PrintButton } from "@/components/print-button";
@@ -96,6 +98,12 @@ export default async function HearingMinutes({
   const local = (value?: string | null) =>
     value ? new Date(value).toISOString().slice(0, 16) : "";
   const editable = (!minute && canCreate) || (minute?.status === "Borrador" && canEdit);
+  const [editLock, canTakeControl] = editable
+    ? await Promise.all([
+        acquireEditLock("hearing_minute", id),
+        can(profile, "take_control", "edicion", { supabase }),
+      ])
+    : [{ acquired: false } as const, false];
   const finalized = minute && ["Finalizada", "Firmada"].includes(minute.status);
   const signed = minute?.status === "Firmada";
   return (
@@ -117,6 +125,7 @@ export default async function HearingMinutes({
         {finalized && <span className="ml-1">Para impresión limpia, desactive encabezados y pies del navegador.</span>}
       </div>
       <ActionMessage error={query.error} success={query.success} />
+      {editable && <EditLockBanner recordType="hearing_minute" recordId={id} initial={editLock} canTakeControl={canTakeControl} />}
       {!minute && !canCreate && <p className="no-print mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Puede consultar actas, pero no tiene permiso para crear el acta de esta audiencia.</p>}
       {minute?.status === "Borrador" && !canEdit && <p className="no-print mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">El acta está en borrador y se muestra en modo de consulta. Su usuario no tiene permiso para editarla.</p>}
       {editable && (
@@ -125,6 +134,7 @@ export default async function HearingMinutes({
           storageKey={`hearing-minute:${id}`}
           className="mb-6 grid gap-5 rounded-xl border bg-white p-6 md:grid-cols-2"
         >
+          <fieldset disabled={!editLock.acquired} className="contents">
           {minute && <input type="hidden" name="minute_id" value={minute.id} />}
           <input type="hidden" name="hearing_id" value={id} />
           <input type="hidden" name="case_id" value={hearing.case_id} />
@@ -249,6 +259,7 @@ export default async function HearingMinutes({
               Guardar borrador
             </SubmitButton>
           </div>
+          </fieldset>
         </DraftForm>
       )}
       {finalized && (

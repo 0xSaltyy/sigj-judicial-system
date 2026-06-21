@@ -35,13 +35,13 @@ const TEMPLATE_SPECS: TemplateSpec[] = [
     templateOnly: true,
     content: "## VISTOS\n\n[Texto inicial]\n\n## CONSIDERANDO\n\n[Consideraciones]\n\n## RESUELVE\n\n**PRIMERO.** [Decisión]\n\n**SEGUNDO.** [Decisión]\n\n**TERCERO.** [Decisión]\n\n**Notifíquese, comuníquese y cúmplase.**",
   },
-  { key: "avocacion", label: "Auto de avocación de conocimiento" },
+  { key: "avocacion", label: "Auto de avocación de conocimiento", content: "## VISTOS / ANTECEDENTES\n\n[Describa los antecedentes relevantes.]\n\n## COMPETENCIA\n\n[Fundamente la competencia.]\n\n## CONSIDERACIONES\n\n[Exponga las consideraciones.]\n\n## RESUELVE\n\n**PRIMERO.** Avocar conocimiento de la actuación.\n\n**SEGUNDO.** Ordenar las medidas necesarias para continuar el trámite.\n\n**TERCERO.** Notificar esta decisión a quienes corresponda.\n\n**Notifíquese, comuníquese y cúmplase.**" },
   { key: "apertura_instruccion", label: "Auto de apertura de instrucción" },
   { key: "avocamiento_pruebas", label: "Auto de avocamiento, apertura de instrucción y decreto de pruebas", sections: ["I. ANTECEDENTES", "II. COMPETENCIA", "III. MARCO NORMATIVO", "IV. CONSIDERACIONES DEL DESPACHO", "RESUELVE"] },
-  { key: "decreta_pruebas", label: "Auto que decreta pruebas" },
+  { key: "decreta_pruebas", label: "Auto que decreta pruebas", content: "## ANTECEDENTES\n\n[Identifique la actuación y las solicitudes probatorias.]\n\n## CONSIDERACIONES\n\n[Analice pertinencia, conducencia y utilidad.]\n\n## DECRETO DE PRUEBAS\n\n[Relacione las pruebas decretadas.]\n\n## RESUELVE\n\n**PRIMERO.** Decretar las pruebas indicadas en esta providencia.\n\n**SEGUNDO.** Requerir la información necesaria para su práctica.\n\n**TERCERO.** Comunicar esta decisión.\n\n**Notifíquese y cúmplase.**" },
   { key: "niega_pruebas", label: "Auto que niega pruebas" },
   { key: "practica_pruebas", label: "Auto que ordena práctica de pruebas" },
-  { key: "requiere_informe", label: "Auto que requiere informe" },
+  { key: "requiere_informe", label: "Auto que requiere informe", content: "## ANTECEDENTES\n\n[Describa la actuación.]\n\n## CONSIDERACIONES\n\n[Explique la necesidad del requerimiento.]\n\n## REQUERIMIENTO\n\n[Precise destinatario, información y plazo.]\n\n## RESUELVE\n\n**PRIMERO.** Requerir a [destinatario] para que [actuación].\n\n**SEGUNDO.** Comunicar la presente decisión.\n\n**Notifíquese y cúmplase.**" },
   { key: "ordena_traslado", label: "Auto que ordena traslado" },
   { key: "admisorio", label: "Auto admisorio" },
   { key: "inadmisorio", label: "Auto inadmisorio" },
@@ -56,12 +56,12 @@ const TEMPLATE_SPECS: TemplateSpec[] = [
   { key: "niega_recurso", label: "Auto que niega recurso" },
   { key: "ordena_notificacion", label: "Auto que ordena notificación" },
   { key: "obedezcase", label: "Auto de obedézcase y cúmplase" },
-  { key: "sentencia", label: "Sentencia", sections: ["I. ANTECEDENTES", "II. PROBLEMA JURÍDICO", "III. CONSIDERACIONES", "IV. CASO CONCRETO", "FALLA"] },
+  { key: "sentencia", label: "Sentencia", sections: ["I. IDENTIFICACIÓN", "II. ANTECEDENTES", "III. PROBLEMA JURÍDICO", "IV. CONSIDERACIONES", "V. DECISIÓN", "RESUELVE"] },
   { key: "fallo_disciplinario", label: "Fallo disciplinario", sections: ["I. ANTECEDENTES", "II. CARGOS", "III. CONSIDERACIONES", "IV. RESPONSABILIDAD", "FALLA"] },
   { key: "tramite", label: "Providencia de trámite" },
   { key: "constancia", label: "Constancia secretarial", sections: ["CONSTANCIA"] },
-  { key: "acta", label: "Acta formal", sections: ["I. INSTALACIÓN", "II. INTERVINIENTES", "III. DESARROLLO", "IV. DECISIONES", "V. CIERRE"] },
-  { key: "oficio", label: "Despacho comisorio / oficio", sections: ["ASUNTO", "DESTINATARIO", "CONTENIDO", "ANEXOS"], closing: "Atentamente," },
+  { key: "acta", label: "Acta formal", sections: ["I. INSTALACIÓN", "II. COMPARECIENTES", "III. DESARROLLO", "IV. SOLICITUDES", "V. DECISIONES", "VI. CONSTANCIAS", "VII. CIERRE"] },
+  { key: "oficio", label: "Despacho comisorio / oficio", sections: ["DESTINATARIO", "REFERENCIA", "COMUNICACIÓN", "ANEXOS", "FIRMA"], closing: "Atentamente," },
   { key: "medida_provisional", label: "Medida provisional" },
   { key: "nulidad", label: "Auto de nulidad" },
   { key: "aclaracion", label: "Auto que resuelve solicitud de aclaración" },
@@ -121,6 +121,8 @@ export type DocumentMetadata = {
   linkedPartyName?: string;
   subject?: string;
   footnotes?: string;
+  sessionDate?: string;
+  voteResult?: string;
 };
 
 export type PlaceholderContext = DocumentMetadata & {

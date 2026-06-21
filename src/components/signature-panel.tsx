@@ -15,7 +15,7 @@ import { formalSignerName, formalSignerTitle } from "@/lib/signature-display";
 import { signatureImageDataUrl } from "@/lib/signature-images";
 import { createClient } from "@/lib/supabase/server";
 
-type TargetType = "proceeding" | "hearing_minute" | "certificate" | "document";
+type TargetType = "proceeding" | "hearing_minute" | "certificate" | "document" | "vote_document";
 
 export async function SignaturePanel({
   caseId,

@@ -37,7 +37,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!proceeding?.pdf_path) return NextResponse.json({ error: "PDF no disponible" }, { status: 404 });
   const caseRecord = Array.isArray(proceeding.case) ? proceeding.case[0] : proceeding.case;
   const dependency = Array.isArray(caseRecord?.dependency) ? caseRecord.dependency[0] : caseRecord?.dependency;
-  const metadata = (proceeding.document_metadata || {}) as DocumentMetadata;
+  const { data: sala } = await admin.from("sala_sessions").select("act_number,session_date,chamber,vote_result,rapporteur:profiles!sala_sessions_rapporteur_id_fkey(full_name)").eq("proceeding_id", id).maybeSingle();
+  const rapporteur = Array.isArray(sala?.rapporteur) ? sala.rapporteur[0] : sala?.rapporteur;
+  const metadata = {
+    ...((proceeding.document_metadata || {}) as DocumentMetadata),
+    ...(sala ? { actNumber: sala.act_number || undefined, sessionDate: sala.session_date || undefined, roomName: sala.chamber || undefined, rapporteurName: rapporteur?.full_name || undefined, voteResult: sala.vote_result || undefined } : {}),
+  };
   const templateStyle = resolveTemplateStyle(proceeding.template_style, [
     dependency?.name,
     caseRecord?.authority_type,

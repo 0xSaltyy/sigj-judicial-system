@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileText, PenLine } from "lucide-react";
+import { FileText, Gavel, PenLine, Scale } from "lucide-react";
 import { publishProceeding } from "@/app/actions/proceedings";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { can, requirePermission } from "@/lib/auth/permissions";
 import { signatureImageDataUrl } from "@/lib/signature-images";
 import { proceedingDetailRealtime } from "@/lib/realtime-subscriptions";
+import { inferTemplateStyle } from "@/lib/document-templates";
 
 export default async function ProceedingDetail({
   params,
@@ -76,6 +77,14 @@ export default async function ProceedingDetail({
     ? proceeding.case[0]
     : proceeding.case;
   const dependency = Array.isArray(caseRecord?.dependency) ? caseRecord.dependency[0] : caseRecord?.dependency;
+  const institutionStyle = inferTemplateStyle([proceeding.template_style, proceeding.chamber, dependency?.name, caseRecord?.authority_type]);
+  const collegiate = institutionStyle === "corte_suprema" || institutionStyle === "tribunal_superior";
+  const [{ data: votes }, canViewVotes, canCreateVotes, canViewSala] = await Promise.all([
+    collegiate ? supabase.from("vote_documents").select("id,vote_type,title,status,author_id,created_at,author:profiles!vote_documents_author_id_fkey(full_name,position_title)").eq("proceeding_id", id).order("created_at") : Promise.resolve({ data: [] }),
+    can(profile, "view", "votos", { supabase }),
+    can(profile, "create", "votos", { supabase }),
+    can(profile, "view", "sala", { supabase }),
+  ]);
   const formalCaseRecord = { ...caseRecord, dependency_name: dependency?.name || null };
   const originalPdfUrl = proceeding.pdf_path && canPrint ? `/api/providencias/${id}/pdf?variant=original` : null;
   const combinedPdfUrl = proceeding.pdf_path && canPrint ? `/api/providencias/${id}/pdf` : null;
@@ -123,6 +132,7 @@ export default async function ProceedingDetail({
               </Link>
             </Button> : <Button variant="outline" disabled title="No tiene permiso para administrar firmas"><PenLine className="size-4" /> Firmas</Button>}
             {canPrint ? <PrintButton label="Imprimir providencia" href={`/imprimir/providencias/${id}`} /> : <Button disabled title="No tiene permiso para imprimir providencias">Imprimir providencia</Button>}
+            {canPrint && collegiate && votes?.length ? <Button asChild variant="outline"><Link href={`/imprimir/providencias/${id}?includeVotes=1`} target="_blank">Imprimir con votos anexos</Link></Button> : null}
             {combinedPdfUrl && (
               <Button asChild>
                 <a href={combinedPdfUrl} target="_blank" rel="noreferrer">
@@ -139,6 +149,10 @@ export default async function ProceedingDetail({
       </p>
       <ActionMessage error={query.error} success={query.success} />
       <FormalProvidenceDocument proceeding={proceeding} caseRecord={formalCaseRecord} signatures={signatures} pdfUrl={originalPdfUrl} combinedPdfUrl={combinedPdfUrl} />
+      {collegiate && canViewVotes && <section className="no-print mt-6 rounded-xl border bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 font-semibold text-[#153553]"><Scale className="size-5" /> Votos particulares</h2><p className="mt-1 text-xs text-muted-foreground">Documentos separados que no sustituyen la providencia principal.</p></div><div className="flex flex-wrap gap-2">{canViewSala && <Button asChild variant="outline"><Link href={`/admin/providencias/${id}/sala`}><Gavel className="size-4" /> Modo Sala</Link></Button>}{canCreateVotes && <><Button asChild variant="outline"><Link href={`/admin/providencias/${id}/votos/nuevo?type=Salvamento%20de%20voto`}>Agregar salvamento de voto</Link></Button><Button asChild variant="outline"><Link href={`/admin/providencias/${id}/votos/nuevo?type=Aclaraci%C3%B3n%20de%20voto`}>Agregar aclaración de voto</Link></Button></>}</div></div>
+        <div className="mt-4 space-y-2">{(votes ?? []).map((vote) => { const author = Array.isArray(vote.author) ? vote.author[0] : vote.author; return <article key={vote.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4"><div><p className="font-semibold">{vote.vote_type}</p><p className="text-sm text-slate-700">{vote.title}</p><p className="mt-1 text-xs text-muted-foreground">{author?.full_name ?? "Magistratura"} · {institutionStyle === "corte_suprema" ? (vote.vote_type.startsWith("Salvamento") ? "Magistrado/a que salva voto" : "Magistrado/a que aclara voto") : (vote.vote_type.startsWith("Salvamento") ? "Magistrado/a disidente" : "Magistrado/a que aclara")} · {vote.status}</p></div><div className="flex gap-2">{vote.status === "Borrador" && vote.author_id === profile.id && <Button asChild size="sm" variant="outline"><Link href={`/admin/providencias/${id}/votos/${vote.id}/editar`}>Editar</Link></Button>}<Button asChild size="sm" variant="outline"><Link href={`/admin/providencias/${id}/votos/${vote.id}`}>Ver y firmar</Link></Button><Button asChild size="sm" variant="outline"><Link href={`/imprimir/votos/${vote.id}`} target="_blank">Imprimir</Link></Button></div></article>; })}{!votes?.length && <p className="rounded-lg bg-slate-50 p-4 text-sm text-muted-foreground">No se han presentado votos particulares.</p>}</div>
+      </section>}
       <div id="firmas">
         <SignaturePanel
           caseId={proceeding.case_id}

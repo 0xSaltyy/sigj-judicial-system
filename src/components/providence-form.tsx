@@ -52,10 +52,12 @@ export function ProvidenceForm({
   cases,
   initialCaseId,
   proceeding,
+  readOnly = false,
 }: {
   cases: CaseOption[];
   initialCaseId?: string;
   proceeding?: Proceeding;
+  readOnly?: boolean;
 }) {
   const requestedCaseId = proceeding?.case_id ?? initialCaseId ?? "";
   const initialCase = cases.find((item) => item.id === requestedCaseId);
@@ -63,15 +65,15 @@ export function ProvidenceForm({
     ? proceeding.template_style
     : inferTemplateStyle([initialCase?.dependency_name, initialCase?.authority_type, initialCase?.chamber]);
   const knownType = proceeding && PROVIDENCE_TYPES.includes(proceeding.type);
+  const initialTemplateKey = proceeding?.template_key || DOCUMENT_TEMPLATES.find((item) => item.label === (knownType ? proceeding.type : PROVIDENCE_TYPES[0]))?.key || (initialStyle === "corte_suprema" ? "corte_suprema_base" : "blank");
   const [selectedType, setSelectedType] = useState(knownType ? proceeding.type : proceeding ? "__other" : PROVIDENCE_TYPES[0]);
   const [customType, setCustomType] = useState(knownType ? "" : proceeding?.type || "");
   const [selectedCaseId, setSelectedCaseId] = useState(requestedCaseId);
-  const [templateKey, setTemplateKey] = useState(
-    proceeding?.template_key || (initialStyle === "corte_suprema" ? "corte_suprema_base" : "blank"),
-  );
+  const [templateKey, setTemplateKey] = useState(initialTemplateKey);
   const [templateStyle, setTemplateStyle] = useState<TemplateStyle>(proceeding?.template_style || "auto");
   const [mode, setMode] = useState(proceeding?.creation_mode ?? "editor");
   const [title, setTitle] = useState(proceeding?.title ?? PROVIDENCE_TYPES[0]);
+  const [content, setContent] = useState(proceeding?.content_markdown ?? (DOCUMENT_TEMPLATES.find((item) => item.key === initialTemplateKey)?.content ?? DOCUMENT_TEMPLATES[0].content));
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const selectedCase = cases.find((item) => item.id === selectedCaseId);
   const selectedTemplate = DOCUMENT_TEMPLATES.find((item) => item.key === templateKey) || DOCUMENT_TEMPLATES[0];
@@ -109,6 +111,15 @@ export function ProvidenceForm({
     if (!proceeding && (!title || title === currentResolved)) {
       setTitle(next === "__other" ? "" : next);
     }
+    const suggested = DOCUMENT_TEMPLATES.find((item) => item.label === next);
+    if (suggested && suggested.key !== templateKey) applyTemplate(suggested.key);
+  }
+
+  function applyTemplate(nextKey: string) {
+    const next = DOCUMENT_TEMPLATES.find((item) => item.key === nextKey) ?? DOCUMENT_TEMPLATES[0];
+    if (content.trim() && content !== selectedTemplate.content && !window.confirm("¿Reemplazar el contenido actual por esta plantilla? Los cambios no guardados del editor se sustituirán.")) return;
+    setTemplateKey(next.key);
+    setContent(next.content);
   }
 
   function previewPdf(file?: File) {
@@ -119,6 +130,7 @@ export function ProvidenceForm({
   return (
     <DraftForm action={createProceeding} storageKey={`sigj:proceeding:${proceeding?.id ?? "new"}`} className="space-y-5">
       {proceeding && <input type="hidden" name="id" value={proceeding.id} />}
+      <fieldset disabled={readOnly} className="space-y-5 disabled:opacity-75">
       <div className="rounded-lg border bg-white p-6">
         <Label className="mb-3 block">Modo de creación</Label>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -182,7 +194,7 @@ export function ProvidenceForm({
           </Field>
           {mode !== "pdf" && (
             <Field label="Plantilla de contenido *">
-              <select name="template_key" value={templateKey} onChange={(event) => setTemplateKey(event.target.value)} className="h-9 w-full rounded-md border px-3 text-sm" required>
+              <select name="template_key" value={templateKey} onChange={(event) => applyTemplate(event.target.value)} className="h-9 w-full rounded-md border px-3 text-sm" required>
                 {DOCUMENT_TEMPLATES.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
               </select>
               {templateKey === "custom" && (
@@ -231,11 +243,12 @@ export function ProvidenceForm({
       {(mode === "editor" || mode === "mixed") && (
         <div className="rounded-lg border bg-white p-6">
           <Label className="mb-3 block">{mode === "mixed" ? "Resumen o texto complementario (opcional)" : "Contenido *"}</Label>
-          <MarkdownEditor key={`${proceeding?.id ?? "new"}-${templateKey}`} initialValue={proceeding ? proceeding.content_markdown : selectedTemplate.content} previewContext={previewContext} />
+          <MarkdownEditor initialValue={content} value={content} onValueChange={setContent} previewContext={previewContext} />
         </div>
       )}
       {mode === "pdf" && <input type="hidden" name="content_markdown" value="# Documento PDF adjunto" />}
       <div className="flex justify-end"><SubmitButton pendingLabel="Guardando…">{proceeding ? "Guardar cambios" : "Guardar providencia"}</SubmitButton></div>
+      </fieldset>
     </DraftForm>
   );
 }

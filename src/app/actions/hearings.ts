@@ -150,6 +150,8 @@ export async function saveHearingMinutes(formData: FormData) {
     parsed.data.case_id,
     parsed.data.minute_id ? PERMISSIONS.minutesEdit : PERMISSIONS.minutesCreate,
   );
+  const { error: lockError } = await supabase.rpc("assert_edit_lock", { p_record_type: "hearing_minute", p_record_id: parsed.data.hearing_id });
+  if (lockError) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=${encodeURIComponent(lockError.message)}`);
   const { data: hearing } = await supabase.from("hearings").select("id").eq("id", parsed.data.hearing_id).eq("case_id", parsed.data.case_id).is("archived_at", null).maybeSingle();
   if (!hearing) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=Audiencia%20no%20disponible`);
   if (parsed.data.minute_id) {
@@ -183,6 +185,7 @@ export async function saveHearingMinutes(formData: FormData) {
     p_description: parsed.data.minute_id ? "Borrador de acta editado" : "Borrador de acta creado",
     p_metadata: { hearing_id: parsed.data.hearing_id },
   });
+  await supabase.rpc("release_edit_lock", { p_record_type: "hearing_minute", p_record_id: parsed.data.hearing_id });
   revalidatePath(`/admin/audiencias/${parsed.data.hearing_id}/acta`);
   revalidatePath("/admin/audiencias");
   redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?success=Acta%20guardada%20como%20borrador`);
@@ -195,7 +198,9 @@ export async function finalizeHearingMinutes(formData: FormData) {
     parsed.data.case_id,
     PERMISSIONS.minutesFinalize,
   );
-  const { data: minute } = await supabase.from("hearing_minutes").select("id,status,secretary_signature_required,judge_signature_required,development_markdown,started_at,ended_at").eq("id", parsed.data.minute_id).eq("hearing_id", parsed.data.hearing_id).eq("case_id", parsed.data.case_id).maybeSingle();
+  const { data: minute } = await supabase.from("hearing_minutes").select("id,status,secretary_signature_required,judge_signature_required,development_markdown,started_at,ended_at,created_by").eq("id", parsed.data.minute_id).eq("hearing_id", parsed.data.hearing_id).eq("case_id", parsed.data.case_id).maybeSingle();
+  const { data: activeLock } = await supabase.from("edit_locks").select("locked_by,expires_at").eq("record_type", "hearing_minute").eq("record_id", parsed.data.hearing_id).gt("expires_at", new Date().toISOString()).maybeSingle();
+  if (activeLock && activeLock.locked_by !== user.id) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=El%20acta%20est%C3%A1%20siendo%20editada%20por%20otro%20usuario`);
   if (!minute || minute.status !== "Borrador") {
     await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_FINALIZE_DENIED", p_table: "hearing_minutes", p_record_id: parsed.data.minute_id, p_description: "Se impidió finalizar un acta fuera de borrador", p_metadata: { status: minute?.status ?? "not_found" } });
     redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=El%20acta%20no%20está%20en%20borrador`);
@@ -212,6 +217,7 @@ export async function finalizeHearingMinutes(formData: FormData) {
   const [minuteResult, hearingResult] = await Promise.all([supabase.from("hearing_minutes").update({ status: "Finalizada", finalized_at: now, finalized_by: user.id }).eq("id", minute.id).eq("status", "Borrador").select("id").maybeSingle(), supabase.from("hearings").update({ status: "Realizada" }).eq("id", parsed.data.hearing_id)]);
   if (minuteResult.error || !minuteResult.data || hearingResult.error) redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?error=${encodeURIComponent(minuteResult.error?.message || hearingResult.error?.message || "No fue posible finalizar")}`);
   await supabase.rpc("log_security_event", { p_action: "HEARING_MINUTE_FINALIZED", p_table: "hearing_minutes", p_record_id: minute.id, p_description: "Acta de audiencia finalizada y habilitada para firmas", p_metadata: { secretary_signature_required: minute.secretary_signature_required, judge_signature_required: minute.judge_signature_required } });
+  if (minute.created_by && minute.created_by !== user.id) await supabase.rpc("create_internal_notification", { p_recipient: minute.created_by, p_title: "Acta finalizada", p_message: "El acta quedó finalizada y disponible para el flujo de firmas.", p_type: "acta_por_finalizar", p_link_url: `/admin/audiencias/${parsed.data.hearing_id}/acta`, p_priority: "high", p_record_type: "hearing_minute", p_record_id: minute.id });
   revalidatePath(`/admin/audiencias/${parsed.data.hearing_id}/acta`);
   revalidatePath("/admin/audiencias");
   redirect(`/admin/audiencias/${parsed.data.hearing_id}/acta?success=Acta%20finalizada`);

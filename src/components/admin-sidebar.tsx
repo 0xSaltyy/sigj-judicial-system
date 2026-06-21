@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Building2,
+  Bell,
   CalendarDays,
   ChevronDown,
   ClipboardList,
@@ -27,6 +28,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logout } from "@/app/actions/auth";
 
 export const adminNav = [
@@ -37,6 +39,7 @@ export const adminNav = [
   { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays },
   { label: "Estados judiciales", href: "/admin/estados", icon: ClipboardList },
   { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone },
+  { label: "Notificaciones", href: "/admin/notificaciones", icon: Bell },
   { label: "Instituciones", href: "/admin/dependencias", icon: Building2 },
   { label: "Usuarios", href: "/admin/usuarios", icon: Users, ownerOnly: true },
   {
@@ -59,6 +62,8 @@ type Viewer = {
   role: string;
   institution: string;
   isOwner: boolean;
+  unreadNotifications?: number;
+  latestNotifications?: Array<{ id: string; title: string; message: string; link_url: string | null; read_at: string | null }>;
 };
 
 function SidebarLinks({ isOwner }: { isOwner: boolean }) {
@@ -193,6 +198,7 @@ export function AdminTopbar({ viewer }: { viewer: Viewer }) {
         />
       </form>
       <div className="ml-auto flex items-center gap-3">
+        <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="relative" aria-label="Notificaciones internas"><Bell className="size-5" />{Boolean(viewer.unreadNotifications) && <span className="absolute right-0 top-0 flex min-w-4 items-center justify-center rounded-full bg-red-700 px-1 text-[9px] font-bold text-white">{Math.min(viewer.unreadNotifications ?? 0,99)}</span>}</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-80"><DropdownMenuLabel>Notificaciones internas</DropdownMenuLabel><DropdownMenuSeparator />{(viewer.latestNotifications ?? []).map((item) => <DropdownMenuItem key={item.id} asChild><Link href={item.link_url ?? "/admin/notificaciones"} className={`block cursor-pointer p-2 ${item.read_at ? "opacity-70" : "font-semibold"}`}><span className="block text-xs">{item.title}</span><span className="mt-1 line-clamp-2 text-[11px] font-normal text-muted-foreground">{item.message}</span></Link></DropdownMenuItem>)}{!viewer.latestNotifications?.length && <DropdownMenuItem disabled>Sin notificaciones</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem asChild><Link href="/admin/notificaciones" className="cursor-pointer justify-center font-semibold">Ver todas</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         <div className="hidden text-right sm:block">
           <p className="text-xs font-semibold text-[#153553]">
             {viewer.fullName}

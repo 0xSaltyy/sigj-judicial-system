@@ -7,6 +7,8 @@ import {
   type ProceedingDocument,
 } from "@/components/formal-providence-document";
 import { PrintDocumentShell } from "@/components/print-document-shell";
+import { MarkdownViewer } from "@/components/markdown-editor";
+import { SignaturePrintBlocks } from "@/components/signature-panel";
 import { hashSecret } from "@/lib/secure-tokens";
 import { signatureImageDataUrl } from "@/lib/signature-images";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -36,7 +38,7 @@ export default async function ProvidencePrintPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ share?: string }>;
+  searchParams: Promise<{ share?: string; includeVotes?: string }>;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const supabase = await createClient();
@@ -168,6 +170,20 @@ export default async function ProvidencePrintPage({
   }
 
   const assetClient = loaded.useAdminForAssets ? admin : supabase;
+  if (assetClient) {
+    const { data: sala } = await assetClient.from("sala_sessions").select("act_number,session_date,chamber,vote_result,rapporteur:profiles!sala_sessions_rapporteur_id_fkey(full_name)").eq("proceeding_id", id).maybeSingle();
+    if (sala) {
+      const rapporteur = Array.isArray(sala.rapporteur) ? sala.rapporteur[0] : sala.rapporteur;
+      loaded.proceeding.document_metadata = {
+        ...(loaded.proceeding.document_metadata ?? {}),
+        actNumber: sala.act_number || loaded.proceeding.document_metadata?.actNumber,
+        sessionDate: sala.session_date || undefined,
+        roomName: sala.chamber || loaded.proceeding.document_metadata?.roomName,
+        rapporteurName: rapporteur?.full_name || loaded.proceeding.document_metadata?.rapporteurName,
+        voteResult: sala.vote_result || undefined,
+      };
+    }
+  }
   const { data: signatureRows } = assetClient
     ? await assetClient
         .from("signatures")
@@ -187,6 +203,17 @@ export default async function ProvidencePrintPage({
         })),
       )
     : [];
+  const voteAnnexes: Array<{ id: string; vote_type: string; title: string; content_markdown: string; institution_style: string; signatures: PrintableSignature[] }> = [];
+  if (query.includeVotes === "1" && assetClient) {
+    let voteQuery = assetClient.from("vote_documents").select("id,vote_type,title,content_markdown,institution_style,visibility").eq("proceeding_id", id).in("status", ["Presentado", "Firmado", "Publicado"]).order("created_at");
+    if (loaded.publicView) voteQuery = voteQuery.eq("visibility", "public");
+    const { data: voteRows } = await voteQuery;
+    for (const vote of voteRows ?? []) {
+      const { data: voteSignatureRows } = await assetClient.from("signatures").select("id,signer_name,signer_title,signature_image_path,purpose,signed_at,verification_code").eq("target_type", "vote_document").eq("target_id", vote.id).eq("status", "signed").order("signature_order");
+      const voteSignatures = await Promise.all((voteSignatureRows ?? []).map(async (signature) => ({ ...signature, imageUrl: await signatureImageDataUrl(assetClient, signature.signature_image_path) })));
+      voteAnnexes.push({ ...vote, signatures: voteSignatures });
+    }
+  }
 
   return (
     <PrintDocumentShell>
@@ -198,6 +225,7 @@ export default async function ProvidencePrintPage({
         combinedPdfUrl={combinedPdfUrl}
         publicView={loaded.publicView}
       />
+      {voteAnnexes.map((vote) => <article key={vote.id} className={`print-document paper judicial-document formal-document formal-document--${vote.institution_style} page-break-before relative mx-auto bg-white`}><header className="text-center"><p className="font-bold">{vote.institution_style === "corte_suprema" ? "CORTE SUPREMA DE JUSTICIA" : "TRIBUNAL SUPERIOR"}</p><h2 className="mt-8 text-lg font-bold uppercase">{vote.vote_type}</h2><p className="mt-2">{vote.title}</p></header><div className="judicial-body mt-10"><MarkdownViewer content={vote.content_markdown} variant="document" /></div><SignaturePrintBlocks signatures={vote.signatures} /></article>)}
     </PrintDocumentShell>
   );
 }
