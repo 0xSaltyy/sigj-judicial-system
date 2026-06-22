@@ -1,32 +1,68 @@
 import Link from "next/link";
-import { CalendarPlus } from "lucide-react";
-import { AdminPageHeader } from "@/components/admin-page";
+import { CalendarCheck2, CalendarClock, CalendarPlus, ClipboardPenLine, Search } from "lucide-react";
+import { AdminPageHeader, MetricCard } from "@/components/admin-page";
 import { ActionMessage } from "@/components/action-message";
+import { HearingCalendar, type HearingCalendarItem, statusLabel } from "@/components/hearing-calendar";
 import { Button } from "@/components/ui/button";
-import { CaseStatusBadge } from "@/components/status-badges";
-import { LifecycleActions } from "@/components/lifecycle-actions";
-import { HearingMinuteActions } from "@/components/hearing-minute-actions";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { can, requirePermission } from "@/lib/auth/permissions";
 import { HEARING_LIST_REALTIME } from "@/lib/realtime-subscriptions";
 
-export default async function AdminHearingsPage({ searchParams }: { searchParams: Promise<{ error?: string; success?: string }> }) {
-  const { supabase, profile } = await requirePermission({ resource: "audiencias", action: "view" });
-  const [query, canCreate, canEdit, canArchive, canRestore, canHardDelete, canViewMinutes, canCreateMinutes, canEditMinutes] = await Promise.all([searchParams, can(profile, "create", "audiencias", { supabase }), can(profile, "edit", "audiencias", { supabase }), can(profile, "archive", "audiencias", { supabase }), can(profile, "restore", "audiencias", { supabase }), can(profile, "hard_delete", "audiencias", { supabase }), can(profile, "view", "actas", { supabase }), can(profile, "create", "actas", { supabase }), can(profile, "edit", "actas", { supabase })]);
-  const { data, error } = await supabase.from("hearings").select("*,case:cases(internal_number,chamber),minute:hearing_minutes(id,status)").order("scheduled_at", { ascending: false }).limit(100);
+type Query={q?:string;status?:string;dependency?:string;institution?:string;from?:string;to?:string;scope?:string};
+type HearingRow={id:string;case_id:string;title:string;hearing_type:string;scheduled_at:string;end_at:string|null;room:string|null;virtual_link:string|null;status:string;participants:unknown;created_by:string|null;archived_at:string|null;internal_number:string|null;judicial_number:string|null;case_title:string|null;ticket_name:string|null;dependency_id:string|null;assigned_judge_id:string|null;dependency_name:string|null;judge_name:string|null;judge_is_owner:boolean|null;minute_id:string|null;minute_status:string|null};
+
+export default async function AdminHearingsPage({searchParams}:{searchParams:Promise<Query&{error?:string;success?:string}>}) {
+  const {supabase,profile}=await requirePermission({resource:"audiencias",action:"view"});
+  const query=await searchParams;
+  const [canCreate,canViewDependency,canViewInstitution,canViewAll,{data:rows,error},{data:dependencies},{data:profiles}]=await Promise.all([
+    can(profile,"create","audiencias",{supabase}),can(profile,"view_dependency","audiencias",{supabase}),can(profile,"view_institution","audiencias",{supabase}),can(profile,"view_all","audiencias",{supabase}),
+    supabase.from("hearing_agenda_secure").select("*").order("scheduled_at",{ascending:false}).limit(500),
+    supabase.from("dependencies").select("id,name,parent_id,type").eq("is_active",true).is("archived_at",null).order("name"),
+    supabase.from("profiles").select("id,full_name,is_owner"),
+  ]);
+  const nameById=new Map((profiles??[]).map((item)=>[item.id,item.is_owner?"Lilith D'Amico":item.full_name]));
+  const depRows=dependencies??[];const children=new Map<string,string[]>();for(const dep of depRows){if(dep.parent_id)children.set(dep.parent_id,[...(children.get(dep.parent_id)??[]),dep.id]);}
+  const institutionIds=query.institution?descendants(query.institution,children):null;
+  const normalized=(query.q??"").trim().toLocaleLowerCase("es");
+  const items=((rows??[]) as HearingRow[]).map((row)=>toItem(row,nameById)).filter((item)=>{
+    const haystack=`${item.title} ${item.type} ${item.radicado} ${item.caseTitle} ${item.dependency} ${item.judge} ${item.location} ${item.participants} ${item.createdBy}`.toLocaleLowerCase("es");
+    if(normalized&&!haystack.includes(normalized))return false;
+    if(query.status&&item.status!==query.status)return false;
+    if(query.dependency&&item.dependencyId!==query.dependency)return false;
+    if(institutionIds&&!institutionIds.has(item.dependencyId??""))return false;
+    if(query.from&&new Date(item.scheduledAt)<new Date(`${query.from}T00:00:00`))return false;
+    if(query.to&&new Date(item.scheduledAt)>new Date(`${query.to}T23:59:59`))return false;
+    if(query.scope==="mine"&&item.judgeId!==profile.id&&item.createdById!==profile.id)return false;
+    if(query.scope==="dependency"&&item.dependencyId!==profile.dependency_id)return false;
+    return true;
+  });
+  const now=Date.now();const today=new Date();today.setHours(0,0,0,0);const tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);
+  const todayCount=items.filter((item)=>{const value=new Date(item.scheduledAt);return value>=today&&value<tomorrow&&!isClosed(item.status);}).length;
+  const upcoming=items.filter((item)=>new Date(item.scheduledAt).getTime()>=now&&!isClosed(item.status)).length;
+  const completed=items.filter((item)=>["realizada","pendiente_acta","acta_generada"].includes(item.status)).length;
+  const pendingMinutes=items.filter((item)=>item.status==="pendiente_acta").length;
   return <>
-    <RealtimeRefresh channel="admin-hearings" subscriptions={HEARING_LIST_REALTIME} />
-    <AdminPageHeader title="Agenda de audiencias" description="Programación y gestión de sesiones físicas y virtuales." action={canCreate ? <Button asChild className="bg-[#153b5c]"><Link href="/admin/audiencias/nueva"><CalendarPlus className="size-4" /> Programar audiencia</Link></Button> : <Button disabled title="No tiene permiso para crear audiencias"><CalendarPlus className="size-4" /> Programar audiencia</Button>} />
-    <ActionMessage error={query.error ?? (error ? "No fue posible cargar las audiencias." : undefined)} success={query.success} />
-    <div className="grid gap-4 lg:grid-cols-2">
-      {(data ?? []).map((hearing) => {
-        const minute = Array.isArray(hearing.minute) ? hearing.minute[0] : hearing.minute;
-        return <article key={hearing.id} className={`rounded-lg border bg-white p-5 ${hearing.archived_at ? "opacity-75" : ""}`}>
-        <div className="flex justify-between gap-4"><div><p className="text-xs font-semibold uppercase text-[#9a752f]">{hearing.hearing_type}</p><h2 className="mt-1 font-semibold text-[#153553]">{hearing.title}</h2><p className="mono-number mt-1 text-xs text-muted-foreground">{Array.isArray(hearing.case) ? hearing.case[0]?.internal_number : hearing.case?.internal_number}</p></div><CaseStatusBadge status={hearing.status} /></div>
-        <p className="mt-4 text-xs text-muted-foreground">{new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(hearing.scheduled_at))} · {hearing.room || "Sala por definir"} · {hearing.is_public ? "Pública" : "Interna"}</p>
-        <div className="mt-4 flex flex-wrap gap-2">{canEdit ? <Button asChild size="sm" variant="outline"><Link href={`/admin/audiencias/${hearing.id}/editar`}>Editar / reprogramar</Link></Button> : <Button size="sm" variant="outline" disabled title="No tiene permiso para editar audiencias">Editar / reprogramar</Button>}<HearingMinuteActions hearingId={hearing.id} minuteStatus={minute?.status} canView={canViewMinutes} canCreate={canCreateMinutes} canEdit={canEditMinutes} archived={Boolean(hearing.archived_at)} /><LifecycleActions resource="hearings" recordId={hearing.id} recordLabel={hearing.title} destination="/admin/audiencias" archived={Boolean(hearing.archived_at)} canArchive={canArchive} canRestore={canRestore} canHardDelete={canHardDelete} compact /></div>
-      </article>})}
-    </div>
-    {!data?.length && <p className="rounded border bg-white p-8 text-center text-sm text-muted-foreground">No hay audiencias.</p>}
+    <RealtimeRefresh channel="admin-hearings" subscriptions={HEARING_LIST_REALTIME}/>
+    <AdminPageHeader title="Agenda de audiencias" description="Calendario, búsqueda y seguimiento de audiencias dentro de su alcance institucional." action={canCreate?<Button asChild className="bg-[#153b5c]"><Link href="/admin/audiencias/nueva"><CalendarPlus className="size-4"/>Programar audiencia</Link></Button>:<Button disabled title="No tiene permiso para crear audiencias"><CalendarPlus className="size-4"/>Programar audiencia</Button>}/>
+    <ActionMessage error={query.error??(error?"No fue posible cargar las audiencias.":undefined)} success={query.success}/>
+    <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="Hoy" value={String(todayCount)} detail="Audiencias activas del día" icon={<CalendarCheck2 className="size-5"/>}/><MetricCard label="Próximas" value={String(upcoming)} detail="Programadas o reprogramadas" icon={<CalendarClock className="size-5"/>}/><MetricCard label="Realizadas" value={String(completed)} detail="Permanecen visibles en agenda" icon={<CalendarCheck2 className="size-5"/>}/><MetricCard label="Pendientes de acta" value={String(pendingMinutes)} detail="Requieren elaboración del acta" icon={<ClipboardPenLine className="size-5"/>}/></div>
+    <form className="mb-5 grid min-w-0 gap-3 rounded-xl border bg-white p-4 md:grid-cols-2 xl:grid-cols-4">
+      <label className="grid gap-1 text-xs font-medium xl:col-span-2">Buscar audiencia<Input name="q" defaultValue={query.q} placeholder="Radicado, título, tipo, participante, juez o ubicación…"/></label>
+      <Filter label="Estado" name="status" value={query.status}><option value="">Todos los estados</option>{["programada","en_curso","realizada","aplazada","reprogramada","cancelada","pendiente_acta","acta_generada","archivada"].map((status)=><option key={status} value={status}>{statusLabel(status)}</option>)}</Filter>
+      <Filter label="Alcance" name="scope" value={query.scope}><option value="">Todo mi alcance</option><option value="mine">Mis audiencias</option>{canViewDependency&&<option value="dependency">Mi despacho</option>}{canViewInstitution&&<option value="institution">Mi institución</option>}{canViewAll&&<option value="all">Todas</option>}</Filter>
+      <Filter label="Despacho" name="dependency" value={query.dependency}><option value="">Todos los despachos</option>{depRows.map((dep)=><option key={dep.id} value={dep.id}>{dep.name}</option>)}</Filter>
+      <Filter label="Institución" name="institution" value={query.institution}><option value="">Todas las instituciones</option>{depRows.filter((dep)=>!dep.parent_id).map((dep)=><option key={dep.id} value={dep.id}>{dep.name}</option>)}</Filter>
+      <label className="grid gap-1 text-xs font-medium">Fecha desde<Input type="date" name="from" defaultValue={query.from}/></label><label className="grid gap-1 text-xs font-medium">Fecha hasta<Input type="date" name="to" defaultValue={query.to}/></label>
+      <div className="flex flex-wrap items-end gap-2 md:col-span-2 xl:col-span-4"><Button type="submit"><Search className="size-4"/>Buscar y filtrar</Button><Button asChild variant="outline"><Link href="/admin/audiencias">Limpiar filtros</Link></Button><Badge variant="outline">{items.length} resultado{items.length===1?"":"s"}</Badge></div>
+    </form>
+    <HearingCalendar items={items}/>
   </>;
 }
+
+function toItem(row:HearingRow,names:Map<string,string>){let status=normalizeStatus(row.status,row.archived_at);if(status==="realizada")status=row.minute_id?(row.minute_status==="Borrador"?"pendiente_acta":"acta_generada"):"pendiente_acta";const participants=Array.isArray(row.participants)?row.participants.map((p)=>typeof p==="string"?p:(p as {name?:string}).name??"").join(" "):"";return {id:row.id,title:row.title,type:row.hearing_type,scheduledAt:row.scheduled_at,endAt:row.end_at,status,radicado:row.internal_number??"Sin expediente",caseTitle:row.ticket_name??row.case_title??"Sin expediente",dependency:row.dependency_name??"Sin despacho",dependencyId:row.dependency_id,judge:row.judge_is_owner?"Lilith D'Amico":row.judge_name??"Sin juez asignado",judgeId:row.assigned_judge_id,location:row.room||row.virtual_link||"Sin ubicación",minuteId:row.minute_id,participants,createdBy:row.created_by?names.get(row.created_by)??"Usuario interno":"Sistema",createdById:row.created_by} satisfies HearingCalendarItem&{caseTitle:string;dependencyId:string|null;judgeId:string|null;participants:string;createdBy:string;createdById:string|null};}
+function normalizeStatus(value:string,archived:string|null){if(archived)return "archivada";const key=value.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_");return ({programada:"programada",en_curso:"en_curso",realizada:"realizada",aplazada:"aplazada",reprogramada:"reprogramada",cancelada:"cancelada",pendiente_de_acta:"pendiente_acta",acta_generada:"acta_generada",archivada:"archivada"} as Record<string,string>)[key]??"programada";}
+function isClosed(status:string){return ["realizada","pendiente_acta","acta_generada","cancelada","archivada"].includes(status);}
+function descendants(root:string,children:Map<string,string[]>){const result=new Set<string>([root]);const queue=[root];while(queue.length){for(const child of children.get(queue.shift()!)??[]){if(!result.has(child)){result.add(child);queue.push(child);}}}return result;}
+function Filter({label,name,value,children}:{label:string;name:string;value?:string;children:React.ReactNode}){return <label className="grid min-w-0 gap-1 text-xs font-medium">{label}<select name={name} defaultValue={value??""} className="h-9 min-w-0 rounded-md border bg-white px-3 text-sm font-normal">{children}</select></label>;}

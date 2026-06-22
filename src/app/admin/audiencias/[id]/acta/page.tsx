@@ -45,8 +45,8 @@ export default async function HearingMinutes({
   ]);
   const [{ data: hearing }, { data: minute }] = await Promise.all([
     supabase
-      .from("hearings")
-      .select("*,case:cases(internal_number,judicial_number,title,chamber,authority_type,dependency:dependencies(name))")
+      .from("hearing_agenda_secure")
+      .select("*")
       .eq("id", id)
       .maybeSingle(),
     supabase
@@ -56,15 +56,13 @@ export default async function HearingMinutes({
       .maybeSingle(),
   ]);
   if (!hearing) notFound();
-  const caseRecord = Array.isArray(hearing.case)
-    ? hearing.case[0]
-    : hearing.case;
-  const dependency = Array.isArray(caseRecord?.dependency)
-    ? caseRecord.dependency[0]
-    : caseRecord?.dependency;
   const formalCaseRecord = {
-    ...caseRecord,
-    dependency_name: dependency?.name || null,
+    internal_number:hearing.internal_number,
+    judicial_number:hearing.judicial_number,
+    title:hearing.case_title,
+    chamber:hearing.chamber,
+    authority_type:hearing.authority_type,
+    dependency_name: hearing.dependency_name || null,
   };
   const { data: signatureRows } = minute
     ? await supabase
@@ -117,7 +115,7 @@ export default async function HearingMinutes({
       {query.success && <ClearDrafts storageKeys={[`hearing-minute:${id}`]} />}
       <AdminPageHeader
         title="Acta de audiencia"
-        description={`${caseRecord?.internal_number ?? "Expediente"} · ${minute?.status ?? "Sin iniciar"}`}
+        description={`${hearing.internal_number ?? "Expediente"} · ${minute?.status ?? "Sin iniciar"}`}
         action={finalized ? (canPrint ? <PrintButton label={signed ? "PDF/Imprimir acta firmada" : "Imprimir acta"} href={`/imprimir/actas/${id}`} /> : <Button disabled title="No tiene permiso para imprimir actas">Imprimir acta</Button>) : undefined}
       />
       <div className="no-print -mt-3 mb-5 rounded-lg border bg-slate-50 px-4 py-3 text-xs text-slate-600">
@@ -156,7 +154,7 @@ export default async function HearingMinutes({
             <Input
               name="chamber"
               defaultValue={
-                minute?.chamber ?? hearing.room ?? caseRecord?.chamber ?? ""
+                minute?.chamber ?? hearing.room ?? hearing.chamber ?? ""
               }
             />
           </Field>
@@ -305,7 +303,7 @@ export default async function HearingMinutes({
           <LifecycleActions
             resource="hearing_minutes"
             recordId={minute.id}
-            recordLabel={`Acta de audiencia ${caseRecord?.internal_number ?? id}`}
+            recordLabel={`Acta de audiencia ${hearing.internal_number ?? id}`}
             destination={`/admin/audiencias/${id}/acta`}
             archived={false}
             canArchive={canArchive}

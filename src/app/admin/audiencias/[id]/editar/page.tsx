@@ -22,8 +22,8 @@ export default async function EditHearing({
     searchParams,
     requirePermission(PERMISSIONS.hearingsEdit),
   ]);
-  const [{ data: hearing }, { data: cases }, { data: minute }, canViewMinutes, canCreateMinutes, canEditMinutes, canReschedule, canCancel] = await Promise.all([
-    supabase.from("hearings").select("*").eq("id", id).maybeSingle(),
+  const [{ data: hearing }, { data: cases }, { data: minute }, canViewMinutes, canCreateMinutes, canEditMinutes, canReschedule, canCancel, canComplete] = await Promise.all([
+    supabase.from("hearing_agenda_secure").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("cases")
       .select("id,internal_number")
@@ -35,8 +35,10 @@ export default async function EditHearing({
     can(profile, "edit", "actas", { supabase }),
     can(profile, "reschedule", "audiencias", { supabase }),
     can(profile, "cancel", "audiencias", { supabase }),
+    can(profile, "mark_completed", "audiencias", { supabase }),
   ]);
   if (!hearing) notFound();
+  const caseOptions=(cases??[]).some((item)=>item.id===hearing.case_id)?(cases??[]):[...(cases??[]),{id:hearing.case_id,internal_number:hearing.internal_number??"Expediente de la audiencia"}];
   return (
     <>
       <RealtimeRefresh
@@ -52,7 +54,7 @@ export default async function EditHearing({
         action={<div className="flex flex-wrap gap-2"><HearingMinuteActions hearingId={id} minuteStatus={minute?.status} canView={canViewMinutes} canCreate={canCreateMinutes} canEdit={canEditMinutes} archived={Boolean(hearing.archived_at)} /></div>}
       />
       <ActionMessage error={query.error} success={query.success} />
-      <HearingForm cases={cases ?? []} hearing={hearing} canReschedule={canReschedule} canCancel={canCancel} />
+      <HearingForm cases={caseOptions} hearing={hearing} canReschedule={canReschedule} canCancel={canCancel} canComplete={canComplete} />
       {hearing.status !== "Cancelada" && (
         <form
           action={cancelHearing}

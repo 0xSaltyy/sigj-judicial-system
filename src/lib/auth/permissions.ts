@@ -32,6 +32,8 @@ export const PERMISSIONS = {
   hearingsEdit: { resource: "audiencias", action: "edit" },
   hearingsReschedule: { resource: "audiencias", action: "reschedule" },
   hearingsCancel: { resource: "audiencias", action: "cancel" },
+  hearingsMarkCompleted: { resource: "audiencias", action: "mark_completed" },
+  hearingsCreateMinutes: { resource: "audiencias", action: "create_minutes" },
   minutesCreate: { resource: "actas", action: "create" },
   minutesEdit: { resource: "actas", action: "edit" },
   minutesFinalize: { resource: "actas", action: "finalize" },
@@ -99,6 +101,12 @@ export const PERMISSIONS = {
   profileEditInstitution: { resource: "perfil", action: "edit_institution" },
   profileEditDependency: { resource: "perfil", action: "edit_dependency" },
   profileEditTitle: { resource: "perfil", action: "edit_title" },
+  selectionView: { resource: "seleccion", action: "view" },
+  selectionCreate: { resource: "seleccion", action: "create" },
+  selectionEdit: { resource: "seleccion", action: "edit" },
+  selectionViewApplications: { resource: "seleccion", action: "view_applications" },
+  selectionEditApplications: { resource: "seleccion", action: "edit_applications" },
+  selectionEvaluateApplications: { resource: "seleccion", action: "evaluate_applications" },
 } as const satisfies Record<string, PermissionRequirement>;
 
 export type PermissionRequirement = {

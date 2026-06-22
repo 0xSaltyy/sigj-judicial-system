@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 
 const links = [
   ["Inicio", "/"], ["Instituciones", "/instituciones"], ["Consulta de expedientes", "/consulta"], ["Comunicados", "/comunicados"],
-  ["Audiencias", "/audiencias"], ["Providencias", "/providencias"],
+  ["Audiencias", "/audiencias"], ["Providencias", "/providencias"], ["Convocatorias", "/convocatorias"],
 ];
 
 export function InstitutionalHeader() {

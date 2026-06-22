@@ -1,0 +1,5 @@
+import { ActionMessage } from "@/components/action-message";
+import { AdminPageHeader } from "@/components/admin-page";
+import { SelectionProcessForm } from "@/components/selection-process-form";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+export default async function NewSelectionProcess({searchParams}:{searchParams:Promise<{error?:string}>}){const [{supabase},query]=await Promise.all([requirePermission(PERMISSIONS.selectionCreate),searchParams]);const [{data:dependencies},{data:reviewers}]=await Promise.all([supabase.from("dependencies").select("id,name,parent_id").eq("is_active",true).is("archived_at",null).order("name"),supabase.from("profiles").select("id,full_name,is_owner").eq("is_active",true).neq("role","CONSULTA_PUBLICA").order("full_name")]);return <><AdminPageHeader title="Crear proceso de selección" description="La convocatoria y sus postulaciones quedarán vinculadas al despacho seleccionado."/><ActionMessage error={query.error}/><SelectionProcessForm dependencies={dependencies??[]} reviewers={reviewers??[]}/></>}
