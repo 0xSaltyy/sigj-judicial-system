@@ -107,6 +107,8 @@ export const PERMISSIONS = {
   selectionViewApplications: { resource: "seleccion", action: "view_applications" },
   selectionEditApplications: { resource: "seleccion", action: "edit_applications" },
   selectionEvaluateApplications: { resource: "seleccion", action: "evaluate_applications" },
+  selectionUpdateApplicationStatus: { resource: "seleccion", action: "update_application_status" },
+  selectionEditPublicMessage: { resource: "seleccion", action: "edit_public_message" },
 } as const satisfies Record<string, PermissionRequirement>;
 
 export type PermissionRequirement = {

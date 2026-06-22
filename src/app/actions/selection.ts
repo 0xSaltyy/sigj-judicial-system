@@ -34,11 +34,14 @@ export async function saveSelectionProcess(formData:FormData){
   revalidatePath("/admin/seleccion");redirect(`/admin/seleccion/${data.id}?success=Proceso%20de%20selecci%C3%B3n%20creado`);
 }
 
-const applicationSchema=z.object({application_id:dbUuid,process_id:dbUuid,status:z.enum(["recibida","en_revision","preseleccionada","rechazada","entrevista","aceptada","archivada"]),internal_notes:z.string().trim().max(8000).optional(),score:z.union([z.literal(""),z.coerce.number().min(0).max(100)])});
+const applicationSchema=z.object({application_id:dbUuid,process_id:dbUuid,status:z.enum(["recibida","en_revision","preseleccionada","rechazada","entrevista","aceptada","archivada"]),internal_notes:z.string().trim().max(8000).optional(),public_message:z.string().trim().max(1000).optional(),score:z.union([z.literal(""),z.coerce.number().min(0).max(100)]).optional()});
 export async function updateSelectionApplication(formData:FormData){
   const parsed=applicationSchema.safeParse(Object.fromEntries(formData));if(!parsed.success)redirect("/admin/seleccion?error=Datos%20de%20evaluaci%C3%B3n%20inv%C3%A1lidos");
-  const session=await requirePermission(PERMISSIONS.selectionEditApplications);const canEvaluate=await can(session.profile,"evaluate_applications","seleccion",{supabase:session.supabase});
-  const payload:Record<string,unknown>={status:parsed.data.status,reviewed_by:session.user.id,reviewed_at:new Date().toISOString()};if(canEvaluate){payload.internal_notes=parsed.data.internal_notes||null;payload.score=parsed.data.score===""?null:parsed.data.score;}
+  const session=await requirePermission(PERMISSIONS.selectionEditApplications);const [canEvaluate,canUpdateStatus,canEditPublicMessage,{data:current}]=await Promise.all([can(session.profile,"evaluate_applications","seleccion",{supabase:session.supabase}),can(session.profile,"update_application_status","seleccion",{supabase:session.supabase}),can(session.profile,"edit_public_message","seleccion",{supabase:session.supabase}),session.supabase.from("selection_applications").select("id,status,public_message").eq("id",parsed.data.application_id).eq("process_id",parsed.data.process_id).maybeSingle()]);
+  if(!current)redirect(`/admin/seleccion/${parsed.data.process_id}?error=Postulaci%C3%B3n%20no%20disponible`);
+  if(current.status!==parsed.data.status&&!canUpdateStatus)await enforcePermission(session,PERMISSIONS.selectionUpdateApplicationStatus,parsed.data.application_id);
+  if(formData.has("public_message")&&(current.public_message??"")!==(parsed.data.public_message??"")&&!canEditPublicMessage)await enforcePermission(session,PERMISSIONS.selectionEditPublicMessage,parsed.data.application_id);
+  const payload:Record<string,unknown>={status:canUpdateStatus?parsed.data.status:current.status,public_message:canEditPublicMessage?parsed.data.public_message||null:current.public_message};if(canEvaluate){payload.internal_notes=parsed.data.internal_notes||null;payload.score=parsed.data.score===""||parsed.data.score===undefined?null:parsed.data.score;payload.reviewed_by=session.user.id;payload.reviewed_at=new Date().toISOString();}
   const {data,error}=await session.supabase.from("selection_applications").update(payload).eq("id",parsed.data.application_id).eq("process_id",parsed.data.process_id).select("id").maybeSingle();
   if(error||!data)redirect(`/admin/seleccion/${parsed.data.process_id}?error=No%20fue%20posible%20actualizar%20la%20postulaci%C3%B3n`);revalidatePath(`/admin/seleccion/${parsed.data.process_id}`);redirect(`/admin/seleccion/${parsed.data.process_id}?success=Postulaci%C3%B3n%20actualizada`);
 }
@@ -47,8 +50,19 @@ const publicSchema=z.object({process_id:dbUuid,slug:z.string().min(3),applicant_
 export async function submitSelectionApplication(formData:FormData){
   const parsed=publicSchema.safeParse(Object.fromEntries(formData));const slug=String(formData.get("slug")||"");if(!parsed.success)redirect(`/convocatorias/${encodeURIComponent(slug)}?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   const supabase=await createClient();if(!supabase)redirect(`/convocatorias/${parsed.data.slug}?error=Servicio%20no%20disponible`);
-  const {error}=await supabase.rpc("submit_selection_application",{p_process_id:parsed.data.process_id,p_name:parsed.data.applicant_name,p_email:parsed.data.applicant_email,p_identifier:parsed.data.applicant_identifier||"",p_phone:parsed.data.phone||"",p_statement:parsed.data.statement,p_experience:parsed.data.experience||"",p_website:parsed.data.website||""});
-  if(error)redirect(`/convocatorias/${parsed.data.slug}?error=${encodeURIComponent(error.message.includes("duplicate")?"Ya existe una postulación para este correo":"No fue posible registrar la postulación. Revise los datos o la vigencia")}`);
-  redirect(`/convocatorias/${parsed.data.slug}?success=Postulaci%C3%B3n%20recibida%20correctamente`);
+  const {data,error}=await supabase.rpc("submit_selection_application",{p_process_id:parsed.data.process_id,p_name:parsed.data.applicant_name,p_email:parsed.data.applicant_email,p_identifier:parsed.data.applicant_identifier||"",p_phone:parsed.data.phone||"",p_statement:parsed.data.statement,p_experience:parsed.data.experience||"",p_website:parsed.data.website||""});
+  if(error||!data?.receipt_token)redirect(`/convocatorias/${parsed.data.slug}?error=${encodeURIComponent(error?.message.includes("Ya existe")?"Ya existe una postulación para este correo":"No fue posible registrar la postulación. Revise los datos o la vigencia")}`);
+  redirect(`/convocatorias/postulacion/confirmacion?receipt=${encodeURIComponent(String(data.receipt_token))}`);
+}
+
+export type PublicApplicationStatus={processTitle:string;positionTitle:string;institutionName:string;dependencyName:string;applicantName:string;submittedAt:string;status:string;updatedAt:string;message:string|null};
+export type ApplicationLookupState={error?:string;result?:PublicApplicationStatus};
+export async function lookupSelectionApplicationStatus(_:ApplicationLookupState,formData:FormData):Promise<ApplicationLookupState>{
+  const parsed=z.object({tracking_code:z.string().trim().min(12).max(40),email:z.string().trim().email().max(320)}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)return {error:"No se encontró una postulación con los datos ingresados."};
+  const supabase=await createClient();if(!supabase)return {error:"No fue posible consultar el estado en este momento."};
+  const {data,error}=await supabase.rpc("lookup_selection_application_status",{p_tracking_code:parsed.data.tracking_code,p_email:parsed.data.email});const row=data?.[0];
+  if(error||!row)return {error:"No se encontró una postulación con los datos ingresados."};
+  return {result:{processTitle:row.process_title,positionTitle:row.position_title,institutionName:row.institution_name,dependencyName:row.dependency_name,applicantName:row.applicant_name,submittedAt:row.submitted_at,status:row.public_status,updatedAt:row.public_updated_at,message:row.public_message}};
 }
 function slugify(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("es").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,80)||"convocatoria";}

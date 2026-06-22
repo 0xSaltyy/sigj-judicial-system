@@ -52,6 +52,8 @@ export const PERMISSION_ACTIONS = [
   "edit_applications",
   "evaluate_applications",
   "close",
+  "update_application_status",
+  "edit_public_message",
 ] as const;
 
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
@@ -78,7 +80,7 @@ export const PERMISSION_CATALOG = [
   { resource: "sala", label: "Modo Sala", actions: ["view", "send", "register_session", "register_vote", "approve", "return", "publish"] },
   { resource: "notificaciones", label: "Notificaciones internas", actions: ["view", "manage"] },
   { resource: "perfil", label: "Perfil propio", actions: ["edit", "edit_public", "publish_profile", "edit_institution", "edit_dependency", "edit_title"] },
-  { resource: "seleccion", label: "Procesos de selección", actions: ["view", "create", "edit", "publish", "close", "cancel", "view_applications", "edit_applications", "evaluate_applications", "view_all", "view_institution", "view_dependency"] },
+  { resource: "seleccion", label: "Procesos de selección", actions: ["view", "create", "edit", "publish", "close", "cancel", "view_applications", "edit_applications", "evaluate_applications", "update_application_status", "edit_public_message", "view_all", "view_institution", "view_dependency"] },
 ] as const satisfies readonly {
   resource: string;
   label: string;
@@ -170,6 +172,8 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   edit_applications: "Gestionar postulaciones",
   evaluate_applications: "Evaluar postulaciones",
   close: "Cerrar proceso",
+  update_application_status: "Actualizar estado de postulación",
+  edit_public_message: "Editar mensaje público al postulante",
 };
 
 export const USER_PERMISSION_DESCRIPTIONS: Partial<Record<PermissionAction, string>> = {
@@ -203,7 +207,7 @@ const adjudicatorWrite = [
   "documentos:upload", "documentos:share", "enlaces:create", "firmas:sign", "firmas:request", "firmas:revoke",
 ] as PermissionKey[];
 const selfService = ["perfil:edit","perfil:edit_public"] as PermissionKey[];
-const selectionManage = ["seleccion:view","seleccion:create","seleccion:edit","seleccion:publish","seleccion:close","seleccion:cancel","seleccion:view_applications","seleccion:edit_applications","seleccion:evaluate_applications","seleccion:view_dependency"] as PermissionKey[];
+const selectionManage = ["seleccion:view","seleccion:create","seleccion:edit","seleccion:publish","seleccion:close","seleccion:cancel","seleccion:view_applications","seleccion:edit_applications","seleccion:evaluate_applications","seleccion:update_application_status","seleccion:edit_public_message","seleccion:view_dependency"] as PermissionKey[];
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
@@ -226,8 +230,8 @@ export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKe
     "documentos:upload", "documentos:share", "estados:view", "estados:create", "estados:edit", "estados:publish",
     "enlaces:create", "firmas:sign", "firmas:request", "firmas:revoke",
   ],
-  OFICIAL_MAYOR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:view_dependency", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "documentos:share"],
-  AUXILIAR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:view_dependency", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "notificaciones:view"],
+  OFICIAL_MAYOR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:update_application_status", "seleccion:edit_public_message", "seleccion:view_dependency", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "documentos:share"],
+  AUXILIAR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:update_application_status", "seleccion:edit_public_message", "seleccion:view_dependency", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "notificaciones:view"],
   RADICADOR: [...selfService, "expedientes:view", "expedientes:create", "expedientes:edit", "documentos:view", "documentos:upload", "documentos:preview", "documentos:download"],
   REPARTO: [...selfService, "expedientes:view", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:view", "documentos:preview", "documentos:download"],
   ARCHIVO: [...selfService, "expedientes:view", "expedientes:archive", "documentos:view", "documentos:preview", "documentos:download", "documentos:archive", "actuaciones:view", "audiencias:view", "providencias:view", "providencias:print"],
