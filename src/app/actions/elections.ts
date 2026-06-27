@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dbUuid } from "@/lib/validation";
 import { slugifyElection } from "@/lib/elections";
 
-const electionSchema=z.object({election_id:dbUuid.optional(),title:z.string().trim().min(8).max(220),office:z.string().trim().min(3).max(180),territory:z.string().trim().min(2).max(160),period:z.string().trim().min(4).max(80),round_label:z.string().trim().min(3).max(80),institution_id:dbUuid.optional().or(z.literal("")),status:z.enum(["draft","prepared","open","suspended","reopened","closed","scrutiny","preliminary_results","definitively_closed","final_results_published","archived"]),opens_at:z.string().min(1),closes_at:z.string().min(1),description:z.string().trim().min(20).max(12000),instructions:z.string().trim().max(5000).optional(),ballot_image_path:z.string().trim().max(400).optional()});
+const electionSchema=z.object({election_id:dbUuid.optional(),title:z.string().trim().min(8).max(220),office:z.string().trim().min(3).max(180),territory:z.string().trim().min(2).max(160),period:z.string().trim().min(4).max(80),round_label:z.string().trim().min(3).max(80),institution_id:dbUuid.optional().or(z.literal("")),status:z.enum(["draft","prepared","open","suspended","reopened","closed","scrutiny","preliminary_results","definitively_closed","final_results_published","archived"]),opens_at:z.string().min(1),closes_at:z.string().min(1),description:z.string().trim().min(20).max(12000),instructions:z.string().trim().max(5000).optional(),total_expected_votes:z.coerce.number().int().min(1).max(100000000)});
 export async function saveElection(formData:FormData){
   const parsed=electionSchema.safeParse(Object.fromEntries(formData));const fallback=String(formData.get("election_id")||"");
   if(!parsed.success)redirect(`${fallback?`/admin/elecciones/${fallback}`:"/admin/elecciones/nueva"}?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
@@ -18,10 +18,10 @@ export async function saveElection(formData:FormData){
     open:PERMISSIONS.electionsOpen,suspended:PERMISSIONS.electionsSuspend,reopened:PERMISSIONS.electionsReopen,closed:PERMISSIONS.electionsClose,definitively_closed:PERMISSIONS.electionsDefinitiveClose,preliminary_results:PERMISSIONS.electionsPublishPreliminary,final_results_published:PERMISSIONS.electionsPublishResults,
   };
   const needed=statusPermission[parsed.data.status]; if(needed)await enforcePermission(session,needed,parsed.data.election_id??null);
-  const payload={title:parsed.data.title,office:parsed.data.office,territory:parsed.data.territory,period:parsed.data.period,round_label:parsed.data.round_label,institution_id:parsed.data.institution_id||null,status:parsed.data.status,opens_at:opening.toISOString(),closes_at:closing.toISOString(),description:parsed.data.description,instructions:parsed.data.instructions||null,ballot_image_path:parsed.data.ballot_image_path||"/VOTACIONES/CARTA DE VOTACION.png",updated_by:session.user.id};
+  const payload={title:parsed.data.title,office:parsed.data.office,territory:parsed.data.territory,period:parsed.data.period,round_label:parsed.data.round_label,institution_id:parsed.data.institution_id||null,status:parsed.data.status,opens_at:opening.toISOString(),closes_at:closing.toISOString(),description:parsed.data.description,instructions:parsed.data.instructions||null,total_expected_votes:parsed.data.total_expected_votes,updated_by:session.user.id};
   if(parsed.data.election_id){const {error}=await session.supabase.from("elections").update(payload).eq("id",parsed.data.election_id);if(error)redirect(`/admin/elecciones/${parsed.data.election_id}?error=${encodeURIComponent(error.message)}`);revalidatePath("/admin/elecciones");redirect(`/admin/elecciones/${parsed.data.election_id}?success=Elecci%C3%B3n%20actualizada`);}
   const slug=`${slugifyElection(parsed.data.title)}-${crypto.randomUUID().slice(0,6)}`;
-  const {data,error}=await session.supabase.from("elections").insert({...payload,slug,created_by:session.user.id}).select("id").single();
+  const {data,error}=await session.supabase.from("elections").insert({...payload,slug,ballot_image_path:"/VOTACIONES/Carta de Votacion 2.png",created_by:session.user.id}).select("id").single();
   if(error||!data)redirect(`/admin/elecciones/nueva?error=${encodeURIComponent(error?.message??"No fue posible crear la elección")}`);
   await session.supabase.rpc("log_security_event",{p_action:"ELECTION_CREATED",p_table:"elections",p_record_id:data.id,p_description:"Elección institucional creada",p_metadata:{status:parsed.data.status}});
   revalidatePath("/admin/elecciones");redirect(`/admin/elecciones/${data.id}?success=Elecci%C3%B3n%20creada`);
@@ -44,16 +44,16 @@ export async function submitOnlineVote(formData:FormData){
   const supabase=await createClient();if(!supabase)redirect(`/elecciones/${parsed.data.slug}/votar?error=Servicio%20no%20disponible`);
   const {data,error}=await supabase.rpc("submit_online_vote",{p_election_id:parsed.data.election_id,p_option_id:parsed.data.option_id,p_discord_username:parsed.data.discord_username,p_discord_id:parsed.data.discord_id||"",p_visible_name:parsed.data.visible_name||"",p_roblox_username:parsed.data.roblox_username||"",p_contact_note:parsed.data.contact_note||""});
   if(error||!data?.receipt_code)redirect(`/elecciones/${parsed.data.slug}/votar?error=${encodeURIComponent(error?.message??"No fue posible registrar el voto")}`);
-  redirect(`/elecciones/comprobante?receipt=${encodeURIComponent(String(data.receipt_code))}&state=${encodeURIComponent(String(data.status))}`);
+  redirect(`/elecciones/comprobante?receipt=${encodeURIComponent(String(data.receipt_code))}&discord=${encodeURIComponent(parsed.data.discord_id||parsed.data.discord_username)}`);
 }
 
-export type ReceiptLookupState={error?:string;result?:{electionTitle:string;receiptCode:string;submittedAt:string;status:string;message:string}};
+export type ReceiptLookupState={error?:string;result?:{electionTitle:string;receiptCode:string;submittedAt:string;status:string;message:string;discordUsername:string|null}};
 export async function lookupElectionReceipt(_:ReceiptLookupState,formData:FormData):Promise<ReceiptLookupState>{
   const parsed=z.object({receipt_code:z.string().trim().min(8).max(40),discord:z.string().trim().min(2).max(120)}).safeParse(Object.fromEntries(formData));if(!parsed.success)return {error:"No se encontró un comprobante con los datos ingresados."};
   const supabase=await createClient();if(!supabase)return {error:"No fue posible consultar el comprobante."};
   const {data,error}=await supabase.rpc("lookup_election_receipt",{p_receipt_code:parsed.data.receipt_code,p_discord:parsed.data.discord});const row=data?.[0];
   if(error||!row)return {error:"No se encontró un comprobante con los datos ingresados."};
-  return {result:{electionTitle:row.election_title,receiptCode:row.receipt_code,submittedAt:row.submitted_at,status:row.status,message:row.public_message}};
+  return {result:{electionTitle:row.election_title,receiptCode:row.receipt_code,submittedAt:row.submitted_at,status:row.status,message:row.public_message,discordUsername:row.discord_username??null}};
 }
 
 export async function addManualVoteBatch(formData:FormData){

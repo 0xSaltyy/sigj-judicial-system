@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, FileSearch, Megaphone } from "lucide-react";
+import { ArrowRight, CalendarDays, FileSearch, Megaphone, Vote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/demo-data";
@@ -10,6 +10,7 @@ const services = [
   { title: "Consulta de expedientes", description: "Consulte el estado y las actuaciones públicas usando el número de radicado.", href: "/consulta", icon: FileSearch },
   { title: "Comunicados", description: "Información institucional, avisos públicos y novedades de la plataforma.", href: "/comunicados", icon: Megaphone },
   { title: "Audiencias públicas", description: "Agenda de sesiones abiertas programadas por salas y despachos.", href: "/audiencias", icon: CalendarDays },
+  { title: "Elecciones", description: "Participe en votaciones institucionales, consulte resultados y verifique comprobantes.", href: "/elecciones", icon: Vote },
 ];
 
 export default async function HomePage() {
