@@ -12,7 +12,7 @@ export default function ApplicationStatusPage() {
     <>
       <PageHero
         title="Estado de mi postulación"
-        description="Panel público y privado para consultar el avance de una postulación mediante código de seguimiento y correo."
+        description="Panel público y privado para consultar el avance de una postulación mediante código de seguimiento."
       />
       <main className="mx-auto max-w-6xl px-4 py-10">
         <ApplicationStatusLookup />

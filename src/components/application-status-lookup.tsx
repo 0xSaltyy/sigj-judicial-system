@@ -57,8 +57,8 @@ export function ApplicationStatusLookup() {
             Estado de mi postulación
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Use el código recibido al enviar su postulación para consultar su
-            estado. La consulta requiere también el correo registrado.
+            Ingrese el código recibido al enviar su postulación para consultar
+            su estado.
           </p>
         </div>
 
@@ -71,18 +71,6 @@ export function ApplicationStatusLookup() {
             autoComplete="off"
             placeholder="POST-2026-…"
             className="font-mono uppercase"
-          />
-        </label>
-
-        <label className="grid gap-2 text-sm font-medium">
-          Correo de postulación
-          <Input
-            name="email"
-            type="email"
-            required
-            maxLength={320}
-            autoComplete="email"
-            placeholder="correo@ejemplo.com"
           />
         </label>
 
@@ -108,8 +96,8 @@ export function ApplicationStatusLookup() {
 
         <p className="flex items-start gap-2 text-[11px] leading-5 text-muted-foreground">
           <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-          Por seguridad, el correo por sí solo nunca revela si existe una
-          postulación.
+          Por seguridad, el sistema no publica listados de postulantes ni
+          permite consultar sin código de seguimiento.
         </p>
       </form>
 

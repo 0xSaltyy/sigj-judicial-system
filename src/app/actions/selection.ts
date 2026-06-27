@@ -58,10 +58,10 @@ export async function submitSelectionApplication(formData:FormData){
 export type PublicApplicationStatus={processTitle:string;positionTitle:string;institutionName:string;dependencyName:string;applicantName:string;submittedAt:string;status:string;updatedAt:string;message:string|null};
 export type ApplicationLookupState={error?:string;result?:PublicApplicationStatus};
 export async function lookupSelectionApplicationStatus(_:ApplicationLookupState,formData:FormData):Promise<ApplicationLookupState>{
-  const parsed=z.object({tracking_code:z.string().trim().min(12).max(40),email:z.string().trim().email().max(320)}).safeParse(Object.fromEntries(formData));
+  const parsed=z.object({tracking_code:z.string().trim().min(12).max(40)}).safeParse(Object.fromEntries(formData));
   if(!parsed.success)return {error:"No se encontró una postulación con los datos ingresados."};
   const supabase=await createClient();if(!supabase)return {error:"No fue posible consultar el estado en este momento."};
-  const {data,error}=await supabase.rpc("lookup_selection_application_status",{p_tracking_code:parsed.data.tracking_code,p_email:parsed.data.email});const row=data?.[0];
+  const {data,error}=await supabase.rpc("lookup_selection_application_status",{p_tracking_code:parsed.data.tracking_code});const row=data?.[0];
   if(error||!row)return {error:"No se encontró una postulación con los datos ingresados."};
   return {result:{processTitle:row.process_title,positionTitle:row.position_title,institutionName:row.institution_name,dependencyName:row.dependency_name,applicantName:row.applicant_name,submittedAt:row.submitted_at,status:row.public_status,updatedAt:row.public_updated_at,message:row.public_message}};
 }

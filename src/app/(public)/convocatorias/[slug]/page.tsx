@@ -67,7 +67,7 @@ export default async function PublicSelection({
               Estado de mi postulación
             </h2>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              Consulte el avance con su código de seguimiento y correo.
+              Consulte el avance con su código de seguimiento.
             </p>
             <Button asChild size="sm" variant="outline" className="mt-3 w-full">
               <Link href="/convocatorias/estado">

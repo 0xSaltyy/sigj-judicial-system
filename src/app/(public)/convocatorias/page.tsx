@@ -29,7 +29,7 @@ export default async function PublicSelections() {
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 Si ya se postuló, consulte el avance con su código de
-                seguimiento y el correo usado en el formulario.
+                seguimiento.
               </p>
             </div>
             <Button asChild>

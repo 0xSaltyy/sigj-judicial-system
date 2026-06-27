@@ -14,7 +14,6 @@ export const metadata: Metadata = {
 type ReceiptRow = {
   tracking_code: string;
   applicant_name: string;
-  applicant_email?: string | null;
   submitted_at: string;
   application_status: string;
   process_title: string;
@@ -69,7 +68,6 @@ export default async function ApplicationReceipt({
             </div>
 
             <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
-              <Fact label="Correo usado" value={row.applicant_email ?? "Registrado"} />
               <Fact label="Estado inicial" value="Recibida" />
               <Fact label="Convocatoria" value={row.process_title} />
               <Fact label="Cargo" value={row.position_title} />

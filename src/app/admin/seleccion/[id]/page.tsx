@@ -319,7 +319,7 @@ export default async function SelectionDetail({
                 {application.tracking_code && (
                   <CopyTextButton text={application.tracking_code} label="Copiar código" />
                 )}
-                <CopyTextButton text={statusLookupUrl} label="Copiar enlace de consulta" />
+                <CopyTextButton text={statusLookupUrl} label="Copiar consulta con código de seguimiento" />
                 <Badge variant="outline">Consulta pública disponible</Badge>
               </div>
 
