@@ -1,0 +1,25 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { publishElectionResults } from "@/app/actions/elections";
+import { ActionMessage } from "@/components/action-message";
+import { AdminPageHeader } from "@/components/admin-page";
+import { SubmitButton } from "@/components/submit-button";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { ELECTION_STATUS_LABELS, statusLabel } from "@/lib/elections";
+
+type TotalRow={option_id:string;candidate_name:string;online_valid:number|string;manual_valid:number|string;total_valid:number|string};
+
+export default async function ElectionResultsAdmin({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{error?:string;success?:string}>}){
+  const [{id},query,{supabase}]=await Promise.all([params,searchParams,requirePermission(PERMISSIONS.electionsView)]);
+  const [{data:election},{data:totals},{data:votes},{data:batches},{data:options}]=await Promise.all([supabase.from("elections").select("id,title,status,winner_option_id,winner_published_at").eq("id",id).maybeSingle(),supabase.rpc("election_public_totals",{p_election_id:id}),supabase.from("election_votes").select("status,source").eq("election_id",id),supabase.from("election_manual_vote_batches").select("status,quantity").eq("election_id",id),supabase.from("election_options").select("id,candidate_name").eq("election_id",id).order("display_order")]);
+  if(!election)notFound();
+  const totalRows=(totals??[]) as TotalRow[];const pendingOnline=votes?.filter((v)=>["pending_validation","observed"].includes(v.status)).length??0;const invalidOnline=votes?.filter((v)=>["annulled","rejected","duplicate"].includes(v.status)).length??0;const pendingManual=batches?.filter((b)=>["draft","submitted","pending_validation"].includes(b.status)).reduce((a,b)=>a+b.quantity,0)??0;const invalidManual=batches?.filter((b)=>["rejected","annulled"].includes(b.status)).reduce((a,b)=>a+b.quantity,0)??0;const max=Math.max(1,...totalRows.map((t)=>Number(t.total_valid)));
+  return <><AdminPageHeader title="Resultados electorales" description={`${election.title} · ${statusLabel(ELECTION_STATUS_LABELS,election.status)}`} action={<Button asChild variant="outline"><Link href={`/admin/elecciones/${id}`}>Volver</Link></Button>}/><ActionMessage error={query.error} success={query.success}/>
+    <section className="rounded-xl border bg-white p-5"><h2 className="font-semibold text-[#153553]">Totales válidos combinados</h2><div className="mt-4 grid gap-4">{totalRows.map((t)=><div key={t.option_id}><div className="mb-1 flex justify-between gap-3 text-sm"><span className="font-medium">{t.candidate_name}</span><span>{t.total_valid} total · {t.online_valid} online · {t.manual_valid} manual</span></div><div className="h-3 overflow-hidden rounded bg-slate-100"><div className="h-full bg-[#153b5c]" style={{width:`${Math.max(2,Number(t.total_valid)/max*100)}%`}}/></div>{election.winner_option_id===t.option_id&&election.winner_published_at&&<Badge className="mt-2 bg-emerald-700">Ganador oficial</Badge>}</div>)}</div></section>
+    <div className="mt-5 grid gap-4 md:grid-cols-3"><Info title="Online" detail={`${pendingOnline} pendientes · ${invalidOnline} anulados/rechazados/duplicados`}/><Info title="Manual/offline" detail={`${pendingManual} pendientes · ${invalidManual} rechazados/anulados`}/><Info title="Publicación" detail="El ganador sólo aparece tras declaración manual autorizada."/></div>
+    <section className="mt-5 rounded-xl border bg-white p-5"><h2 className="font-semibold text-[#153553]">Acciones humanas de publicación</h2><div className="mt-4 flex flex-wrap gap-2"><PublishButton id={id} kind="preliminary" label="Publicar resultados preliminares"/><PublishButton id={id} kind="final" label="Publicar resultados definitivos"/><form action={publishElectionResults} className="flex flex-wrap gap-2"><input type="hidden" name="election_id" value={id}/><input type="hidden" name="kind" value="winner"/><select name="winner_option_id" className="h-9 rounded-md border px-3 text-sm">{options?.map((o)=><option key={o.id} value={o.id}>{o.candidate_name}</option>)}</select><SubmitButton pendingLabel="Declarando…">Declarar ganador</SubmitButton></form></div></section></>;
+}
+function PublishButton({id,kind,label}:{id:string;kind:string;label:string}){return <form action={publishElectionResults}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="kind" value={kind}/><SubmitButton variant="outline" pendingLabel="Publicando…">{label}</SubmitButton></form>}
+function Info({title,detail}:{title:string;detail:string}){return <div className="rounded-xl border bg-white p-4"><p className="font-semibold text-[#153553]">{title}</p><p className="mt-1 text-sm text-muted-foreground">{detail}</p></div>}

@@ -54,6 +54,26 @@ export const PERMISSION_ACTIONS = [
   "close",
   "update_application_status",
   "edit_public_message",
+  "ver",
+  "crear",
+  "editar",
+  "configurar_tarjeta",
+  "abrir",
+  "suspender",
+  "reabrir",
+  "cerrar",
+  "cerrar_definitivo",
+  "votar",
+  "ver_votos",
+  "validar_votos",
+  "anular_votos",
+  "gestionar_escrutinio",
+  "agregar_votos_manuales",
+  "validar_votos_manuales",
+  "publicar_preliminares",
+  "publicar_resultados",
+  "declarar_ganador",
+  "ver_auditoria",
 ] as const;
 
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
@@ -81,6 +101,7 @@ export const PERMISSION_CATALOG = [
   { resource: "notificaciones", label: "Notificaciones internas", actions: ["view", "manage"] },
   { resource: "perfil", label: "Perfil propio", actions: ["edit", "edit_public", "publish_profile", "edit_institution", "edit_dependency", "edit_title"] },
   { resource: "seleccion", label: "Procesos de selección", actions: ["view", "create", "edit", "publish", "close", "cancel", "view_applications", "edit_applications", "evaluate_applications", "update_application_status", "edit_public_message", "view_all", "view_institution", "view_dependency"] },
+  { resource: "elecciones", label: "Elecciones institucionales", actions: ["ver", "crear", "editar", "configurar_tarjeta", "abrir", "suspender", "reabrir", "cerrar", "cerrar_definitivo", "votar", "ver_votos", "validar_votos", "anular_votos", "gestionar_escrutinio", "agregar_votos_manuales", "validar_votos_manuales", "publicar_preliminares", "publicar_resultados", "declarar_ganador", "ver_auditoria"] },
 ] as const satisfies readonly {
   resource: string;
   label: string;
@@ -115,6 +136,7 @@ export const PERMISSION_GROUP_DESCRIPTIONS: Record<PermissionResource,string> = 
   notificaciones:"Consulta propia y envío institucional autorizado.",
   perfil:"Identidad privada/pública, cargo y asignación del perfil propio.",
   seleccion:"Convocatorias y postulaciones aisladas por institución y despacho.",
+  elecciones:"Configuración, votación, escrutinio, validación y publicación de resultados electorales.",
 };
 
 export type PermissionResource = (typeof PERMISSION_CATALOG)[number]["resource"];
@@ -174,6 +196,26 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   close: "Cerrar proceso",
   update_application_status: "Actualizar estado de postulación",
   edit_public_message: "Editar mensaje público al postulante",
+  ver: "Ver",
+  crear: "Crear",
+  editar: "Editar",
+  configurar_tarjeta: "Configurar tarjeta electoral",
+  abrir: "Abrir votación",
+  suspender: "Suspender votación",
+  reabrir: "Reabrir votación",
+  cerrar: "Cerrar votación",
+  cerrar_definitivo: "Cerrar definitivamente",
+  votar: "Votar",
+  ver_votos: "Ver votos",
+  validar_votos: "Validar votos",
+  anular_votos: "Anular votos",
+  gestionar_escrutinio: "Gestionar escrutinio",
+  agregar_votos_manuales: "Agregar votos manuales",
+  validar_votos_manuales: "Validar votos manuales",
+  publicar_preliminares: "Publicar preliminares",
+  publicar_resultados: "Publicar resultados",
+  declarar_ganador: "Declarar ganador",
+  ver_auditoria: "Ver auditoría electoral",
 };
 
 export const USER_PERMISSION_DESCRIPTIONS: Partial<Record<PermissionAction, string>> = {
@@ -208,10 +250,11 @@ const adjudicatorWrite = [
 ] as PermissionKey[];
 const selfService = ["perfil:edit","perfil:edit_public"] as PermissionKey[];
 const selectionManage = ["seleccion:view","seleccion:create","seleccion:edit","seleccion:publish","seleccion:close","seleccion:cancel","seleccion:view_applications","seleccion:edit_applications","seleccion:evaluate_applications","seleccion:update_application_status","seleccion:edit_public_message","seleccion:view_dependency"] as PermissionKey[];
+const electionManage = ["elecciones:ver","elecciones:crear","elecciones:editar","elecciones:configurar_tarjeta","elecciones:abrir","elecciones:suspender","elecciones:reabrir","elecciones:cerrar","elecciones:cerrar_definitivo","elecciones:votar","elecciones:ver_votos","elecciones:validar_votos","elecciones:anular_votos","elecciones:gestionar_escrutinio","elecciones:agregar_votos_manuales","elecciones:validar_votos_manuales","elecciones:publicar_preliminares","elecciones:publicar_resultados","elecciones:declarar_ganador","elecciones:ver_auditoria"] as PermissionKey[];
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
-  ADMIN_INSTITUCIONAL: [...judicialView, ...selfService, ...selectionManage.filter((key)=>key!=="seleccion:view_dependency"), "audiencias:view_institution", "seleccion:view_institution", "perfil:publish_profile", "perfil:edit_title", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create", "usuarios:view", "usuarios:view_dependency", "usuarios:create", "usuarios:create_in_institution", "usuarios:create_in_dependency", "usuarios:edit", "usuarios:deactivate", "usuarios:reactivate", "usuarios:assign_role", "usuarios:assign_dependency", "instituciones:view", "dependencias:view", "dependencias:create", "dependencias:edit", "dependencias:manage"],
+  ADMIN_INSTITUCIONAL: [...judicialView, ...selfService, ...selectionManage.filter((key)=>key!=="seleccion:view_dependency"), ...electionManage.filter((key)=>!["elecciones:declarar_ganador"].includes(key)), "audiencias:view_institution", "seleccion:view_institution", "perfil:publish_profile", "perfil:edit_title", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:upload", "enlaces:create", "usuarios:view", "usuarios:view_dependency", "usuarios:create", "usuarios:create_in_institution", "usuarios:create_in_dependency", "usuarios:edit", "usuarios:deactivate", "usuarios:reactivate", "usuarios:assign_role", "usuarios:assign_dependency", "instituciones:view", "dependencias:view", "dependencias:create", "dependencias:edit", "dependencias:manage"],
   MAGISTRADO_CORTE_SUPREMA: [...judicialView, ...adjudicatorWrite, ...selectionManage, "audiencias:mark_completed", "audiencias:create_minutes", "audiencias:view_dependency", ...selfService, "perfil:publish_profile", "perfil:edit_title", "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
   MAGISTRADO_TRIBUNAL: [...judicialView, ...adjudicatorWrite, ...selectionManage, "audiencias:mark_completed", "audiencias:create_minutes", "audiencias:view_dependency", ...selfService, "perfil:publish_profile", "perfil:edit_title", "edicion:take_control", "votos:view", "votos:create", "votos:edit", "votos:sign", "votos:publish", "votos:archive", "votos:print", "sala:view", "sala:send", "sala:register_session", "sala:register_vote", "sala:approve", "sala:return", "sala:publish", "notificaciones:view"],
   JUEZ_CIRCUITO: [...judicialView, ...adjudicatorWrite, ...selectionManage, "audiencias:mark_completed", "audiencias:create_minutes", "audiencias:view_dependency", ...selfService, "perfil:publish_profile", "perfil:edit_title"],
@@ -230,8 +273,8 @@ export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKe
     "documentos:upload", "documentos:share", "estados:view", "estados:create", "estados:edit", "estados:publish",
     "enlaces:create", "firmas:sign", "firmas:request", "firmas:revoke",
   ],
-  OFICIAL_MAYOR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:update_application_status", "seleccion:edit_public_message", "seleccion:view_dependency", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "documentos:share"],
-  AUXILIAR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:update_application_status", "seleccion:edit_public_message", "seleccion:view_dependency", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "notificaciones:view"],
+  OFICIAL_MAYOR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:update_application_status", "seleccion:edit_public_message", "seleccion:view_dependency", "elecciones:ver", "elecciones:votar", "elecciones:ver_votos", "elecciones:validar_votos", "elecciones:gestionar_escrutinio", "elecciones:agregar_votos_manuales", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "documentos:share"],
+  AUXILIAR: [...judicialView, ...selfService, "seleccion:view", "seleccion:view_applications", "seleccion:edit_applications", "seleccion:update_application_status", "seleccion:edit_public_message", "seleccion:view_dependency", "elecciones:ver", "elecciones:votar", "elecciones:ver_votos", "providencias:create", "providencias:edit", "providencias:print", "actuaciones:create", "documentos:upload", "notificaciones:view"],
   RADICADOR: [...selfService, "expedientes:view", "expedientes:create", "expedientes:edit", "documentos:view", "documentos:upload", "documentos:preview", "documentos:download"],
   REPARTO: [...selfService, "expedientes:view", "expedientes:edit", "expedientes:repartition", "expedientes:assign_ponente", "documentos:view", "documentos:preview", "documentos:download"],
   ARCHIVO: [...selfService, "expedientes:view", "expedientes:archive", "documentos:view", "documentos:preview", "documentos:download", "documentos:archive", "actuaciones:view", "audiencias:view", "providencias:view", "providencias:print"],

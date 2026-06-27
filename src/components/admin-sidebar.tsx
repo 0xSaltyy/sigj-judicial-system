@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Vote,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ export const adminNav = [
   { label: "Providencias", href: "/admin/providencias", icon: FileSignature, permission: "proceedings" },
   { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays, permission: "hearings" },
   { label: "Procesos de selección", href: "/admin/seleccion", icon: BriefcaseBusiness, permission: "selection" },
+  { label: "Elecciones", href: "/admin/elecciones", icon: Vote, permission: "elections" },
   { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone, permission: "notices" },
   { label: "Notificaciones", href: "/admin/notificaciones", icon: Bell, permission: "notifications" },
   { label: "Instituciones", href: "/admin/dependencias", icon: Building2, permission: "dependencies" },
