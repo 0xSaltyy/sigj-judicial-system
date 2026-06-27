@@ -86,25 +86,6 @@ export async function createCase(formData: FormData) {
       "/admin/expedientes/nuevo",
       "La dependencia destino no está activa",
     );
-  const [
-    { data: internalNumber, error: internalError },
-    { data: judicialNumber, error: judicialError },
-  ] = await Promise.all([
-    supabase.rpc("generate_internal_case_number", {
-      institution_code: dependency.code,
-    }),
-    supabase.rpc("generate_judicial_case_number", {
-      dependency_code: dependency.code,
-    }),
-  ]);
-  if (internalError || judicialError || !internalNumber || !judicialNumber)
-    errorRedirect(
-      "/admin/expedientes/nuevo",
-      internalError?.message ??
-        judicialError?.message ??
-        "No fue posible generar la numeración",
-    );
-
   const payload = {
     authority_type: parsed.data.authority_type,
     chamber: parsed.data.chamber,
@@ -123,8 +104,6 @@ export async function createCase(formData: FormData) {
     observations: parsed.data.observations || null,
     title: `${parsed.data.process_type} · ${parsed.data.process_subtype}`,
     ticket_name: parsed.data.ticket_name || null,
-    internal_number: internalNumber,
-    judicial_number: judicialNumber,
     dependency_id: dependency.id,
     status: "Radicado",
     public_visibility: parsed.data.confidentiality_level === "Público",
@@ -158,7 +137,9 @@ export async function createCase(formData: FormData) {
   if (error || createdId !== record.id)
     errorRedirect(
       "/admin/expedientes/nuevo",
-      error?.message ?? "No fue posible completar la radicación",
+      error?.message?.includes("numeración generada ya existe")
+        ? "No fue posible asignar un número de radicación único. Intente nuevamente en unos segundos."
+        : (error?.message ?? "No fue posible completar la radicación"),
     );
   if (parsed.data.ticket_name) {
     const { error: ticketError } = await supabase.from("cases").update({ ticket_name: parsed.data.ticket_name }).eq("id", record.id);
