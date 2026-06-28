@@ -1,15 +1,29 @@
 import Link from "next/link";
-import { CalendarClock, MapPin, SearchCheck } from "lucide-react";
+import { CalendarClock, MapPin, Search, SearchCheck } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function PublicSelections() {
+export default async function PublicSelections({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; institution?: string; dependency?: string }>;
+}) {
+  const query = await searchParams;
   const supabase = await createClient();
   const { data } = supabase
     ? await supabase.from("public_selection_processes").select("*").order("closing_at")
     : { data: [] };
+  const normalized = (query.q ?? "").trim().toLocaleLowerCase("es");
+  const institutions = Array.from(new Set((data ?? []).map((item) => item.institution_name).filter(Boolean))).sort();
+  const dependencies = Array.from(new Set((data ?? []).map((item) => item.dependency_name).filter(Boolean))).sort();
+  const rows = (data ?? []).filter((item) => {
+    const haystack = `${item.title} ${item.position_title} ${item.institution_name} ${item.dependency_name}`.toLocaleLowerCase("es");
+    return (!normalized || haystack.includes(normalized)) &&
+      (!query.institution || item.institution_name === query.institution) &&
+      (!query.dependency || item.dependency_name === query.dependency);
+  });
 
   return (
     <>
@@ -41,8 +55,40 @@ export default async function PublicSelections() {
           </div>
         </section>
 
+        <section className="mb-8 rounded-2xl border bg-white p-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9a752f]">
+              Convocatorias abiertas
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-[#153553]">
+              Buscar procesos públicos
+            </h2>
+          </div>
+          <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
+            <label className="grid gap-1 text-xs font-medium">
+              Cargo, despacho o convocatoria
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                <input name="q" defaultValue={query.q} className="h-10 w-full rounded-md border pl-9 pr-3 text-sm" />
+              </div>
+            </label>
+            <Filter label="Institución" name="institution" value={query.institution}>
+              <option value="">Todas</option>
+              {institutions.map((name) => <option key={name} value={name}>{name}</option>)}
+            </Filter>
+            <Filter label="Despacho" name="dependency" value={query.dependency}>
+              <option value="">Todos</option>
+              {dependencies.map((name) => <option key={name} value={name}>{name}</option>)}
+            </Filter>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Filtrar</Button>
+              <Button asChild variant="outline"><Link href="/convocatorias">Limpiar</Link></Button>
+            </div>
+          </form>
+        </section>
+
         <div className="grid min-w-0 gap-4 md:grid-cols-2">
-          {data?.map((process) => (
+          {rows.map((process) => (
             <article
               key={process.id}
               className="min-w-0 rounded-xl border bg-white p-6"
@@ -85,13 +131,34 @@ export default async function PublicSelections() {
           ))}
         </div>
 
-        {!data?.length && (
+        {!rows.length && (
           <p className="rounded-xl border border-dashed bg-white p-10 text-center text-sm text-muted-foreground">
             No hay convocatorias públicas abiertas en este momento.
           </p>
         )}
       </main>
     </>
+  );
+}
+
+function Filter({
+  label,
+  name,
+  value,
+  children,
+}: {
+  label: string;
+  name: string;
+  value?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-1 text-xs font-medium">
+      {label}
+      <select name={name} defaultValue={value ?? ""} className="h-10 rounded-md border px-3 text-sm">
+        {children}
+      </select>
+    </label>
   );
 }
 

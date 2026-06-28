@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { CommandPalette, type CommandPaletteItem } from "@/components/command-palette";
 import {
   Sheet,
   SheetContent,
@@ -187,6 +188,7 @@ export function AdminTopbar({ viewer }: { viewer: Viewer }) {
   return (
     <header data-app-header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white/95 px-4 backdrop-blur sm:px-6">
       <AdminSidebar mobile viewer={viewer} />
+      <CommandPalette items={adminCommands(viewer)} />
       <form
         action="/admin/expedientes"
         method="get"
@@ -218,4 +220,27 @@ export function AdminTopbar({ viewer }: { viewer: Viewer }) {
       </div>
     </header>
   );
+}
+
+function adminCommands(viewer: Viewer): CommandPaletteItem[] {
+  const allowed = (key?: string) =>
+    !key ||
+    viewer.isOwner ||
+    viewer.permissions?.[key as keyof NonNullable<Viewer["permissions"]>];
+  const commands: Array<CommandPaletteItem & { permission?: string }> = [
+    { label: "Panel general", href: "/admin/dashboard", description: "Resumen institucional" },
+    { label: "Crear expediente", href: "/admin/expedientes/nuevo", description: "Radicar nuevo expediente", permission: "cases" },
+    { label: "Buscar expediente", href: "/admin/expedientes", description: "Expedientes internos", permission: "cases" },
+    { label: "Audiencias", href: "/admin/audiencias", description: "Calendario de audiencias", permission: "hearings" },
+    { label: "Agenda judicial", href: "/admin/audiencias/agenda", description: "Vista agenda por día", permission: "hearings" },
+    { label: "Elecciones", href: "/admin/elecciones", description: "Módulo electoral", permission: "elections" },
+    { label: "Sala de escrutinio", href: "/admin/elecciones", description: "Abra una elección y use Pantalla", permission: "elections" },
+    { label: "Convocatorias", href: "/admin/seleccion", description: "Procesos de selección", permission: "selection" },
+    { label: "Estado de mi postulación", href: "/convocatorias/estado", description: "Panel público de seguimiento" },
+    { label: "Usuarios", href: "/admin/usuarios", description: "Gestión interna", permission: "users" },
+    { label: "Instituciones", href: "/admin/dependencias", description: "Estructura institucional", permission: "dependencies" },
+    { label: "Mi perfil", href: "/admin/perfil", description: "Identidad pública e interna" },
+    { label: "Auditoría", href: "/admin/auditoria", description: "Trazabilidad", permission: "audit" },
+  ];
+  return commands.filter((item) => allowed(item.permission));
 }

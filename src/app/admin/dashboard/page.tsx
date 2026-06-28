@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   CalendarDays,
+  BellRing,
   FolderKanban,
   Gavel,
   Plus,
@@ -16,7 +17,7 @@ import { can } from "@/lib/auth/permissions";
 
 export default async function DashboardPage() {
   const { supabase, profile } = await requireInternalUser();
-  const [canCases, canCreateCases, canHearings, canProceedings, canSala, canVotes] =
+  const [canCases, canCreateCases, canHearings, canProceedings, canSala, canVotes, canElections, canSelection, canReminders] =
     await Promise.all([
       can(profile, "view", "expedientes", { supabase }),
       can(profile, "create", "expedientes", { supabase }),
@@ -24,6 +25,9 @@ export default async function DashboardPage() {
       can(profile, "view", "providencias", { supabase }),
       can(profile, "view", "sala", { supabase }),
       can(profile, "view", "votos", { supabase }),
+      can(profile, "ver_votos", "elecciones", { supabase }),
+      can(profile, "view_applications", "seleccion", { supabase }),
+      can(profile, "ver", "recordatorios", { supabase }),
     ]);
   const now = new Date().toISOString();
   const [
@@ -34,6 +38,8 @@ export default async function DashboardPage() {
     { data: pendingOpinions },
     { data: recent },
     { data: next },
+    { count: pendingElectionVotes },
+    { count: pendingApplications },
   ] = await Promise.all([
     supabase
       .from("cases")
@@ -62,7 +68,30 @@ export default async function DashboardPage() {
       .gte("scheduled_at", now)
       .order("scheduled_at")
       .limit(5),
+    canElections
+      ? supabase.from("election_votes").select("id", { count: "exact", head: true }).in("status", ["pending_validation", "observed"])
+      : Promise.resolve({ count: 0 }),
+    canSelection
+      ? supabase.from("selection_applications").select("id", { count: "exact", head: true }).eq("status", "recibida")
+      : Promise.resolve({ count: 0 }),
   ]);
+  const reminders = [
+    canHearings && (next ?? []).length > 0
+      ? { title: "Tiene audiencias próximas.", detail: "Revise la agenda judicial y confirme ubicación o enlace.", href: "/admin/audiencias/agenda" }
+      : null,
+    canHearings && hearings
+      ? { title: "Audiencias próximas registradas.", detail: `${hearings} audiencia(s) programadas o reprogramadas.`, href: "/admin/audiencias" }
+      : null,
+    canProceedings && pending
+      ? { title: "Providencias pendientes de revisión o firma.", detail: `${pending} providencia(s) en borrador o revisión.`, href: "/admin/providencias" }
+      : null,
+    canElections && pendingElectionVotes
+      ? { title: "Hay votos pendientes de validación.", detail: `${pendingElectionVotes} voto(s) requieren control humano.`, href: "/admin/elecciones" }
+      : null,
+    canSelection && pendingApplications
+      ? { title: "Hay postulaciones pendientes de revisión.", detail: `${pendingApplications} postulación(es) recién recibidas.`, href: "/admin/seleccion" }
+      : null,
+  ].filter(Boolean) as Array<{ title: string; detail: string; href: string }>;
   return (
     <>
       <RealtimeRefresh channel="admin-dashboard" subscriptions={DASHBOARD_REALTIME} />
@@ -97,6 +126,19 @@ export default async function DashboardPage() {
           <MetricCard label="Providencias pendientes" value={String(pending ?? 0)} detail="Borrador o en revisión" icon={<Gavel className="size-5" />} />
         )}
       </div>
+      {canReminders && reminders.length > 0 && (
+        <Card className="mt-5 border-amber-200 bg-amber-50/60">
+          <CardHeader><CardTitle className="flex items-center gap-2 text-[#153553]"><BellRing className="size-5" />Recordatorios internos</CardTitle></CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {reminders.map((item) => (
+              <Link key={item.title} href={item.href} className="notice-enter rounded-lg border bg-white p-4 text-sm transition hover:-translate-y-0.5 hover:shadow-sm">
+                <b>{item.title}</b>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">{item.detail}</span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       {canVotes && (pendingOpinions ?? []).length > 0 && (
         <Card className="mt-5">
           <CardHeader><CardTitle>Votos particulares pendientes</CardTitle></CardHeader>

@@ -82,5 +82,38 @@ export async function publishElectionResults(formData:FormData){
   const permission=parsed.data.kind==="preliminary"?PERMISSIONS.electionsPublishPreliminary:parsed.data.kind==="final"?PERMISSIONS.electionsPublishResults:PERMISSIONS.electionsDeclareWinner;
   const session=await requirePermission(permission);
   const {error}=await session.supabase.rpc("publish_election_results",{p_election_id:parsed.data.election_id,p_kind:parsed.data.kind,p_winner_option_id:parsed.data.winner_option_id||null,p_note:parsed.data.note||""});
-  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent(error.message)}`);revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=Resultados%20actualizados`);
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent(error.message)}`);
+  await session.supabase.rpc("create_election_public_update",{p_election_id:parsed.data.election_id,p_snapshot_type:parsed.data.kind,p_note:parsed.data.note||""});
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=Resultados%20actualizados`);
+}
+
+export async function updateElectionMapZone(formData:FormData){
+  const parsed=z.object({election_id:dbUuid,zone_name:z.string().trim().min(2).max(120),zone_type:z.string().trim().max(80).optional(),expected_votes:z.coerce.number().int().min(1).max(100000000),counted_percentage:z.coerce.number().min(0).max(100),status:z.enum(["sin_reporte","en_escrutinio","preliminar","final","observado"]),option_percentages:z.string().trim().max(12000).optional()}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)redirect("/admin/elecciones?error=Datos%20de%20mapa%20inv%C3%A1lidos");
+  const session=await requirePermission(PERMISSIONS.electionsMapEdit);
+  let optionPercentages:Record<string,number>={};
+  if(parsed.data.option_percentages){
+    try{optionPercentages=JSON.parse(parsed.data.option_percentages) as Record<string,number>;}catch{redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?error=Porcentajes%20inv%C3%A1lidos`);}
+  }
+  const {error}=await session.supabase.rpc("upsert_election_zone_result",{p_election_id:parsed.data.election_id,p_zone_name:parsed.data.zone_name,p_zone_type:parsed.data.zone_type||"municipio",p_expected_votes:parsed.data.expected_votes,p_counted_percentage:parsed.data.counted_percentage,p_option_percentages:optionPercentages,p_status:parsed.data.status});
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/mapa`);redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?success=Mapa%20electoral%20actualizado`);
+}
+
+export async function createElectionUpdateSnapshot(formData:FormData){
+  const parsed=z.object({election_id:dbUuid,snapshot_type:z.enum(["preliminary","final","winner","map","act"]).default("preliminary"),note:z.string().trim().max(1000).optional()}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)redirect("/admin/elecciones?error=Actualizaci%C3%B3n%20inv%C3%A1lida");
+  const session=await requirePermission(PERMISSIONS.electionsPublishUpdate);
+  const {error}=await session.supabase.rpc("create_election_public_update",{p_election_id:parsed.data.election_id,p_snapshot_type:parsed.data.snapshot_type,p_note:parsed.data.note||""});
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/actualizaciones`);redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?success=Actualizaci%C3%B3n%20registrada`);
+}
+
+export async function generateElectionAct(formData:FormData){
+  const parsed=z.object({election_id:dbUuid}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)redirect("/admin/elecciones?error=Acta%20inv%C3%A1lida");
+  const session=await requirePermission(PERMISSIONS.electionsGenerateAct);
+  const {data,error}=await session.supabase.rpc("generate_election_act",{p_election_id:parsed.data.election_id});
+  if(error||!data)redirect(`/admin/elecciones/${parsed.data.election_id}/acta?error=${encodeURIComponent(error?.message??"No fue posible generar el acta")}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/acta`);redirect(`/admin/elecciones/${parsed.data.election_id}/acta?success=Acta%20electoral%20generada`);
 }

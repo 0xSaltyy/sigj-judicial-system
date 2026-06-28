@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Menu, Search } from "lucide-react";
 import { InstitutionalMark } from "@/components/institutional-mark";
+import { CommandPalette } from "@/components/command-palette";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
@@ -10,7 +11,7 @@ const links = [
 ];
 
 export function InstitutionalHeader() {
-  return <header className="no-print"><div className="bg-[#0e2943] text-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8"><Link href="/" aria-label="Inicio SIGJ"><InstitutionalMark /></Link><Link href="/login" className="text-xs font-semibold text-white hover:text-[#dcc68e]">Acceso institucional</Link></div></div><nav className="border-b bg-white shadow-[0_2px_12px_rgba(17,43,70,.05)]" aria-label="Navegación principal"><div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8"><div className="hidden h-full items-center gap-7 lg:flex">{links.map(([label, href]) => <Link key={href} href={href} className="flex h-full items-center border-b-2 border-transparent text-[13px] font-medium text-slate-600 transition hover:border-[#b38a3c] hover:text-[#112b46]">{label}</Link>)}</div><Sheet><SheetTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Abrir menú"><Menu /></Button></SheetTrigger><SheetContent side="left" className="w-80 bg-[#102d49] p-6 text-white"><SheetTitle className="sr-only">Navegación</SheetTitle><InstitutionalMark /><div className="mt-8 grid gap-1">{links.map(([label, href]) => <Link key={href} href={href} className="rounded px-3 py-3 text-sm hover:bg-white/10">{label}</Link>)}</div><Button asChild className="mt-8 w-full bg-[#b38a3c] text-white hover:bg-[#9a752d]"><Link href="/login">Acceso institucional</Link></Button></SheetContent></Sheet><Link href="/consulta" className="ml-auto flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#183d61]"><Search className="size-4" /> Consultar radicado</Link></div></nav></header>;
+  return <header className="no-print"><div className="bg-[#0e2943] text-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8"><Link href="/" aria-label="Inicio SIGJ"><InstitutionalMark /></Link><Link href="/login" className="text-xs font-semibold text-white hover:text-[#dcc68e]">Acceso institucional</Link></div></div><nav className="border-b bg-white shadow-[0_2px_12px_rgba(17,43,70,.05)]" aria-label="Navegación principal"><div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8"><div className="hidden h-full items-center gap-7 lg:flex">{links.map(([label, href]) => <Link key={href} href={href} className="flex h-full items-center border-b-2 border-transparent text-[13px] font-medium text-slate-600 transition hover:border-[#b38a3c] hover:text-[#112b46]">{label}</Link>)}</div><Sheet><SheetTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Abrir menú"><Menu /></Button></SheetTrigger><SheetContent side="left" className="w-80 bg-[#102d49] p-6 text-white"><SheetTitle className="sr-only">Navegación</SheetTitle><InstitutionalMark /><div className="mt-8 grid gap-1">{links.map(([label, href]) => <Link key={href} href={href} className="rounded px-3 py-3 text-sm hover:bg-white/10">{label}</Link>)}</div><Button asChild className="mt-8 w-full bg-[#b38a3c] text-white hover:bg-[#9a752d]"><Link href="/login">Acceso institucional</Link></Button></SheetContent></Sheet><CommandPalette items={publicCommands}/><Link href="/consulta" className="ml-auto flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#183d61]"><Search className="size-4" /> Consultar radicado</Link></div></nav></header>;
 }
 
 export function InstitutionalFooter() {
@@ -20,3 +21,13 @@ export function InstitutionalFooter() {
 export function PublicShell({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-screen flex-col"><InstitutionalHeader /><main className="flex-1">{children}</main><InstitutionalFooter /></div>;
 }
+
+const publicCommands = [
+  { label: "Buscar expediente", href: "/consulta", description: "Consulta pública de radicados" },
+  { label: "Audiencias", href: "/audiencias", description: "Agenda pública" },
+  { label: "Providencias", href: "/providencias", description: "Relatoría pública" },
+  { label: "Convocatorias", href: "/convocatorias", description: "Procesos de selección abiertos" },
+  { label: "Estado de mi postulación", href: "/convocatorias/estado", description: "Consultar con código de seguimiento" },
+  { label: "Elecciones", href: "/elecciones", description: "Votaciones institucionales" },
+  { label: "Comprobante electoral", href: "/elecciones/comprobante", description: "Consultar recepción de voto" },
+];

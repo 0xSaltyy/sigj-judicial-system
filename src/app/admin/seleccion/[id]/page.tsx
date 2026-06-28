@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AlertTriangle, ExternalLink, Mail, UserRoundSearch } from "lucide-react";
+import { generateSelectionLetter } from "@/app/actions/selection-letters";
 import { updateSelectionApplication } from "@/app/actions/selection";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
@@ -176,9 +177,7 @@ export default async function SelectionDetail({
       canViewApplications
         ? supabase
             .from("selection_applications")
-            .select(
-              "id,tracking_code,applicant_name,applicant_email,applicant_identifier,phone,statement,experience,status,internal_notes,public_message,public_updated_at,score,reviewed_at,source,created_at",
-            )
+                .select("id,tracking_code,applicant_name,applicant_email,applicant_identifier,phone,statement,experience,status,internal_notes,public_message,public_updated_at,score,reviewed_at,source,created_at")
             .eq("process_id", id)
             .order("created_at", { ascending: false })
         : Promise.resolve({ data: [] }),
@@ -332,71 +331,90 @@ export default async function SelectionDetail({
               </div>
 
               {canEditApplications ? (
-                <form
-                  action={updateSelectionApplication}
-                  className="mt-4 grid min-w-0 gap-3 rounded-lg border bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-[180px_120px_minmax(0,1fr)_minmax(0,1fr)_auto]"
-                >
-                  <input type="hidden" name="application_id" value={application.id} />
-                  <input type="hidden" name="process_id" value={id} />
-                  <label className="grid gap-1 text-xs font-medium">
-                    Estado
-                    <select
-                      name="status"
-                      defaultValue={application.status}
-                      disabled={!canUpdateStatus}
-                      className="h-9 rounded-md border bg-white px-2 text-sm"
-                    >
-                      {applicationStatuses.map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                    {!canUpdateStatus && (
-                      <input type="hidden" name="status" value={application.status} />
-                    )}
-                  </label>
-                  <label className="grid gap-1 text-xs font-medium">
-                    Puntaje
-                    <Input
-                      name="score"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="0.01"
-                      defaultValue={application.score ?? ""}
-                      disabled={!canEvaluate}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs font-medium">
-                    Notas internas
-                    <Textarea
-                      name="internal_notes"
-                      defaultValue={application.internal_notes ?? ""}
-                      disabled={!canEvaluate}
-                      className="min-h-20 bg-white"
-                    />
-                    <span className="text-[10px] text-muted-foreground">
-                      Nunca son visibles al postulante.
-                    </span>
-                  </label>
-                  <label className="grid gap-1 text-xs font-medium">
-                    Mensaje público para el postulante
-                    <Textarea
-                      name="public_message"
-                      defaultValue={application.public_message ?? ""}
-                      disabled={!canEditPublicMessage}
-                      maxLength={1000}
-                      className="min-h-20 border-amber-300 bg-amber-50"
-                    />
-                    <span className="text-[10px] font-semibold text-amber-800">
-                      Este mensaje sí es visible al postulante.
-                    </span>
-                  </label>
-                  <div className="flex items-end">
-                    <SubmitButton pendingLabel="Guardando…">Actualizar</SubmitButton>
-                  </div>
-                </form>
+                <div className="mt-4 space-y-3">
+                  <form
+                    action={updateSelectionApplication}
+                    className="grid min-w-0 gap-3 rounded-lg border bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-[180px_120px_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                  >
+                    <input type="hidden" name="application_id" value={application.id} />
+                    <input type="hidden" name="process_id" value={id} />
+                    <label className="grid gap-1 text-xs font-medium">
+                      Estado
+                      <select
+                        name="status"
+                        defaultValue={application.status}
+                        disabled={!canUpdateStatus}
+                        className="h-9 rounded-md border bg-white px-2 text-sm"
+                      >
+                        {applicationStatuses.map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      {!canUpdateStatus && (
+                        <input type="hidden" name="status" value={application.status} />
+                      )}
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium">
+                      Puntaje
+                      <Input
+                        name="score"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        defaultValue={application.score ?? ""}
+                        disabled={!canEvaluate}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium">
+                      Notas internas
+                      <Textarea
+                        name="internal_notes"
+                        defaultValue={application.internal_notes ?? ""}
+                        disabled={!canEvaluate}
+                        className="min-h-20 bg-white"
+                      />
+                      <span className="text-[10px] text-muted-foreground">
+                        Nunca son visibles al postulante.
+                      </span>
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium">
+                      Mensaje público para el postulante
+                      <Textarea
+                        name="public_message"
+                        defaultValue={application.public_message ?? ""}
+                        disabled={!canEditPublicMessage}
+                        maxLength={1000}
+                        className="min-h-20 border-amber-300 bg-amber-50"
+                      />
+                      <span className="text-[10px] font-semibold text-amber-800">
+                        Este mensaje sí es visible al postulante.
+                      </span>
+                    </label>
+                    <div className="flex items-end">
+                      <SubmitButton pendingLabel="Guardando…">Actualizar</SubmitButton>
+                    </div>
+                  </form>
+                  <form action={generateSelectionLetter} className="grid gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 md:grid-cols-[220px_minmax(0,1fr)_auto]">
+                    <input type="hidden" name="application_id" value={application.id} />
+                    <input type="hidden" name="process_id" value={id} />
+                    <label className="grid gap-1 text-xs font-medium">
+                      Carta automática
+                      <select name="letter_type" className="h-9 rounded-md border bg-white px-2 text-sm">
+                        <option value="aceptacion">Carta de aceptación</option>
+                        <option value="no_seleccion">Carta de no selección</option>
+                        <option value="entrevista">Citación a entrevista</option>
+                        <option value="continuacion">Continuación en proceso</option>
+                      </select>
+                    </label>
+                    <Textarea name="body" placeholder="Texto opcional; si se deja vacío, el sistema genera una comunicación formal segura." className="min-h-20 bg-white" />
+                    <div className="flex items-end">
+                      <SubmitButton pendingLabel="Generando…">Generar carta pública</SubmitButton>
+                    </div>
+                  </form>
+                </div>
               ) : (
                 <p className="mt-4 text-xs text-muted-foreground">
                   Consulta únicamente; no tiene permiso para cambiar el estado o
