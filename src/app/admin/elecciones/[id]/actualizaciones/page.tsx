@@ -40,6 +40,10 @@ export default async function ElectionUpdatesAdmin({
         }
       />
       <ActionMessage error={query.error} success={query.success} />
+      <details className="mb-5 rounded-xl border bg-amber-50 p-4 text-sm text-amber-950">
+        <summary className="cursor-pointer font-semibold">¿Qué significa esto?</summary>
+        <p className="mt-2 leading-6">Cada actualización crea una foto pública. El público solo ve la última foto publicada con porcentajes, avance y fecha; no ve votos crudos, revisores ni notas internas.</p>
+      </details>
       <section className="mb-5 rounded-xl border bg-white p-5">
         <h2 className="font-semibold text-[#153553]">Registrar snapshot público</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -49,13 +53,13 @@ export default async function ElectionUpdatesAdmin({
         <form action={createElectionUpdateSnapshot} className="mt-4 grid gap-3 md:grid-cols-[220px_1fr_auto]">
           <input type="hidden" name="election_id" value={id} />
           <select name="snapshot_type" defaultValue="preliminary" className="h-10 rounded-md border px-3 text-sm">
-            <option value="preliminary">Preliminar</option>
-            <option value="final">Final</option>
-            <option value="winner">Ganador</option>
+            <option value="preliminary">Actualización preliminar</option>
+            <option value="final">Resultados definitivos</option>
+            <option value="winner">Ganador oficial</option>
             <option value="map">Mapa</option>
           </select>
           <Textarea name="note" placeholder="Nota pública opcional" className="min-h-10" />
-          <SubmitButton pendingLabel="Registrando…">Publicar actualización</SubmitButton>
+          <SubmitButton pendingLabel="Publicando…" confirmMessage="Esta acción actualizará los resultados públicos con los datos validados. No incluirá borradores ni registros sin validar. ¿Continuar?">Publicar actualización preliminar</SubmitButton>
         </form>
       </section>
       <div className="space-y-3">

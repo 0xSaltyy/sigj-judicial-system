@@ -74,7 +74,7 @@ export default async function PublicElectionMap({
         </section>
         {!zones?.length && (
           <p className="rounded-xl border border-dashed bg-white p-10 text-center text-sm text-muted-foreground">
-            Resultados territoriales aún no publicados.
+            Mapa electoral aún no publicado.
           </p>
         )}
       </main>

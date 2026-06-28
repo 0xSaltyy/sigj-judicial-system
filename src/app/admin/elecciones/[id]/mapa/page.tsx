@@ -50,6 +50,18 @@ export default async function ElectionMapAdmin({
         }
       />
       <ActionMessage error={query.error} success={query.success} />
+      <section className="mb-5 grid gap-3 rounded-xl border bg-white p-4 md:grid-cols-4">
+        {[
+          ["1", "Captura territorial", "Seleccione municipio, total esperado y votos por tarjeta. Puede guardar borrador."],
+          ["2", "Envío al escrutinio", "Enviar al escrutinio crea trazabilidad interna, pero no publica resultados."],
+          ["3", "Validación del escrutinio", "Un revisor valida, observa, devuelve a corrección o rechaza."],
+          ["4", "Publicación de resultados", "Solo una actualización publicada cambia las páginas públicas."],
+        ].map(([step,title,detail])=><div key={step} className="rounded-lg border bg-slate-50 p-3 text-xs"><span className="mb-2 flex size-6 items-center justify-center rounded-full bg-[#153553] font-bold text-white">{step}</span><p className="font-semibold text-[#153553]">{title}</p><p className="mt-1 leading-5 text-muted-foreground">{detail}</p></div>)}
+      </section>
+      <details className="mb-5 rounded-xl border bg-amber-50 p-4 text-sm text-amber-950">
+        <summary className="cursor-pointer font-semibold">¿Qué significa esto?</summary>
+        <p className="mt-2 leading-6">Los datos guardados en el mapa no se publican automáticamente. Primero deben enviarse al escrutinio, luego validarse y finalmente publicarse como actualización. Si la suma supera el total esperado, el sistema bloquea el registro.</p>
+      </details>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="grid gap-3 md:grid-cols-2">
           {zones?.map((zone) => (
@@ -80,13 +92,19 @@ export default async function ElectionMapAdmin({
               <div className="mt-4 grid gap-2 text-xs">
                 {Object.entries((zone.option_percentages ?? {}) as Record<string, number>).map(([key,value])=><div key={key}><div className="mb-1 flex justify-between"><span>{optionName(options??[],key)}</span><span>{Number(value).toFixed(2)}%</span></div><div className="h-1.5 rounded bg-slate-100"><div className="h-full rounded bg-[#b38a3c]" style={{width:`${Math.min(100,Number(value))}%`}}/></div></div>)}
               </div>
+              <div className="mt-3 grid gap-1 rounded border bg-slate-50 p-3 text-xs text-muted-foreground">
+                <p>Total esperado: {Number(zone.expected_votes ?? 0).toLocaleString("es-CO")}</p>
+                <p>Estado de conteo: {Number(zone.counted_percentage) >= 100 ? "Este conteo está completo." : "Este conteo está parcial."}</p>
+                <p>Incluido en última actualización pública: {zone.published_at ? "Sí" : "No"}</p>
+                {zone.review_note && <p>Última razón interna: {zone.review_note}</p>}
+              </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 Última edición interna: {formatDate(zone.updated_at ?? zone.public_updated_at)}
                 {zone.published_at ? ` · Última publicación: ${formatDate(zone.published_at)}` : " · No publicado"}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="outline">Flujo: {validationStatusLabel(zone.validation_status ?? "draft")}</Badge>
-                {["submitted","pending_validation"].includes(zone.validation_status ?? "")&&<><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="validated"/><SubmitButton size="sm" pendingLabel="Validando…">Validar</SubmitButton></form><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="pending_submission"/><SubmitButton size="sm" variant="outline" pendingLabel="Devolviendo…">Devolver</SubmitButton></form><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="rejected"/><SubmitButton size="sm" variant="outline" pendingLabel="Rechazando…">Rechazar</SubmitButton></form></>}
+                {["submitted","pending_validation"].includes(zone.validation_status ?? "")&&<form action={validateElectionMapZone} className="grid w-full gap-2 rounded border bg-slate-50 p-2"><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><Input name="note" placeholder="Razón/nota para observar, devolver o rechazar" className="h-8 text-xs"/><div className="flex flex-wrap gap-2"><SubmitButton name="status" value="validated" size="sm" pendingLabel="Validando…" confirmMessage="Esta acción validará resultados territoriales para que cuenten en datos publicables. ¿Continuar?">Validar resultados territoriales</SubmitButton><SubmitButton name="status" value="pending_validation" size="sm" variant="outline" pendingLabel="Observando…" confirmMessage="Esta acción marcará el municipio en revisión y guardará la nota interna. ¿Continuar?">Marcar en revisión</SubmitButton><SubmitButton name="status" value="pending_submission" size="sm" variant="outline" pendingLabel="Devolviendo…" confirmMessage="Esta acción devolverá el municipio a corrección y no contará en resultados. ¿Continuar?">Devolver a corrección</SubmitButton><SubmitButton name="status" value="rejected" size="sm" variant="outline" pendingLabel="Rechazando…" confirmMessage="Esta acción rechazará los resultados territoriales de este municipio. ¿Continuar?">Rechazar</SubmitButton></div></form>}
               </div>
             </article>
           ))}
@@ -122,8 +140,8 @@ export default async function ElectionMapAdmin({
             </label>
             {options?.map((option)=><label key={option.id} className="grid gap-1 text-sm font-medium">Tarjeta Electoral {option.display_order} · {option.candidate_name}<Input name={`option_${option.id}`} type="number" min={0} defaultValue={0}/></label>)}
             <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Anulados<Input name="annulled_votes" type="number" min={0} defaultValue={0}/></label><label className="grid gap-1 text-sm font-medium">Rechazados/otros<Input name="rejected_votes" type="number" min={0} defaultValue={0}/></label></div>
-            <p className="rounded border bg-slate-50 p-3 text-xs leading-5 text-muted-foreground">El sistema calcula porcentajes y avance automáticamente. Los conteos quedan reservados al panel interno; la vista pública solo lee la última foto publicada.</p>
-            <div className="flex flex-wrap gap-2"><SubmitButton name="submit" value="submitted" pendingLabel="Enviando…">Enviar al escrutinio</SubmitButton><SubmitButton name="submit" value="draft" variant="outline" pendingLabel="Guardando…">Guardar borrador</SubmitButton></div>
+            <p className="rounded border bg-slate-50 p-3 text-xs leading-5 text-muted-foreground">El sistema calcula porcentajes y avance automáticamente. La suma de tarjetas, anulados y otros no puede superar el total esperado. Los conteos quedan reservados al panel interno; la vista pública solo lee la última foto publicada.</p>
+            <div className="flex flex-wrap gap-2"><SubmitButton name="submit" value="submitted" pendingLabel="Enviando…" confirmMessage="Esta acción enviará el municipio al escrutinio. No publicará resultados al público. ¿Continuar?">Enviar al escrutinio</SubmitButton><SubmitButton name="submit" value="draft" variant="outline" pendingLabel="Guardando…">Guardar borrador</SubmitButton></div>
           </form>
         </aside>
       </div>
@@ -139,7 +157,7 @@ function validationStatusLabel(value: string) {
       draft: "Borrador",
       pending_submission: "Pendiente de envío",
       submitted: "Enviado al escrutinio",
-      pending_validation: "Pendiente de validación",
+      pending_validation: "En revisión",
       validated: "Validado",
       rejected: "Rechazado",
       cancelled: "Cancelado",

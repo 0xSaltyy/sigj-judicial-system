@@ -84,7 +84,10 @@ export async function publishElectionResults(formData:FormData){
   const {error}=await session.supabase.rpc("publish_election_results",{p_election_id:parsed.data.election_id,p_kind:parsed.data.kind,p_winner_option_id:parsed.data.winner_option_id||null,p_note:parsed.data.note||""});
   if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent(error.message)}`);
   await session.supabase.rpc("create_election_public_update",{p_election_id:parsed.data.election_id,p_snapshot_type:parsed.data.kind,p_note:parsed.data.note||""});
-  revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=Resultados%20actualizados`);
+  const {data:election}=await session.supabase.from("elections").select("slug").eq("id",parsed.data.election_id).maybeSingle();
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);
+  if(election?.slug){revalidatePath(`/elecciones/${election.slug}/resultados`);revalidatePath(`/elecciones/${election.slug}/mapa`);revalidatePath(`/elecciones/${election.slug}/sala`);}
+  redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=Resultados%20actualizados`);
 }
 
 export async function updateElectionMapZone(formData:FormData){
@@ -97,17 +100,21 @@ export async function updateElectionMapZone(formData:FormData){
   const {data:options}=await session.supabase.from("election_options").select("id,display_order").eq("election_id",parsed.data.election_id).eq("active",true).order("display_order");
   const optionCounts:Record<string,number>={};
   for(const option of options??[]) optionCounts[option.id]=Math.max(0,Number(raw[`option_${option.id}`]??0)||0);
+  const totalEntered=Object.values(optionCounts).reduce((sum,value)=>sum+value,0)+parsed.data.annulled_votes+parsed.data.rejected_votes;
+  if(totalEntered>parsed.data.expected_votes)redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?error=${encodeURIComponent("La suma de votos no puede superar el total esperado del municipio.")}`);
   const {error}=await session.supabase.rpc("upsert_election_zone_counts",{p_election_id:parsed.data.election_id,p_department:parsed.data.department,p_zone_name:parsed.data.zone_name,p_zone_type:parsed.data.zone_type||"municipio",p_zone_label:parsed.data.zone_label||"",p_expected_votes:parsed.data.expected_votes,p_option_counts:optionCounts,p_annulled_votes:parsed.data.annulled_votes,p_rejected_votes:parsed.data.rejected_votes,p_submit:shouldSubmit});
   if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?error=${encodeURIComponent(error.message)}`);
   revalidatePath(`/admin/elecciones/${parsed.data.election_id}/mapa`);
   revalidatePath(`/admin/elecciones/${parsed.data.election_id}/escrutinio`);
-  redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?success=${encodeURIComponent(shouldSubmit?"Mapa enviado al escrutinio":"Borrador territorial guardado")}`);
+  redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?success=${encodeURIComponent(shouldSubmit?`${parsed.data.zone_name} fue enviado al escrutinio. Aún no está publicado.`:"Borrador territorial guardado. Aún no cuenta en escrutinio ni publicación.")}`);
 }
 
 export async function validateElectionMapZone(formData:FormData){
   const parsed=z.object({election_id:dbUuid,zone_id:dbUuid,status:z.enum(["validated","rejected","pending_submission","pending_validation","cancelled"]),note:z.string().trim().max(1000).optional(),return_to:z.string().optional()}).safeParse(Object.fromEntries(formData));
   if(!parsed.success)redirect("/admin/elecciones?error=Validaci%C3%B3n%20territorial%20inv%C3%A1lida");
-  const session=await requirePermission(parsed.data.status==="rejected"?PERMISSIONS.electionsRejectTerritorialVotes:PERMISSIONS.electionsValidateTerritorialVotes);
+  if(["rejected","pending_submission","pending_validation"].includes(parsed.data.status)&&!parsed.data.note?.trim())redirect(`/admin/elecciones/${parsed.data.election_id}/${parsed.data.return_to==="escrutinio"?"escrutinio":"mapa"}?error=${encodeURIComponent("Debe registrar una razón o nota para esta decisión.")}`);
+  const permission=parsed.data.status==="rejected"?PERMISSIONS.electionsRejectTerritorialVotes:parsed.data.status==="pending_submission"?PERMISSIONS.electionsReturnTerritorialVotes:PERMISSIONS.electionsValidateTerritorialVotes;
+  const session=await requirePermission(permission);
   const {error}=await session.supabase.rpc("validate_election_zone_result",{p_zone_id:parsed.data.zone_id,p_status:parsed.data.status,p_note:parsed.data.note||""});
   const target=parsed.data.return_to==="escrutinio"?"escrutinio":"mapa";
   if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/${target}?error=${encodeURIComponent(error.message)}`);
@@ -122,7 +129,11 @@ export async function createElectionUpdateSnapshot(formData:FormData){
   const session=await requirePermission(PERMISSIONS.electionsUpdateResults);
   const {error}=await session.supabase.rpc("create_election_public_update",{p_election_id:parsed.data.election_id,p_snapshot_type:parsed.data.snapshot_type,p_note:parsed.data.note||""});
   if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?error=${encodeURIComponent(error.message)}`);
-  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/actualizaciones`);redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?success=Actualizaci%C3%B3n%20registrada`);
+  const {data:election}=await session.supabase.from("elections").select("slug").eq("id",parsed.data.election_id).maybeSingle();
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/actualizaciones`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/resultados`);
+  if(election?.slug){revalidatePath(`/elecciones/${election.slug}/resultados`);revalidatePath(`/elecciones/${election.slug}/mapa`);revalidatePath(`/elecciones/${election.slug}/sala`);}
+  redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?success=Actualizaci%C3%B3n%20registrada`);
 }
 
 export async function generateElectionAct(formData:FormData){

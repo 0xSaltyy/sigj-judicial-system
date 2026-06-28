@@ -50,12 +50,16 @@ export default async function ElectionActPage({
             </Button>
             <form action={generateElectionAct}>
               <input type="hidden" name="election_id" value={id} />
-              <SubmitButton pendingLabel="Generando…">Generar acta electoral</SubmitButton>
+              <SubmitButton pendingLabel="Generando…" confirmMessage="Esta acción generará o preparará el acta electoral para revisión. ¿Continuar?">Generar acta electoral</SubmitButton>
             </form>
           </div>
         }
       />
       <ActionMessage error={query.error} success={query.success} />
+      <details className="mb-5 rounded-xl border bg-amber-50 p-4 text-sm text-amber-950">
+        <summary className="cursor-pointer font-semibold">¿Qué significa esto?</summary>
+        <p className="mt-2 leading-6">Cuando el avance validado llega al 100%, el sistema prepara el acta electoral para revisión. La publicación definitiva y la declaración del ganador oficial siguen siendo acciones humanas autorizadas.</p>
+      </details>
       <section className="print-document paper formal-document mx-auto rounded-xl border bg-white">
         <div className="formal-header">
           <p className="formal-kicker">República de Colombia</p>

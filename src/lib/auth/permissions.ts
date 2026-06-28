@@ -133,6 +133,8 @@ export const PERMISSIONS = {
   electionsViewTerritorialVotes: { resource: "elecciones", action: "ver_votos_territoriales" },
   electionsValidateTerritorialVotes: { resource: "elecciones", action: "validar_votos_territoriales" },
   electionsRejectTerritorialVotes: { resource: "elecciones", action: "rechazar_votos_territoriales" },
+  electionsReturnTerritorialVotes: { resource: "elecciones", action: "devolver_votos_territoriales" },
+  electionsViewMunicipalityHistory: { resource: "elecciones", action: "ver_historial_municipio" },
   electionsUpdateResults: { resource: "elecciones", action: "actualizar_resultados" },
   electionsPublishPreliminary: { resource: "elecciones", action: "publicar_preliminares" },
   electionsPublishResults: { resource: "elecciones", action: "publicar_resultados" },

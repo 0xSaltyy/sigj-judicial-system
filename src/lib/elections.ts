@@ -1,5 +1,5 @@
 export const ELECTION_STATUS_LABELS: Record<string,string> = {
-  draft:"Borrador", prepared:"Preparada", open:"Abierta", suspended:"Suspendida", reopened:"Reabierta", closed:"Cerrada", scrutiny:"En escrutinio", preliminary_results:"Resultados preliminares", definitively_closed:"Cerrada definitivamente", final_results_published:"Resultados definitivos publicados", archived:"Archivada",
+  draft:"Borrador", prepared:"Preparada", open:"Votación abierta", suspended:"Votación suspendida", reopened:"Votación reabierta", closed:"Votación cerrada", scrutiny:"En escrutinio", preliminary_results:"Resultados preliminares publicados", definitively_closed:"Cerrada definitivamente", final_results_published:"Resultados definitivos publicados", archived:"Archivada",
 };
 export const VOTE_STATUS_LABELS: Record<string,string> = {
   pending_validation:"Pendiente de validación", valid:"Válido", observed:"Observado", annulled:"Anulado", rejected:"Rechazado", duplicate:"Duplicado", cancelled:"Cancelado",
