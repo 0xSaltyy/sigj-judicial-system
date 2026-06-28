@@ -36,8 +36,8 @@ export default async function ElectionMapAdmin({
   return (
     <>
       <AdminPageHeader
-        title="Mapa electoral"
-        description={`${election.title} · ${election.territory}`}
+        title="Captura territorial del mapa electoral"
+        description={`${election.title} · ${election.territory}. Guarde borradores o envíe zonas al escrutinio; nada se publica hasta usar “Actualizar resultados”.`}
         action={
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline">
@@ -63,7 +63,7 @@ export default async function ElectionMapAdmin({
                     {zone.zone_name}
                   </h2>
                 </div>
-                <Badge variant="outline">{statusLabel(zone.status)}</Badge>
+                <Badge variant="outline">{validationStatusLabel(zone.validation_status ?? "draft")}</Badge>
               </div>
               <div className="mt-4">
                 <div className="mb-1 flex justify-between text-xs text-muted-foreground">
@@ -81,21 +81,21 @@ export default async function ElectionMapAdmin({
                 {Object.entries((zone.option_percentages ?? {}) as Record<string, number>).map(([key,value])=><div key={key}><div className="mb-1 flex justify-between"><span>{optionName(options??[],key)}</span><span>{Number(value).toFixed(2)}%</span></div><div className="h-1.5 rounded bg-slate-100"><div className="h-full rounded bg-[#b38a3c]" style={{width:`${Math.min(100,Number(value))}%`}}/></div></div>)}
               </div>
               <p className="mt-3 text-xs text-muted-foreground">
-                Última actualización: {formatDate(zone.public_updated_at)}
+                Última edición interna: {formatDate(zone.updated_at ?? zone.public_updated_at)}
+                {zone.published_at ? ` · Última publicación: ${formatDate(zone.published_at)}` : " · No publicado"}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant="outline">Validación: {zone.validation_status ?? "draft"}</Badge>
-                {zone.validation_status==="submitted"&&<><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="validated"/><SubmitButton size="sm" pendingLabel="Validando…">Validar</SubmitButton></form><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="rejected"/><SubmitButton size="sm" variant="outline" pendingLabel="Rechazando…">Rechazar</SubmitButton></form></>}
+                <Badge variant="outline">Flujo: {validationStatusLabel(zone.validation_status ?? "draft")}</Badge>
+                {["submitted","pending_validation"].includes(zone.validation_status ?? "")&&<><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="validated"/><SubmitButton size="sm" pendingLabel="Validando…">Validar</SubmitButton></form><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="pending_submission"/><SubmitButton size="sm" variant="outline" pendingLabel="Devolviendo…">Devolver</SubmitButton></form><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="rejected"/><SubmitButton size="sm" variant="outline" pendingLabel="Rechazando…">Rechazar</SubmitButton></form></>}
               </div>
             </article>
           ))}
         </section>
 
         <aside className="rounded-xl border bg-white p-5">
-          <h2 className="font-semibold text-[#153553]">Enviar / Actualizar resultados</h2>
+          <h2 className="font-semibold text-[#153553]">Registrar datos territoriales</h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Registre porcentajes territoriales públicos. Use JSON con pares
-            nombre/porcentaje para las opciones.
+            Guarde el avance como borrador o envíelo al escrutinio territorial. Los datos enviados no afectan resultados públicos hasta que se validen y se publique una actualización.
           </p>
           <form action={updateElectionMapZone} className="mt-4 grid gap-3">
             <input type="hidden" name="election_id" value={id} />
@@ -122,8 +122,8 @@ export default async function ElectionMapAdmin({
             </label>
             {options?.map((option)=><label key={option.id} className="grid gap-1 text-sm font-medium">Tarjeta Electoral {option.display_order} · {option.candidate_name}<Input name={`option_${option.id}`} type="number" min={0} defaultValue={0}/></label>)}
             <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Anulados<Input name="annulled_votes" type="number" min={0} defaultValue={0}/></label><label className="grid gap-1 text-sm font-medium">Rechazados/otros<Input name="rejected_votes" type="number" min={0} defaultValue={0}/></label></div>
-            <p className="rounded border bg-slate-50 p-3 text-xs leading-5 text-muted-foreground">El sistema calcula porcentajes y avance automáticamente. Los conteos quedan reservados al panel interno.</p>
-            <div className="flex flex-wrap gap-2"><SubmitButton name="submit" value="submitted" pendingLabel="Enviando…">Enviar actualización</SubmitButton><SubmitButton name="submit" value="draft" variant="outline" pendingLabel="Guardando…">Guardar borrador</SubmitButton></div>
+            <p className="rounded border bg-slate-50 p-3 text-xs leading-5 text-muted-foreground">El sistema calcula porcentajes y avance automáticamente. Los conteos quedan reservados al panel interno; la vista pública solo lee la última foto publicada.</p>
+            <div className="flex flex-wrap gap-2"><SubmitButton name="submit" value="submitted" pendingLabel="Enviando…">Enviar al escrutinio</SubmitButton><SubmitButton name="submit" value="draft" variant="outline" pendingLabel="Guardando…">Guardar borrador</SubmitButton></div>
           </form>
         </aside>
       </div>
@@ -133,14 +133,17 @@ export default async function ElectionMapAdmin({
 
 function optionName(options:Array<{id:string;candidate_name:string;display_order:number}>, key:string){const found=options.find((option)=>option.id===key);return found?`Tarjeta Electoral ${found.display_order}`:key;}
 
-function statusLabel(value: string) {
+function validationStatusLabel(value: string) {
   return (
     {
-      sin_reporte: "Sin reporte",
-      en_escrutinio: "En escrutinio",
-      preliminar: "Preliminar",
-      final: "Final",
-      observado: "Observado",
+      draft: "Borrador",
+      pending_submission: "Pendiente de envío",
+      submitted: "Enviado al escrutinio",
+      pending_validation: "Pendiente de validación",
+      validated: "Validado",
+      rejected: "Rechazado",
+      cancelled: "Cancelado",
+      published: "Publicado",
     } as Record<string, string>
   )[value] ?? value;
 }

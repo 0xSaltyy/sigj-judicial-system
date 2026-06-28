@@ -30,7 +30,7 @@ export default async function PublicElectionMap({
     <>
       <PageHero
         title="Mapa electoral del Valle del Cauca"
-        description={`${election.title} · porcentajes territoriales publicados`}
+        description={`${election.title} · resultados territoriales publicados`}
       />
       <main className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-6 flex flex-wrap justify-end gap-2">
@@ -51,7 +51,7 @@ export default async function PublicElectionMap({
                   </p>
                   <h2 className="text-xl font-semibold text-[#153553]">{zone.zone_name}</h2>
                 </div>
-                <Badge variant="outline">{statusLabel(zone.status)}</Badge>
+                <Badge variant="outline">Publicado</Badge>
               </div>
               <div className="mt-5">
                 <div className="mb-1 flex justify-between text-xs text-muted-foreground">
@@ -67,14 +67,14 @@ export default async function PublicElectionMap({
               </div>
               <OptionPercentages value={zone.option_percentages} labels={labels} />
               <p className="mt-4 text-xs text-muted-foreground">
-                Actualizado: {formatDate(zone.public_updated_at)}
+                Última actualización publicada: {formatDate(zone.public_updated_at)}
               </p>
             </article>
           ))}
         </section>
         {!zones?.length && (
           <p className="rounded-xl border border-dashed bg-white p-10 text-center text-sm text-muted-foreground">
-            Aún no hay resultados territoriales publicados.
+            Resultados territoriales aún no publicados.
           </p>
         )}
       </main>
@@ -100,10 +100,6 @@ function OptionPercentages({ value, labels }: { value: Record<string, number> | 
       ))}
     </div>
   );
-}
-
-function statusLabel(value: string) {
-  return ({ sin_reporte: "Sin reporte", en_escrutinio: "En escrutinio", preliminar: "Preliminar", final: "Final", observado: "Observado" } as Record<string, string>)[value] ?? value;
 }
 
 function formatDate(value: string) {

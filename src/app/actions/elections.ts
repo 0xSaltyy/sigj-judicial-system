@@ -92,21 +92,28 @@ export async function updateElectionMapZone(formData:FormData){
   const parsed=z.object({election_id:dbUuid,department:z.string().trim().min(2).max(120),zone_name:z.string().trim().min(2).max(120),zone_type:z.string().trim().max(80).optional(),zone_label:z.string().trim().max(160).optional(),expected_votes:z.coerce.number().int().min(1).max(100000000),annulled_votes:z.coerce.number().int().min(0).max(100000000).default(0),rejected_votes:z.coerce.number().int().min(0).max(100000000).default(0),submit:z.string().optional()}).safeParse(raw);
   if(!parsed.success)redirect("/admin/elecciones?error=Datos%20de%20mapa%20inv%C3%A1lidos");
   const session=await requirePermission(PERMISSIONS.electionsAddTerritorialVotes);
+  const shouldSubmit=parsed.data.submit!=="draft";
+  if(shouldSubmit)await enforcePermission(session,PERMISSIONS.electionsSendMapToScrutiny,parsed.data.election_id);
   const {data:options}=await session.supabase.from("election_options").select("id,display_order").eq("election_id",parsed.data.election_id).eq("active",true).order("display_order");
   const optionCounts:Record<string,number>={};
   for(const option of options??[]) optionCounts[option.id]=Math.max(0,Number(raw[`option_${option.id}`]??0)||0);
-  const {error}=await session.supabase.rpc("upsert_election_zone_counts",{p_election_id:parsed.data.election_id,p_department:parsed.data.department,p_zone_name:parsed.data.zone_name,p_zone_type:parsed.data.zone_type||"municipio",p_zone_label:parsed.data.zone_label||"",p_expected_votes:parsed.data.expected_votes,p_option_counts:optionCounts,p_annulled_votes:parsed.data.annulled_votes,p_rejected_votes:parsed.data.rejected_votes,p_submit:parsed.data.submit!=="draft"});
+  const {error}=await session.supabase.rpc("upsert_election_zone_counts",{p_election_id:parsed.data.election_id,p_department:parsed.data.department,p_zone_name:parsed.data.zone_name,p_zone_type:parsed.data.zone_type||"municipio",p_zone_label:parsed.data.zone_label||"",p_expected_votes:parsed.data.expected_votes,p_option_counts:optionCounts,p_annulled_votes:parsed.data.annulled_votes,p_rejected_votes:parsed.data.rejected_votes,p_submit:shouldSubmit});
   if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?error=${encodeURIComponent(error.message)}`);
-  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/mapa`);redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?success=Mapa%20electoral%20actualizado`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/mapa`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/escrutinio`);
+  redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?success=${encodeURIComponent(shouldSubmit?"Mapa enviado al escrutinio":"Borrador territorial guardado")}`);
 }
 
 export async function validateElectionMapZone(formData:FormData){
-  const parsed=z.object({election_id:dbUuid,zone_id:dbUuid,status:z.enum(["validated","rejected","submitted"]),note:z.string().trim().max(1000).optional()}).safeParse(Object.fromEntries(formData));
+  const parsed=z.object({election_id:dbUuid,zone_id:dbUuid,status:z.enum(["validated","rejected","pending_submission","pending_validation","cancelled"]),note:z.string().trim().max(1000).optional(),return_to:z.string().optional()}).safeParse(Object.fromEntries(formData));
   if(!parsed.success)redirect("/admin/elecciones?error=Validaci%C3%B3n%20territorial%20inv%C3%A1lida");
-  const session=await requirePermission(PERMISSIONS.electionsValidateTerritorialVotes);
+  const session=await requirePermission(parsed.data.status==="rejected"?PERMISSIONS.electionsRejectTerritorialVotes:PERMISSIONS.electionsValidateTerritorialVotes);
   const {error}=await session.supabase.rpc("validate_election_zone_result",{p_zone_id:parsed.data.zone_id,p_status:parsed.data.status,p_note:parsed.data.note||""});
-  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?error=${encodeURIComponent(error.message)}`);
-  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/mapa`);redirect(`/admin/elecciones/${parsed.data.election_id}/mapa?success=Resultado%20territorial%20validado`);
+  const target=parsed.data.return_to==="escrutinio"?"escrutinio":"mapa";
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/${target}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/mapa`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/escrutinio`);
+  redirect(`/admin/elecciones/${parsed.data.election_id}/${target}?success=Resultado%20territorial%20revisado`);
 }
 
 export async function createElectionUpdateSnapshot(formData:FormData){
