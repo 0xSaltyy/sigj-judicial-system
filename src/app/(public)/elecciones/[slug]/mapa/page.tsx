@@ -16,11 +16,15 @@ export default async function PublicElectionMap({
     ? await supabase.from("public_elections").select("*").eq("slug", slug).maybeSingle()
     : { data: null };
   if (!election || !supabase) notFound();
-  const { data: zones } = await supabase
-    .from("public_election_territorial_results")
-    .select("*")
-    .eq("election_id", election.id)
-    .order("zone_name");
+  const [{ data: zones }, { data: options }] = await Promise.all([
+    supabase
+      .from("public_election_territorial_results")
+      .select("*")
+      .eq("election_id", election.id)
+      .order("zone_name"),
+    supabase.from("public_election_options").select("id,display_order,candidate_name").eq("election_id", election.id).order("display_order"),
+  ]);
+  const labels = new Map((options ?? []).map((option) => [option.id, `Tarjeta Electoral ${option.display_order}`]));
 
   return (
     <>
@@ -61,7 +65,7 @@ export default async function PublicElectionMap({
                   />
                 </div>
               </div>
-              <OptionPercentages value={zone.option_percentages} />
+              <OptionPercentages value={zone.option_percentages} labels={labels} />
               <p className="mt-4 text-xs text-muted-foreground">
                 Actualizado: {formatDate(zone.public_updated_at)}
               </p>
@@ -78,7 +82,7 @@ export default async function PublicElectionMap({
   );
 }
 
-function OptionPercentages({ value }: { value: Record<string, number> | null }) {
+function OptionPercentages({ value, labels }: { value: Record<string, number> | null; labels: Map<string,string> }) {
   const entries = Object.entries(value ?? {});
   if (!entries.length) return null;
   return (
@@ -86,7 +90,7 @@ function OptionPercentages({ value }: { value: Record<string, number> | null }) 
       {entries.map(([label, percent]) => (
         <div key={label}>
           <div className="mb-1 flex justify-between text-xs">
-            <span className="break-words">{label}</span>
+            <span className="break-words">{labels.get(label) ?? label}</span>
             <span>{Number(percent).toFixed(2)}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">

@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { updateElectionMapZone } from "@/app/actions/elections";
+import { updateElectionMapZone, validateElectionMapZone } from "@/app/actions/elections";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
 import { SubmitButton } from "@/components/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { VALLE_DEL_CAUCA_DEPARTMENT, VALLE_DEL_CAUCA_MUNICIPALITIES } from "@/lib/valle-del-cauca";
 
 export default async function ElectionMapAdmin({
   params,
@@ -22,13 +22,14 @@ export default async function ElectionMapAdmin({
     searchParams,
     requirePermission(PERMISSIONS.electionsMapView),
   ]);
-  const [{ data: election }, { data: zones }] = await Promise.all([
+  const [{ data: election }, { data: zones }, { data: options }] = await Promise.all([
     supabase.from("elections").select("id,slug,title,territory,status").eq("id", id).maybeSingle(),
     supabase
       .from("election_territorial_results")
       .select("*")
       .eq("election_id", id)
       .order("zone_name"),
+    supabase.from("election_options").select("id,candidate_name,display_order").eq("election_id", id).eq("active", true).order("display_order"),
   ]);
   if (!election) notFound();
 
@@ -76,9 +77,16 @@ export default async function ElectionMapAdmin({
                   />
                 </div>
               </div>
+              <div className="mt-4 grid gap-2 text-xs">
+                {Object.entries((zone.option_percentages ?? {}) as Record<string, number>).map(([key,value])=><div key={key}><div className="mb-1 flex justify-between"><span>{optionName(options??[],key)}</span><span>{Number(value).toFixed(2)}%</span></div><div className="h-1.5 rounded bg-slate-100"><div className="h-full rounded bg-[#b38a3c]" style={{width:`${Math.min(100,Number(value))}%`}}/></div></div>)}
+              </div>
               <p className="mt-3 text-xs text-muted-foreground">
                 Última actualización: {formatDate(zone.public_updated_at)}
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge variant="outline">Validación: {zone.validation_status ?? "draft"}</Badge>
+                {zone.validation_status==="submitted"&&<><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="validated"/><SubmitButton size="sm" pendingLabel="Validando…">Validar</SubmitButton></form><form action={validateElectionMapZone}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="zone_id" value={zone.id}/><input type="hidden" name="status" value="rejected"/><SubmitButton size="sm" variant="outline" pendingLabel="Rechazando…">Rechazar</SubmitButton></form></>}
+              </div>
             </article>
           ))}
         </section>
@@ -92,42 +100,38 @@ export default async function ElectionMapAdmin({
           <form action={updateElectionMapZone} className="mt-4 grid gap-3">
             <input type="hidden" name="election_id" value={id} />
             <label className="grid gap-1 text-sm font-medium">
-              Municipio o zona
-              <Input name="zone_name" required placeholder="Cali" />
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              Tipo de zona
-              <Input name="zone_type" defaultValue="municipio" />
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              Votos esperados
-              <Input name="expected_votes" type="number" min={1} defaultValue={100} required />
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              Avance contado (%)
-              <Input name="counted_percentage" type="number" min={0} max={100} step="0.01" defaultValue={0} required />
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              Estado
-              <select name="status" defaultValue="preliminar" className="h-9 rounded-md border px-3 text-sm">
-                <option value="sin_reporte">Sin reporte</option>
-                <option value="en_escrutinio">En escrutinio</option>
-                <option value="preliminar">Preliminar</option>
-                <option value="final">Final</option>
-                <option value="observado">Observado</option>
+              Departamento
+              <select name="department" defaultValue={VALLE_DEL_CAUCA_DEPARTMENT} className="h-9 rounded-md border px-3 text-sm">
+                <option value={VALLE_DEL_CAUCA_DEPARTMENT}>{VALLE_DEL_CAUCA_DEPARTMENT}</option>
               </select>
             </label>
             <label className="grid gap-1 text-sm font-medium">
-              Porcentajes por opción
-              <Textarea name="option_percentages" placeholder='{"Tarjeta Electoral 1":45.2,"Tarjeta Electoral 2":38.1,"Tarjeta Electoral 3":16.7}' className="min-h-28 font-mono text-xs" />
+              Municipio / ciudad
+              <select name="zone_name" required defaultValue="Cali" className="h-9 rounded-md border px-3 text-sm">
+                {VALLE_DEL_CAUCA_MUNICIPALITIES.map((name)=><option key={name} value={name}>{name}</option>)}
+              </select>
             </label>
-            <SubmitButton pendingLabel="Actualizando…">Enviar / Actualizar resultados</SubmitButton>
+            <label className="grid gap-1 text-sm font-medium">
+              Zona electoral / territorio
+              <Input name="zone_label" placeholder="Cabecera municipal, corregimiento, zona 1…" />
+              <input type="hidden" name="zone_type" value="municipio" />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Total esperado / final de la zona
+              <Input name="expected_votes" type="number" min={1} defaultValue={100} required />
+            </label>
+            {options?.map((option)=><label key={option.id} className="grid gap-1 text-sm font-medium">Tarjeta Electoral {option.display_order} · {option.candidate_name}<Input name={`option_${option.id}`} type="number" min={0} defaultValue={0}/></label>)}
+            <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">Anulados<Input name="annulled_votes" type="number" min={0} defaultValue={0}/></label><label className="grid gap-1 text-sm font-medium">Rechazados/otros<Input name="rejected_votes" type="number" min={0} defaultValue={0}/></label></div>
+            <p className="rounded border bg-slate-50 p-3 text-xs leading-5 text-muted-foreground">El sistema calcula porcentajes y avance automáticamente. Los conteos quedan reservados al panel interno.</p>
+            <div className="flex flex-wrap gap-2"><SubmitButton name="submit" value="submitted" pendingLabel="Enviando…">Enviar actualización</SubmitButton><SubmitButton name="submit" value="draft" variant="outline" pendingLabel="Guardando…">Guardar borrador</SubmitButton></div>
           </form>
         </aside>
       </div>
     </>
   );
 }
+
+function optionName(options:Array<{id:string;candidate_name:string;display_order:number}>, key:string){const found=options.find((option)=>option.id===key);return found?`Tarjeta Electoral ${found.display_order}`:key;}
 
 function statusLabel(value: string) {
   return (
