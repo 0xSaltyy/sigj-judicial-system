@@ -1,5 +1,12 @@
 export const VALLE_DEL_CAUCA_DEPARTMENT = "Valle del Cauca";
 
+export const VALLE_ELECTION_CITIES = [
+  "Cali",
+  "Palmira",
+  "Buenaventura",
+  "Tuluá",
+] as const;
+
 export const VALLE_DEL_CAUCA_MUNICIPALITIES = [
   "Cali",
   "Palmira",

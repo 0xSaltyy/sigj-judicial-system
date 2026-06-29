@@ -128,6 +128,8 @@ export const PERMISSIONS = {
   electionsScrutiny: { resource: "elecciones", action: "gestionar_escrutinio" },
   electionsAddManualVotes: { resource: "elecciones", action: "agregar_votos_manuales" },
   electionsValidateManualVotes: { resource: "elecciones", action: "validar_votos_manuales" },
+  electionsConfigureTerritorialTotals: { resource: "elecciones", action: "configurar_totales_territoriales" },
+  electionsEditExpectedTotal: { resource: "elecciones", action: "editar_total_esperado" },
   electionsAddTerritorialVotes: { resource: "elecciones", action: "agregar_votos_territoriales" },
   electionsSendMapToScrutiny: { resource: "elecciones", action: "enviar_mapa_escrutinio" },
   electionsViewTerritorialVotes: { resource: "elecciones", action: "ver_votos_territoriales" },

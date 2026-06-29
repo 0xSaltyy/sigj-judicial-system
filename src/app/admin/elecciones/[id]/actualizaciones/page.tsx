@@ -59,7 +59,7 @@ export default async function ElectionUpdatesAdmin({
             <option value="map">Mapa</option>
           </select>
           <Textarea name="note" placeholder="Nota pública opcional" className="min-h-10" />
-          <SubmitButton pendingLabel="Publicando…" confirmMessage="Esta acción actualizará los resultados públicos con los datos validados. No incluirá borradores ni registros sin validar. ¿Continuar?">Publicar actualización preliminar</SubmitButton>
+          <SubmitButton pendingLabel="Publicando…" confirmMessage="Esta acción publicará una actualización con los votos validados. No incluirá borradores, votos en revisión ni votos devueltos. ¿Continuar?">Publicar actualización</SubmitButton>
         </form>
       </section>
       <div className="space-y-3">
