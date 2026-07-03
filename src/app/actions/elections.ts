@@ -182,6 +182,20 @@ export async function createElectionUpdateSnapshot(formData:FormData){
   redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?success=Actualizaci%C3%B3n%20registrada`);
 }
 
+export async function deleteElectionUpdateSnapshot(formData:FormData){
+  const parsed=z.object({election_id:dbUuid,update_id:dbUuid,confirmation:z.string().trim(),reason:z.string().trim().max(1000).optional()}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)redirect("/admin/elecciones?error=Eliminaci%C3%B3n%20inv%C3%A1lida");
+  const session=await requirePermission(PERMISSIONS.electionsDeleteUpdates);
+  if(parsed.data.confirmation!=="ELIMINAR")redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?error=${encodeURIComponent("Debe escribir ELIMINAR para confirmar.")}`);
+  const {error}=await session.supabase.rpc("delete_election_public_update",{p_update_id:parsed.data.update_id,p_confirmation:parsed.data.confirmation,p_reason:parsed.data.reason||""});
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?error=${encodeURIComponent(error.message)}`);
+  const {data:election}=await session.supabase.from("elections").select("slug").eq("id",parsed.data.election_id).maybeSingle();
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/actualizaciones`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/resultados`);
+  if(election?.slug){revalidatePath(`/elecciones/${election.slug}`);revalidatePath(`/elecciones/${election.slug}/resultados`);revalidatePath(`/elecciones/${election.slug}/mapa`);revalidatePath(`/elecciones/${election.slug}/sala`);}
+  redirect(`/admin/elecciones/${parsed.data.election_id}/actualizaciones?success=Actualizaci%C3%B3n%20eliminada%20definitivamente`);
+}
+
 export async function generateElectionAct(formData:FormData){
   const parsed=z.object({election_id:dbUuid}).safeParse(Object.fromEntries(formData));
   if(!parsed.success)redirect("/admin/elecciones?error=Acta%20inv%C3%A1lida");

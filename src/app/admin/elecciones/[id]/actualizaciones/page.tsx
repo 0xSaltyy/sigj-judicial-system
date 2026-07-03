@@ -2,10 +2,11 @@ import Link from "next/link";
 import { createElectionUpdateSnapshot } from "@/app/actions/elections";
 import { ActionMessage } from "@/components/action-message";
 import { AdminPageHeader } from "@/components/admin-page";
+import { DeleteElectionUpdateForm } from "@/components/delete-election-update-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
+import { can, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
 
 export default async function ElectionUpdatesAdmin({
   params,
@@ -14,11 +15,12 @@ export default async function ElectionUpdatesAdmin({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
-  const [{ id }, query, { supabase }] = await Promise.all([
+  const [{ id }, query, session] = await Promise.all([
     params,
     searchParams,
     requirePermission(PERMISSIONS.electionsViewUpdates),
   ]);
+  const { supabase, profile } = session;
   const [{ data: election }, { data: updates }] = await Promise.all([
     supabase.from("elections").select("id,title,status").eq("id", id).maybeSingle(),
     supabase
@@ -27,6 +29,7 @@ export default async function ElectionUpdatesAdmin({
       .eq("election_id", id)
       .order("update_number", { ascending: false }),
   ]);
+  const canDelete = await can(profile, "eliminar_actualizaciones", "elecciones", { supabase });
 
   return (
     <>
@@ -88,6 +91,18 @@ export default async function ElectionUpdatesAdmin({
                 </div>
               ))}
             </div>
+            {canDelete && election && (
+              <DeleteElectionUpdateForm
+                electionId={id}
+                electionTitle={election.title}
+                updateId={update.id}
+                updateNumber={update.update_number}
+                snapshotType={label(update.snapshot_type)}
+                status={update.status_at_time}
+                updatedAt={formatDate(update.updated_at)}
+                note={update.note}
+              />
+            )}
           </article>
         ))}
         {!updates?.length && (

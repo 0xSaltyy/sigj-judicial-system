@@ -97,6 +97,7 @@ export const PERMISSION_ACTIONS = [
   "ver_historial_municipio",
   "configurar_totales_territoriales",
   "editar_total_esperado",
+  "eliminar_actualizaciones",
 ] as const;
 
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
@@ -124,7 +125,7 @@ export const PERMISSION_CATALOG = [
   { resource: "notificaciones", label: "Notificaciones internas", actions: ["view", "manage"] },
   { resource: "perfil", label: "Perfil propio", actions: ["edit", "edit_public", "publish_profile", "edit_institution", "edit_dependency", "edit_title"] },
   { resource: "seleccion", label: "Procesos de selección", actions: ["view", "create", "edit", "publish", "close", "cancel", "view_applications", "edit_applications", "evaluate_applications", "update_application_status", "edit_public_message", "generar_cartas", "editar_cartas_publicas", "view_all", "view_institution", "view_dependency"] },
-  { resource: "elecciones", label: "Elecciones institucionales", actions: ["ver", "crear", "editar", "configurar_tarjeta", "abrir", "suspender", "reabrir", "cerrar", "cerrar_definitivo", "votar", "ver_votos", "validar_votos", "anular_votos", "gestionar_escrutinio", "configurar_totales_territoriales", "editar_total_esperado", "agregar_votos_manuales", "validar_votos_manuales", "agregar_votos_territoriales", "enviar_mapa_escrutinio", "ver_votos_territoriales", "validar_votos_territoriales", "rechazar_votos_territoriales", "devolver_votos_territoriales", "ver_historial_municipio", "actualizar_resultados", "publicar_preliminares", "publicar_resultados", "declarar_ganador", "ver_auditoria", "ver_mapa", "editar_mapa", "ver_sala_en_vivo", "generar_acta", "ver_actualizaciones", "publicar_actualizacion"] },
+  { resource: "elecciones", label: "Elecciones institucionales", actions: ["ver", "crear", "editar", "configurar_tarjeta", "abrir", "suspender", "reabrir", "cerrar", "cerrar_definitivo", "votar", "ver_votos", "validar_votos", "anular_votos", "gestionar_escrutinio", "configurar_totales_territoriales", "editar_total_esperado", "agregar_votos_manuales", "validar_votos_manuales", "agregar_votos_territoriales", "enviar_mapa_escrutinio", "ver_votos_territoriales", "validar_votos_territoriales", "rechazar_votos_territoriales", "devolver_votos_territoriales", "ver_historial_municipio", "actualizar_resultados", "eliminar_actualizaciones", "publicar_preliminares", "publicar_resultados", "declarar_ganador", "ver_auditoria", "ver_mapa", "editar_mapa", "ver_sala_en_vivo", "generar_acta", "ver_actualizaciones", "publicar_actualizacion"] },
   { resource: "recordatorios", label: "Recordatorios internos", actions: ["ver", "gestionar"] },
   { resource: "verificaciones", label: "Verificación documental y QR", actions: ["generar", "revocar", "ver_admin"] },
 ] as const satisfies readonly {
@@ -266,6 +267,7 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   ver_historial_municipio: "Ver historial municipal",
   configurar_totales_territoriales: "Configurar totales territoriales",
   editar_total_esperado: "Editar total esperado",
+  eliminar_actualizaciones: "Eliminar actualizaciones electorales",
 };
 
 export const USER_PERMISSION_DESCRIPTIONS: Partial<Record<PermissionAction, string>> = {
@@ -290,6 +292,7 @@ export const USER_PERMISSION_DESCRIPTIONS: Partial<Record<PermissionAction, stri
   rechazar_votos_territoriales: "Permite rechazar resultados territoriales y dejar trazabilidad de la decisión.",
   devolver_votos_territoriales: "Permite devolver un resultado territorial para corrección, dejando historial de la devolución.",
   publicar_actualizacion: "Permite publicar una actualización pública usando únicamente datos validados.",
+  eliminar_actualizaciones: "Permite eliminar definitivamente actualizaciones electorales publicadas o preliminares. No elimina votos ni la elección.",
   ver_historial_municipio: "Permite ver el historial interno de cambios y revisión de cada municipio o zona.",
 };
 
@@ -310,7 +313,7 @@ const adjudicatorWrite = [
 ] as PermissionKey[];
 const selfService = ["perfil:edit","perfil:edit_public"] as PermissionKey[];
 const selectionManage = ["seleccion:view","seleccion:create","seleccion:edit","seleccion:publish","seleccion:close","seleccion:cancel","seleccion:view_applications","seleccion:edit_applications","seleccion:evaluate_applications","seleccion:update_application_status","seleccion:edit_public_message","seleccion:generar_cartas","seleccion:editar_cartas_publicas","seleccion:view_dependency"] as PermissionKey[];
-const electionManage = ["elecciones:ver","elecciones:crear","elecciones:editar","elecciones:configurar_tarjeta","elecciones:abrir","elecciones:suspender","elecciones:reabrir","elecciones:cerrar","elecciones:cerrar_definitivo","elecciones:votar","elecciones:ver_votos","elecciones:validar_votos","elecciones:anular_votos","elecciones:gestionar_escrutinio","elecciones:configurar_totales_territoriales","elecciones:editar_total_esperado","elecciones:agregar_votos_manuales","elecciones:validar_votos_manuales","elecciones:agregar_votos_territoriales","elecciones:enviar_mapa_escrutinio","elecciones:ver_votos_territoriales","elecciones:validar_votos_territoriales","elecciones:rechazar_votos_territoriales","elecciones:devolver_votos_territoriales","elecciones:ver_historial_municipio","elecciones:actualizar_resultados","elecciones:publicar_preliminares","elecciones:publicar_resultados","elecciones:declarar_ganador","elecciones:ver_auditoria","elecciones:ver_mapa","elecciones:editar_mapa","elecciones:ver_sala_en_vivo","elecciones:generar_acta","elecciones:ver_actualizaciones","elecciones:publicar_actualizacion"] as PermissionKey[];
+const electionManage = ["elecciones:ver","elecciones:crear","elecciones:editar","elecciones:configurar_tarjeta","elecciones:abrir","elecciones:suspender","elecciones:reabrir","elecciones:cerrar","elecciones:cerrar_definitivo","elecciones:votar","elecciones:ver_votos","elecciones:validar_votos","elecciones:anular_votos","elecciones:gestionar_escrutinio","elecciones:configurar_totales_territoriales","elecciones:editar_total_esperado","elecciones:agregar_votos_manuales","elecciones:validar_votos_manuales","elecciones:agregar_votos_territoriales","elecciones:enviar_mapa_escrutinio","elecciones:ver_votos_territoriales","elecciones:validar_votos_territoriales","elecciones:rechazar_votos_territoriales","elecciones:devolver_votos_territoriales","elecciones:ver_historial_municipio","elecciones:actualizar_resultados","elecciones:eliminar_actualizaciones","elecciones:publicar_preliminares","elecciones:publicar_resultados","elecciones:declarar_ganador","elecciones:ver_auditoria","elecciones:ver_mapa","elecciones:editar_mapa","elecciones:ver_sala_en_vivo","elecciones:generar_acta","elecciones:ver_actualizaciones","elecciones:publicar_actualizacion"] as PermissionKey[];
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
