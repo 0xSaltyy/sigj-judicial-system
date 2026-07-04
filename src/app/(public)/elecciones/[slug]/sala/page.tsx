@@ -93,7 +93,7 @@ export default async function LiveScrutinyRoom({
         </section>
         <div className="mt-6 flex justify-center gap-2">
           <Button asChild variant="outline">
-            <Link href={`/elecciones/${slug}/mapa`}>Mapa electoral</Link>
+            <Link href={`/elecciones/${slug}/mapa`}>Visualización general</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href={`/elecciones/${slug}/resultados`}>Resultados detallados</Link>

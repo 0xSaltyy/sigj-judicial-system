@@ -79,7 +79,7 @@ export async function reviewManualVoteBatch(formData:FormData){
 
 export async function publishElectionResults(formData:FormData){
   const parsed=z.object({election_id:dbUuid,kind:z.enum(["preliminary","final","winner"]),winner_option_id:dbUuid.optional().or(z.literal("")),note:z.string().trim().max(1000).optional()}).safeParse(Object.fromEntries(formData));if(!parsed.success)redirect("/admin/elecciones?error=Publicación%20inválida");
-  const permission=parsed.data.kind==="preliminary"?PERMISSIONS.electionsPublishPreliminary:parsed.data.kind==="final"?PERMISSIONS.electionsPublishResults:PERMISSIONS.electionsDeclareWinner;
+  const permission=parsed.data.kind==="preliminary"?PERMISSIONS.electionsPublishPreliminary:parsed.data.kind==="final"?PERMISSIONS.electionsPublishFinalResults:PERMISSIONS.electionsDeclareWinner;
   const session=await requirePermission(permission);
   const {error}=await session.supabase.rpc("publish_election_results",{p_election_id:parsed.data.election_id,p_kind:parsed.data.kind,p_winner_option_id:parsed.data.winner_option_id||null,p_note:parsed.data.note||""});
   if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent(error.message)}`);
@@ -88,6 +88,50 @@ export async function publishElectionResults(formData:FormData){
   revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);
   if(election?.slug){revalidatePath(`/elecciones/${election.slug}/resultados`);revalidatePath(`/elecciones/${election.slug}/mapa`);revalidatePath(`/elecciones/${election.slug}/sala`);}
   redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=Resultados%20actualizados`);
+}
+
+export async function configureElectionExpectedTotal(formData:FormData){
+  const parsed=z.object({election_id:dbUuid,total_expected_votes:z.coerce.number().int().min(1).max(100000000),reason:z.string().trim().max(1000).optional()}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)redirect("/admin/elecciones?error=Total%20esperado%20inv%C3%A1lido");
+  const session=await requirePermission(PERMISSIONS.electionsConfigureExpectedTotal);
+  const {error}=await session.supabase.rpc("configure_election_expected_total",{p_election_id:parsed.data.election_id,p_total:parsed.data.total_expected_votes,p_reason:parsed.data.reason||""});
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/resultados`);
+  redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=Total%20esperado%20configurado`);
+}
+
+export async function saveElectionCountBatch(formData:FormData){
+  const raw=Object.fromEntries(formData);
+  const parsed=z.object({election_id:dbUuid,annulled_votes:z.coerce.number().int().min(0).max(100000000).default(0),rejected_votes:z.coerce.number().int().min(0).max(100000000).default(0),submit:z.string().optional(),note:z.string().trim().max(1000).optional()}).safeParse(raw);
+  if(!parsed.success)redirect("/admin/elecciones?error=Lote%20de%20votos%20inv%C3%A1lido");
+  const session=await requirePermission(PERMISSIONS.electionsAddVotes);
+  const {data:options}=await session.supabase.from("election_options").select("id").eq("election_id",parsed.data.election_id).eq("active",true).order("display_order");
+  const optionCounts:Record<string,number>={};
+  for(const option of options??[]) optionCounts[option.id]=Math.max(0,Number(raw[`option_${option.id}`]??0)||0);
+  const totalEntered=Object.values(optionCounts).reduce((sum,value)=>sum+value,0)+parsed.data.annulled_votes+parsed.data.rejected_votes;
+  if(totalEntered<=0)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent("Ingrese al menos un voto.")}`);
+  const shouldSubmit=parsed.data.submit!=="draft";
+  const {error}=await session.supabase.rpc("save_election_count_batch",{p_election_id:parsed.data.election_id,p_option_counts:optionCounts,p_annulled_votes:parsed.data.annulled_votes,p_rejected_votes:parsed.data.rejected_votes,p_submit:shouldSubmit,p_note:parsed.data.note||""});
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/resultados`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/escrutinio`);
+  redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=${encodeURIComponent(shouldSubmit?"Lote enviado a revisión. Aún no está publicado.":"Borrador guardado. Aún no cuenta en revisión ni publicación.")}`);
+}
+
+export async function reviewElectionCountBatch(formData:FormData){
+  const parsed=z.object({election_id:dbUuid,batch_id:dbUuid,status:z.enum(["validated","returned","rejected"]),note:z.string().trim().max(1000).optional()}).safeParse(Object.fromEntries(formData));
+  if(!parsed.success)redirect("/admin/elecciones?error=Revisi%C3%B3n%20de%20votos%20inv%C3%A1lida");
+  if(["returned","rejected"].includes(parsed.data.status)&&!parsed.data.note?.trim())redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent("Explique qué debe corregirse.")}`);
+  const permission=parsed.data.status==="validated"?PERMISSIONS.electionsValidateVotes:parsed.data.status==="returned"?PERMISSIONS.electionsReturnVotes:PERMISSIONS.electionsRejectVotes;
+  const session=await requirePermission(permission);
+  const {error}=await session.supabase.rpc("review_election_count_batch",{p_batch_id:parsed.data.batch_id,p_status:parsed.data.status,p_note:parsed.data.note||""});
+  if(error)redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/resultados`);
+  revalidatePath(`/admin/elecciones/${parsed.data.election_id}/actualizaciones`);
+  redirect(`/admin/elecciones/${parsed.data.election_id}/resultados?success=Lote%20de%20votos%20revisado`);
 }
 
 export async function updateElectionMapZone(formData:FormData){
