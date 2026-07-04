@@ -51,11 +51,13 @@ export default async function ElectionResultsAdmin({params,searchParams}:{params
       <summary className="cursor-pointer font-semibold">¿Qué significa esto?</summary>
       <p className="mt-2 leading-6">El flujo normal usa un total esperado único de la elección. Se agregan lotes de votos por tarjeta electoral, se revisan/validan y solo después una actualización humana publica porcentajes. El sistema prepara el acta al llegar al 100%, pero los resultados definitivos y el ganador oficial siguen siendo decisiones manuales autorizadas.</p>
     </details>
-    <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
       <Info title="Total esperado" detail={expected?expected.toLocaleString("es-CO"):"Sin configurar"}/>
       <Info title="Validado/publicado" detail={`${totalValid.toLocaleString("es-CO")} votos · ${formatPercent(progress)}`}/>
       <Info title="En revisión" detail={`${inReview.toLocaleString("es-CO")} votos pendientes`}/>
       <Info title="Restante" detail={expected?`${remaining.toLocaleString("es-CO")} votos`:"Configure el total primero"}/>
+      <Info title="Avance del escrutinio" detail={formatPercent(progress)}/>
+      <Info title="Última actualización pública" detail={updateRows[0]?`#${updateRows[0].update_number} · ${formatPercent(Number(updateRows[0].progress_percentage))}`:"Sin publicar"}/>
     </section>
     {(expected<=0||inReview>0||draft.length>0||returned.length>0||rejected.length>0||hasValidatedUnpublished||progress>=100)&&<section className="mb-5 grid gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
       {expected<=0&&<p>Configure el total esperado de votos antes de agregar o publicar conteos.</p>}
@@ -88,7 +90,7 @@ export default async function ElectionResultsAdmin({params,searchParams}:{params
     <section className="mb-5 rounded-xl border bg-white p-5">
       <h2 className="font-semibold text-[#153553]">Agregar votos</h2>
       <p className="mt-1 text-sm text-muted-foreground">Registre votos por tarjeta electoral. Los lotes enviados pasan por revisión y no se publican automáticamente.</p>
-      {expected>0?<div className="mt-4"><ElectionCountEntryForm electionId={id} expected={expected} counted={totalValid} inReview={inReview} options={optionRows}/></div>:<p className="mt-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Configure primero el total esperado de votos.</p>}
+      {expected>0?<div className="mt-4"><ElectionCountEntryForm electionId={id} expected={expected} counted={totalValid} inReview={inReview} options={optionRows} defaults={returned[0]??null}/></div>:<p className="mt-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">Configure primero el total esperado de votos.</p>}
     </section>
     <section className="mb-5 rounded-xl border bg-white p-5">
       <h2 className="font-semibold text-[#153553]">Votos en revisión</h2>
@@ -110,6 +112,19 @@ export default async function ElectionResultsAdmin({params,searchParams}:{params
     <section className="mb-5 rounded-xl border bg-white p-5">
       <h2 className="font-semibold text-[#153553]">Publicación y cierre</h2>
       <p className="mt-1 text-sm text-muted-foreground">El público ve porcentajes de la última actualización publicada. No se publican conteos brutos ni datos internos.</p>
+      <div className="mt-4 rounded-xl border bg-slate-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-[#153553]">Previsualización de próxima actualización</p>
+            <p className="mt-1 text-xs text-muted-foreground">Se calculará únicamente con votos validados. Borradores y lotes en revisión quedan fuera.</p>
+          </div>
+          <Badge variant={hasValidatedUnpublished ? "default" : "outline"}>{hasValidatedUnpublished ? "Hay cambios por publicar" : "Sin cambios validados nuevos"}</Badge>
+        </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-3">
+          {totalRows.map((row)=><div key={`preview-${row.option_id}`} className="rounded border bg-white p-3 text-sm"><p className="text-xs font-semibold uppercase text-muted-foreground">{row.card_label}</p><p className="mt-1 break-words font-medium">{row.candidate_name}</p><p className="mt-2 text-lg font-bold text-[#153553]">{formatPercent(expected?Number(row.total_valid)/expected*100:0)}</p></div>)}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">Avance previo publicado: {formatPercent(latestProgress)} · Próximo avance validado: {formatPercent(progress)}</p>
+      </div>
       <div className="mt-4 flex flex-wrap gap-2"><form action={createElectionUpdateSnapshot}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="snapshot_type" value="preliminary"/><SubmitButton pendingLabel="Publicando…" confirmMessage="Publicará una actualización con votos validados. No incluirá borradores ni lotes en revisión. ¿Continuar?">Publicar actualización</SubmitButton></form><PublishButton id={id} kind="final" label="Publicar resultados definitivos"/><form action={publishElectionResults} className="flex flex-wrap gap-2"><input type="hidden" name="election_id" value={id}/><input type="hidden" name="kind" value="winner"/><select name="winner_option_id" className="h-9 rounded-md border px-3 text-sm">{optionRows.map((option)=><option key={option.id} value={option.id}>{option.candidate_name}</option>)}</select><SubmitButton pendingLabel="Declarando…" confirmMessage="Esta acción declarará el ganador oficial seleccionado. No se realiza automáticamente. ¿Continuar?">Declarar ganador oficial</SubmitButton></form></div>
     </section>
     <section className="rounded-xl border bg-white p-5">

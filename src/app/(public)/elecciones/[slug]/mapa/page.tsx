@@ -19,6 +19,8 @@ export default async function PublicElectionMap({ params }: { params: Promise<{ 
   const rows = (totals ?? []) as PublicTotal[];
   const visible = ["preliminary_results", "definitively_closed", "final_results_published"].includes(election.status);
   const progress = Math.max(0, Math.min(100, Number(rows[0]?.progress_percent ?? 0)));
+  const winner = rows.find((row) => row.option_id === election.winner_option_id);
+  const winnerVisible = Boolean(election.winner_option_id && election.winner_published_at && winner);
 
   return (
     <>
@@ -47,6 +49,7 @@ export default async function PublicElectionMap({ params }: { params: Promise<{ 
                   <Badge variant="outline">Actualización pública</Badge>
                   <h2 className="mt-3 text-2xl font-semibold text-[#153553]">Avance general del escrutinio</h2>
                   <p className="mt-1 text-sm text-muted-foreground">La visualización pública muestra porcentajes, no conteos internos.</p>
+                  {winnerVisible && <p className="mt-3 text-sm font-semibold text-emerald-800">Ganador oficial declarado: {winner?.candidate_name}</p>}
                 </div>
                 <div className="text-right">
                   <p className="text-4xl font-bold text-[#102d49]">{formatPercent(progress)}</p>
@@ -70,6 +73,7 @@ export default async function PublicElectionMap({ params }: { params: Promise<{ 
                   <div className="p-5">
                     <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9a752f]">{row.card_label}</p>
                     <h2 className="mt-2 break-words text-lg font-semibold text-[#153553]">{row.candidate_name}</h2>
+                    {winnerVisible && election.winner_option_id === row.option_id && <Badge className="mt-3 bg-emerald-700">Ganador oficial</Badge>}
                     <p className="mt-4 text-4xl font-bold text-[#102d49]">{formatPercent(Number(row.public_percent))}</p>
                     <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
                       <div className="h-full rounded-full bg-[#153b5c]" style={{ width: `${Math.min(100, Math.max(0, Number(row.public_percent)))}%` }} />

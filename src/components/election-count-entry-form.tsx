@@ -14,18 +14,20 @@ export function ElectionCountEntryForm({
   counted,
   inReview,
   options,
+  defaults,
 }: {
   electionId: string;
   expected: number;
   counted: number;
   inReview: number;
   options: Option[];
+  defaults?: { option_counts?: Record<string, number> | null; annulled_votes?: number | null; rejected_votes?: number | null; note?: string | null } | null;
 }) {
   const [values, setValues] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
-    for (const option of options) initial[option.id] = 0;
-    initial.annulled_votes = 0;
-    initial.rejected_votes = 0;
+    for (const option of options) initial[option.id] = Number(defaults?.option_counts?.[option.id] ?? 0);
+    initial.annulled_votes = Number(defaults?.annulled_votes ?? 0);
+    initial.rejected_votes = Number(defaults?.rejected_votes ?? 0);
     return initial;
   });
   const added = useMemo(
@@ -44,6 +46,7 @@ export function ElectionCountEntryForm({
       <input type="hidden" name="election_id" value={electionId} />
       <div className="rounded border bg-white p-3 text-xs text-muted-foreground">
         <p className="font-semibold text-[#153553]">Agregar votos al conteo general</p>
+        {defaults && <p className="mt-1 rounded bg-amber-50 p-2 text-amber-900">Corrección sugerida desde un lote devuelto. Revise los valores antes de enviarlos nuevamente.</p>}
         <p>Total esperado: {expected.toLocaleString("es-CO")}</p>
         <p>Validado/publicado: {counted.toLocaleString("es-CO")} · En revisión: {inReview.toLocaleString("es-CO")} · Restante disponible: {remaining.toLocaleString("es-CO")}</p>
       </div>
@@ -61,7 +64,7 @@ export function ElectionCountEntryForm({
       </div>
       <label className="grid gap-1 text-sm font-medium">
         Observación
-        <Textarea name="note" placeholder="Origen del conteo, acta, mesa, observación o soporte interno." />
+        <Textarea name="note" defaultValue={defaults?.note ?? ""} placeholder="Origen del conteo, acta, mesa, observación o soporte interno." />
       </label>
       <div className={`rounded border p-3 text-xs ${over ? "border-red-200 bg-red-50 text-red-800" : complete ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "bg-white text-muted-foreground"}`}>
         <p className="font-semibold text-current">Confirmar conteo a registrar</p>

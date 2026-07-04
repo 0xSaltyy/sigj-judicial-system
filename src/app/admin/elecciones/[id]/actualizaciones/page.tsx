@@ -59,7 +59,6 @@ export default async function ElectionUpdatesAdmin({
             <option value="preliminary">Actualización preliminar</option>
             <option value="final">Resultados definitivos</option>
             <option value="winner">Ganador oficial</option>
-            <option value="map">Mapa</option>
           </select>
           <Textarea name="note" placeholder="Nota pública opcional" className="min-h-10" />
           <SubmitButton pendingLabel="Publicando…" confirmMessage="Esta acción publicará una actualización con los votos validados. No incluirá borradores, votos en revisión ni votos devueltos. ¿Continuar?">Publicar actualización</SubmitButton>
@@ -116,7 +115,7 @@ export default async function ElectionUpdatesAdmin({
 }
 
 function label(value: string) {
-  return ({ preliminary: "Preliminar", final: "Final", winner: "Ganador", map: "Mapa", act: "Acta" } as Record<string, string>)[value] ?? value;
+  return ({ preliminary: "Preliminar", final: "Final", winner: "Ganador", map: "Visualización heredada", act: "Acta" } as Record<string, string>)[value] ?? value;
 }
 
 function formatDate(value: string) {
