@@ -123,6 +123,7 @@ export const PERMISSIONS = {
   electionsDefinitiveClose: { resource: "elecciones", action: "cerrar_definitivo" },
   electionsVote: { resource: "elecciones", action: "votar" },
   electionsViewVotes: { resource: "elecciones", action: "ver_votos" },
+  electionsAnalyzeVotes: { resource: "elecciones", action: "analizar_votos" },
   electionsValidateVotes: { resource: "elecciones", action: "validar_votos" },
   electionsAnnulVotes: { resource: "elecciones", action: "anular_votos" },
   electionsScrutiny: { resource: "elecciones", action: "gestionar_escrutinio" },

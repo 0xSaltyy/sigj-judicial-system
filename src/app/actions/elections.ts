@@ -1,6 +1,8 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { enforcePermission, PERMISSIONS, requirePermission } from "@/lib/auth/permissions";
@@ -42,7 +44,8 @@ export async function submitOnlineVote(formData:FormData){
   const parsed=z.object({election_id:dbUuid,option_id:dbUuid,slug:z.string().min(2),discord_username:z.string().trim().min(2).max(120),discord_id:z.string().trim().max(120).optional(),visible_name:z.string().trim().max(160).optional(),roblox_username:z.string().trim().max(120).optional(),contact_note:z.string().trim().max(500).optional()}).safeParse(Object.fromEntries(formData));
   const slug=String(formData.get("slug")||"");if(!parsed.success)redirect(`/elecciones/${encodeURIComponent(slug)}/votar?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   const supabase=await createClient();if(!supabase)redirect(`/elecciones/${parsed.data.slug}/votar?error=Servicio%20no%20disponible`);
-  const {data,error}=await supabase.rpc("submit_online_vote",{p_election_id:parsed.data.election_id,p_option_id:parsed.data.option_id,p_discord_username:parsed.data.discord_username,p_discord_id:parsed.data.discord_id||"",p_visible_name:parsed.data.visible_name||"",p_roblox_username:parsed.data.roblox_username||"",p_contact_note:parsed.data.contact_note||""});
+  const metadata=await voteMetadataHashes();
+  const {data,error}=await supabase.rpc("submit_online_vote",{p_election_id:parsed.data.election_id,p_option_id:parsed.data.option_id,p_discord_username:parsed.data.discord_username,p_discord_id:parsed.data.discord_id||"",p_visible_name:parsed.data.visible_name||"",p_roblox_username:parsed.data.roblox_username||"",p_contact_note:parsed.data.contact_note||"",p_ip_hash:metadata.ipHash,p_user_agent_hash:metadata.userAgentHash,p_device_hint_hash:metadata.deviceHintHash});
   if(error||!data?.receipt_code)redirect(`/elecciones/${parsed.data.slug}/votar?error=${encodeURIComponent(error?.message??"No fue posible registrar el voto")}`);
   redirect(`/elecciones/comprobante?receipt=${encodeURIComponent(String(data.receipt_code))}&discord=${encodeURIComponent(parsed.data.discord_id||parsed.data.discord_username)}`);
 }
@@ -247,4 +250,38 @@ export async function generateElectionAct(formData:FormData){
   const {data,error}=await session.supabase.rpc("generate_election_act",{p_election_id:parsed.data.election_id});
   if(error||!data)redirect(`/admin/elecciones/${parsed.data.election_id}/acta?error=${encodeURIComponent(error?.message??"No fue posible generar el acta")}`);
   revalidatePath(`/admin/elecciones/${parsed.data.election_id}/acta`);redirect(`/admin/elecciones/${parsed.data.election_id}/acta?success=Acta%20electoral%20generada`);
+}
+
+async function voteMetadataHashes() {
+  const incoming = await headers();
+  const ip = firstHeaderValue(incoming.get("x-forwarded-for"))
+    || firstHeaderValue(incoming.get("x-real-ip"))
+    || firstHeaderValue(incoming.get("cf-connecting-ip"))
+    || firstHeaderValue(incoming.get("x-vercel-forwarded-for"));
+  const userAgent = incoming.get("user-agent") || "";
+  const deviceHint = [
+    incoming.get("sec-ch-ua") || "",
+    incoming.get("sec-ch-ua-platform") || "",
+    incoming.get("accept-language") || "",
+    userAgent,
+  ].filter(Boolean).join("|");
+  return {
+    ipHash: hashMetadata(ip),
+    userAgentHash: hashMetadata(userAgent),
+    deviceHintHash: hashMetadata(deviceHint),
+  };
+}
+
+function firstHeaderValue(value: string | null) {
+  return value?.split(",")[0]?.trim() || "";
+}
+
+function hashMetadata(value: string | null | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) return null;
+  const salt = process.env.ELECTION_METADATA_HASH_SALT
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || process.env.OWNER_EMAIL
+    || "sigj-election-metadata";
+  return createHash("sha256").update(`${salt}:${normalized}`).digest("hex");
 }

@@ -65,6 +65,7 @@ export const PERMISSION_ACTIONS = [
   "cerrar_definitivo",
   "votar",
   "ver_votos",
+  "analizar_votos",
   "validar_votos",
   "anular_votos",
   "gestionar_escrutinio",
@@ -131,7 +132,7 @@ export const PERMISSION_CATALOG = [
   { resource: "notificaciones", label: "Notificaciones internas", actions: ["view", "manage"] },
   { resource: "perfil", label: "Perfil propio", actions: ["edit", "edit_public", "publish_profile", "edit_institution", "edit_dependency", "edit_title"] },
   { resource: "seleccion", label: "Procesos de selección", actions: ["view", "create", "edit", "publish", "close", "cancel", "view_applications", "edit_applications", "evaluate_applications", "update_application_status", "edit_public_message", "generar_cartas", "editar_cartas_publicas", "view_all", "view_institution", "view_dependency"] },
-  { resource: "elecciones", label: "Elecciones institucionales", actions: ["ver", "crear", "editar", "configurar_tarjeta", "abrir", "suspender", "reabrir", "cerrar", "cerrar_definitivo", "votar", "ver_votos", "validar_votos", "anular_votos", "gestionar_escrutinio", "configurar_total_esperado", "agregar_votos", "revisar_votos", "devolver_votos", "rechazar_votos", "actualizar_resultados", "eliminar_actualizaciones", "publicar_actualizacion", "publicar_preliminares", "publicar_resultados", "publicar_resultados_definitivos", "declarar_ganador", "ver_auditoria", "ver_sala_en_vivo", "generar_acta", "ver_actualizaciones"] },
+  { resource: "elecciones", label: "Elecciones institucionales", actions: ["ver", "crear", "editar", "configurar_tarjeta", "abrir", "suspender", "reabrir", "cerrar", "cerrar_definitivo", "votar", "ver_votos", "analizar_votos", "validar_votos", "anular_votos", "gestionar_escrutinio", "configurar_total_esperado", "agregar_votos", "revisar_votos", "devolver_votos", "rechazar_votos", "actualizar_resultados", "eliminar_actualizaciones", "publicar_actualizacion", "publicar_preliminares", "publicar_resultados", "publicar_resultados_definitivos", "declarar_ganador", "ver_auditoria", "ver_sala_en_vivo", "generar_acta", "ver_actualizaciones"] },
   { resource: "recordatorios", label: "Recordatorios internos", actions: ["ver", "gestionar"] },
   { resource: "verificaciones", label: "Verificación documental y QR", actions: ["generar", "revocar", "ver_admin"] },
 ] as const satisfies readonly {
@@ -241,6 +242,7 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   cerrar_definitivo: "Cerrar definitivamente",
   votar: "Votar",
   ver_votos: "Ver votos",
+  analizar_votos: "Analizar votos sospechosos",
   validar_votos: "Validar votos",
   anular_votos: "Anular votos",
   gestionar_escrutinio: "Gestionar escrutinio",
@@ -295,6 +297,7 @@ export const USER_PERMISSION_DESCRIPTIONS: Partial<Record<PermissionAction, stri
   edit_own: "Permite actualizar los datos seguros del perfil propio sin modificar rol, correo ni protecciones.",
   deactivate: "Permite desactivar usuarios dentro del alcance, salvo cuentas protegidas.",
   reactivate: "Permite reactivar usuarios dentro del alcance autorizado.",
+  analizar_votos: "Permite ver un análisis solo lectura de votos ya registrados para detectar señales sospechosas. No permite modificar votos ni resultados.",
   configurar_total_esperado: "Permite configurar o cambiar el total esperado de votos de la elección con auditoría.",
   agregar_votos: "Permite agregar votos nuevos al conteo general de la elección. No publica resultados al público.",
   revisar_votos: "Permite revisar lotes de votos enviados antes de que cuenten en resultados validados.",
@@ -331,7 +334,7 @@ const adjudicatorWrite = [
 ] as PermissionKey[];
 const selfService = ["perfil:edit","perfil:edit_public"] as PermissionKey[];
 const selectionManage = ["seleccion:view","seleccion:create","seleccion:edit","seleccion:publish","seleccion:close","seleccion:cancel","seleccion:view_applications","seleccion:edit_applications","seleccion:evaluate_applications","seleccion:update_application_status","seleccion:edit_public_message","seleccion:generar_cartas","seleccion:editar_cartas_publicas","seleccion:view_dependency"] as PermissionKey[];
-const electionManage = ["elecciones:ver","elecciones:crear","elecciones:editar","elecciones:configurar_tarjeta","elecciones:abrir","elecciones:suspender","elecciones:reabrir","elecciones:cerrar","elecciones:cerrar_definitivo","elecciones:votar","elecciones:ver_votos","elecciones:validar_votos","elecciones:anular_votos","elecciones:gestionar_escrutinio","elecciones:configurar_total_esperado","elecciones:agregar_votos","elecciones:revisar_votos","elecciones:devolver_votos","elecciones:rechazar_votos","elecciones:actualizar_resultados","elecciones:eliminar_actualizaciones","elecciones:publicar_preliminares","elecciones:publicar_resultados","elecciones:publicar_resultados_definitivos","elecciones:declarar_ganador","elecciones:ver_auditoria","elecciones:ver_sala_en_vivo","elecciones:generar_acta","elecciones:ver_actualizaciones","elecciones:publicar_actualizacion"] as PermissionKey[];
+const electionManage = ["elecciones:ver","elecciones:crear","elecciones:editar","elecciones:configurar_tarjeta","elecciones:abrir","elecciones:suspender","elecciones:reabrir","elecciones:cerrar","elecciones:cerrar_definitivo","elecciones:votar","elecciones:ver_votos","elecciones:analizar_votos","elecciones:validar_votos","elecciones:anular_votos","elecciones:gestionar_escrutinio","elecciones:configurar_total_esperado","elecciones:agregar_votos","elecciones:revisar_votos","elecciones:devolver_votos","elecciones:rechazar_votos","elecciones:actualizar_resultados","elecciones:eliminar_actualizaciones","elecciones:publicar_preliminares","elecciones:publicar_resultados","elecciones:publicar_resultados_definitivos","elecciones:declarar_ganador","elecciones:ver_auditoria","elecciones:ver_sala_en_vivo","elecciones:generar_acta","elecciones:ver_actualizaciones","elecciones:publicar_actualizacion"] as PermissionKey[];
 
 export const DEFAULT_ROLE_PERMISSION_KEYS: Record<AppRole, readonly PermissionKey[]> = {
   SUPER_ADMIN: allPermissionKeys,
