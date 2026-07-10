@@ -11,7 +11,7 @@ import { can, requirePermission } from "@/lib/auth/permissions";
 import { HEARING_LIST_REALTIME } from "@/lib/realtime-subscriptions";
 
 type Query={q?:string;status?:string;dependency?:string;institution?:string;from?:string;to?:string;scope?:string};
-type HearingRow={id:string;case_id:string;title:string;hearing_type:string;scheduled_at:string;end_at:string|null;room:string|null;virtual_link:string|null;status:string;participants:unknown;created_by:string|null;archived_at:string|null;internal_number:string|null;judicial_number:string|null;case_title:string|null;ticket_name:string|null;dependency_id:string|null;assigned_judge_id:string|null;dependency_name:string|null;judge_name:string|null;judge_is_owner:boolean|null;minute_id:string|null;minute_status:string|null};
+type HearingRow={id:string;case_id:string;title:string;hearing_type:string;scheduled_at:string|null;end_at:string|null;room:string|null;virtual_link:string|null;status:string;participants:unknown;created_by:string|null;archived_at:string|null;internal_number:string|null;judicial_number:string|null;case_title:string|null;ticket_name:string|null;dependency_id:string|null;assigned_judge_id:string|null;dependency_name:string|null;judge_name:string|null;judge_is_owner:boolean|null;minute_id:string|null;minute_status:string|null};
 type SafeQueryResult<T>={data:T[];error?:SafeError|null};
 type SafeError={code?:string;message?:string;details?:string;hint?:string};
 
@@ -36,15 +36,16 @@ export default async function AdminHearingsPage({searchParams}:{searchParams:Pro
     if(query.status&&item.status!==query.status)return false;
     if(query.dependency&&item.dependencyId!==query.dependency)return false;
     if(institutionIds&&!institutionIds.has(item.dependencyId??""))return false;
-    if(query.from&&new Date(item.scheduledAt)<new Date(`${query.from}T00:00:00`))return false;
-    if(query.to&&new Date(item.scheduledAt)>new Date(`${query.to}T23:59:59`))return false;
+    const scheduledTime=safeTime(item.scheduledAt);
+    if(query.from&&(!scheduledTime||scheduledTime<new Date(`${query.from}T00:00:00`).getTime()))return false;
+    if(query.to&&(!scheduledTime||scheduledTime>new Date(`${query.to}T23:59:59`).getTime()))return false;
     if(query.scope==="mine"&&item.judgeId!==profile.id&&item.createdById!==profile.id)return false;
     if(query.scope==="dependency"&&item.dependencyId!==profile.dependency_id)return false;
     return true;
   });
   const now=Date.now();const today=new Date();today.setHours(0,0,0,0);const tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);
-  const todayCount=items.filter((item)=>{const value=new Date(item.scheduledAt);return value>=today&&value<tomorrow&&!isClosed(item.status);}).length;
-  const upcoming=items.filter((item)=>new Date(item.scheduledAt).getTime()>=now&&!isClosed(item.status)).length;
+  const todayCount=items.filter((item)=>{const value=safeTime(item.scheduledAt);return value!==null&&value>=today.getTime()&&value<tomorrow.getTime()&&!isClosed(item.status);}).length;
+  const upcoming=items.filter((item)=>{const value=safeTime(item.scheduledAt);return value!==null&&value>=now&&!isClosed(item.status);}).length;
   const completed=items.filter((item)=>["realizada","pendiente_acta","acta_generada"].includes(item.status)).length;
   const pendingMinutes=items.filter((item)=>item.status==="pendiente_acta").length;
   return <>
@@ -66,7 +67,7 @@ export default async function AdminHearingsPage({searchParams}:{searchParams:Pro
   </>;
 }
 
-function toItem(row:HearingRow,names:Map<string,string>){let status=normalizeStatus(row.status,row.archived_at);if(status==="realizada")status=row.minute_id?(row.minute_status==="Borrador"?"pendiente_acta":"acta_generada"):"pendiente_acta";const participants=Array.isArray(row.participants)?row.participants.map((p)=>typeof p==="string"?p:(p as {name?:string}).name??"").join(" "):"";return {id:row.id,title:row.title,type:row.hearing_type,scheduledAt:row.scheduled_at,endAt:row.end_at,status,radicado:row.internal_number??"Sin expediente",caseTitle:row.ticket_name??row.case_title??"Sin expediente",dependency:row.dependency_name??"Sin despacho",dependencyId:row.dependency_id,judge:row.judge_is_owner?"Lilith D'Amico":row.judge_name??"Sin juez asignado",judgeId:row.assigned_judge_id,location:row.room||row.virtual_link||"Sin ubicación",minuteId:row.minute_id,participants,createdBy:row.created_by?names.get(row.created_by)??"Usuario interno":"Sistema",createdById:row.created_by} satisfies HearingCalendarItem&{caseTitle:string;dependencyId:string|null;judgeId:string|null;participants:string;createdBy:string;createdById:string|null};}
+function toItem(row:HearingRow,names:Map<string,string>){let status=normalizeStatus(row.status,row.archived_at);if(status==="realizada")status=row.minute_id?(row.minute_status==="Borrador"?"pendiente_acta":"acta_generada"):"pendiente_acta";const participants=Array.isArray(row.participants)?row.participants.map((p)=>typeof p==="string"?p:(p as {name?:string}).name??"").join(" "):"";return {id:row.id,title:row.title||"Audiencia sin título",type:row.hearing_type||"Audiencia",scheduledAt:isValidDate(row.scheduled_at)?row.scheduled_at:null,endAt:isValidDate(row.end_at)?row.end_at:null,status,radicado:row.internal_number??"Sin expediente",caseTitle:row.ticket_name??row.case_title??"Sin expediente",dependency:row.dependency_name??"Sin despacho",dependencyId:row.dependency_id,judge:row.judge_is_owner?"Lilith D'Amico":row.judge_name??"Sin juez asignado",judgeId:row.assigned_judge_id,location:row.room||row.virtual_link||"Sin ubicación",minuteId:row.minute_id,participants,createdBy:row.created_by?names.get(row.created_by)??"Usuario interno":"Sistema",createdById:row.created_by} satisfies HearingCalendarItem&{caseTitle:string;dependencyId:string|null;judgeId:string|null;participants:string;createdBy:string;createdById:string|null};}
 function normalizeStatus(value:string,archived:string|null){if(archived)return "archivada";const key=value.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_");return ({programada:"programada",en_curso:"en_curso",realizada:"realizada",aplazada:"aplazada",reprogramada:"reprogramada",cancelada:"cancelada",pendiente_de_acta:"pendiente_acta",acta_generada:"acta_generada",archivada:"archivada"} as Record<string,string>)[key]??"programada";}
 function isClosed(status:string){return ["realizada","pendiente_acta","acta_generada","cancelada","archivada"].includes(status);}
 function descendants(root:string,children:Map<string,string[]>){const result=new Set<string>([root]);const queue=[root];while(queue.length){for(const child of children.get(queue.shift()!)??[]){if(!result.has(child)){result.add(child);queue.push(child);}}}return result;}
@@ -132,7 +133,7 @@ async function loadHearingAgendaFallback(
       case_id:String(hearing.case_id),
       title:String(hearing.title||"Audiencia sin título"),
       hearing_type:String(hearing.hearing_type||"Audiencia"),
-      scheduled_at:String(hearing.scheduled_at||new Date(0).toISOString()),
+      scheduled_at:stringOrNull(hearing.scheduled_at),
       end_at:stringOrNull(hearing.end_at),
       room:stringOrNull(hearing.room),
       virtual_link:stringOrNull(hearing.virtual_link),
@@ -157,5 +158,7 @@ async function loadHearingAgendaFallback(
 
 function firstRelation(value:unknown):Record<string,unknown>|null{if(Array.isArray(value))return (value[0] as Record<string,unknown>|undefined)??null;return value&&typeof value==="object"?value as Record<string,unknown>:null;}
 function stringOrNull(value:unknown){return typeof value==="string"&&value.length?value:null;}
+function isValidDate(value:string|null|undefined){return Boolean(value)&&!Number.isNaN(new Date(value as string).getTime());}
+function safeTime(value:string|null|undefined){return isValidDate(value)?new Date(value as string).getTime():null;}
 function sanitizeError(error:unknown):SafeError{if(error&&typeof error==="object"){const source=error as Record<string,unknown>;return {code:stringOrNull(source.code)??undefined,message:stringOrNull(source.message)??undefined,details:stringOrNull(source.details)??undefined,hint:stringOrNull(source.hint)??undefined};}return {message:error instanceof Error?error.message:"Error desconocido"};}
 function logAdminDiagnostic(route:string,queryName:string,error:unknown,profile:{id:string;role:string;is_owner:boolean}|null){if(!error||process.env.NODE_ENV==="production")return;const safe=sanitizeError(error);console.error("Admin route diagnostic",{route,queryName,code:safe.code,message:safe.message,userId:profile?.id,role:profile?.role,isOwner:profile?.is_owner});}

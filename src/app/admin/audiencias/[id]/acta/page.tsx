@@ -93,8 +93,10 @@ export default async function HearingMinutes({
     can(profile, "print", "actas", { supabase }),
     can(profile, "archive", "actas", { supabase }),
   ]);
-  const local = (value?: string | null) =>
-    value ? new Date(value).toISOString().slice(0, 16) : "";
+  const local = (value?: string | null) => {
+    const date = value ? new Date(value) : null;
+    return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 16) : "";
+  };
   const editable = (!minute && canCreate) || (minute?.status === "Borrador" && canEdit);
   const [editLock, canTakeControl] = editable
     ? await Promise.all([

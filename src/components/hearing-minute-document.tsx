@@ -11,7 +11,7 @@ import { resolveTemplateStyle } from "@/lib/document-templates";
 
 type HearingDocument = {
   title: string;
-  scheduled_at: string;
+  scheduled_at: string | null;
   end_at?: string | null;
   room?: string | null;
   virtual_link?: string | null;
@@ -55,12 +55,14 @@ export function HearingMinuteDocument({
   caseRecord?: HearingCaseDocument | null;
   signatures: PrintableSignature[];
 }) {
-  const dateTime = (value: string) =>
-    new Intl.DateTimeFormat("es-CO", {
+  const dateTime = (value: string | null | undefined, fallback = "Fecha no definida") => {
+    const time = value ? new Date(value).getTime() : Number.NaN;
+    return Number.isNaN(time) ? fallback : new Intl.DateTimeFormat("es-CO", {
       dateStyle: "long",
       timeStyle: "short",
       timeZone: "America/Bogota",
-    }).format(new Date(value));
+    }).format(new Date(time));
+  };
   const style = resolveTemplateStyle("auto", [
     caseRecord?.dependency_name,
     caseRecord?.authority_type,
@@ -68,7 +70,7 @@ export function HearingMinuteDocument({
     minute?.chamber,
   ]);
   const start = dateTime(minute?.started_at ?? hearing.scheduled_at);
-  const end = minute?.ended_at ? dateTime(minute.ended_at) : "Pendiente";
+  const end = dateTime(minute?.ended_at, "Pendiente");
   const location = minute?.location_details || minute?.chamber || hearing.room || hearing.virtual_link || "Por definir";
 
   return (
