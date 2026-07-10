@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarCheck2, CalendarClock, CalendarPlus, ClipboardPenLine, Search } from "lucide-react";
 import { AdminPageHeader, MetricCard } from "@/components/admin-page";
 import { ActionMessage } from "@/components/action-message";
-import { HearingCalendar, type HearingCalendarItem, statusLabel } from "@/components/hearing-calendar";
+import { HearingCalendar, type HearingCalendarItem } from "@/components/hearing-calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -50,12 +50,12 @@ export default async function AdminHearingsPage({searchParams}:{searchParams:Pro
   const pendingMinutes=items.filter((item)=>item.status==="pendiente_acta").length;
   return <>
     <RealtimeRefresh channel="admin-hearings" subscriptions={HEARING_LIST_REALTIME}/>
-    <AdminPageHeader title="Agenda de audiencias" description="Calendario, búsqueda y seguimiento de audiencias dentro de su alcance institucional." action={canCreate?<Button asChild className="bg-[#153b5c]"><Link href="/admin/audiencias/nueva"><CalendarPlus className="size-4"/>Programar audiencia</Link></Button>:<Button disabled title="No tiene permiso para crear audiencias"><CalendarPlus className="size-4"/>Programar audiencia</Button>}/>
+    <AdminPageHeader title="Audiencias" description="Calendario, búsqueda y seguimiento de audiencias dentro de su alcance institucional." action={canCreate?<Button asChild className="bg-[#153b5c]"><Link href="/admin/audiencias/nueva"><CalendarPlus className="size-4"/>Programar audiencia</Link></Button>:<Button disabled title="No tiene permiso para crear audiencias"><CalendarPlus className="size-4"/>Programar audiencia</Button>}/>
     <ActionMessage error={query.error??(agenda.error?"No fue posible cargar la agenda completa. Se muestran los datos disponibles para su perfil.":undefined)} success={query.success}/>
     <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="Hoy" value={String(todayCount)} detail="Audiencias activas del día" icon={<CalendarCheck2 className="size-5"/>}/><MetricCard label="Próximas" value={String(upcoming)} detail="Programadas o reprogramadas" icon={<CalendarClock className="size-5"/>}/><MetricCard label="Realizadas" value={String(completed)} detail="Permanecen visibles en agenda" icon={<CalendarCheck2 className="size-5"/>}/><MetricCard label="Pendientes de acta" value={String(pendingMinutes)} detail="Requieren elaboración del acta" icon={<ClipboardPenLine className="size-5"/>}/></div>
     <form className="mb-5 grid min-w-0 gap-3 rounded-xl border bg-white p-4 md:grid-cols-2 xl:grid-cols-4">
       <label className="grid gap-1 text-xs font-medium xl:col-span-2">Buscar audiencia<Input name="q" defaultValue={query.q} placeholder="Radicado, título, tipo, participante, juez o ubicación…"/></label>
-      <Filter label="Estado" name="status" value={query.status}><option value="">Todos los estados</option>{["programada","en_curso","realizada","aplazada","reprogramada","cancelada","pendiente_acta","acta_generada","archivada"].map((status)=><option key={status} value={status}>{statusLabel(status)}</option>)}</Filter>
+      <Filter label="Estado" name="status" value={query.status}><option value="">Todos los estados</option>{["programada","en_curso","realizada","aplazada","reprogramada","cancelada","pendiente_acta","acta_generada","archivada"].map((status)=><option key={status} value={status}>{hearingStatusLabel(status)}</option>)}</Filter>
       <Filter label="Alcance" name="scope" value={query.scope}><option value="">Todo mi alcance</option><option value="mine">Mis audiencias</option>{canViewDependency&&<option value="dependency">Mi despacho</option>}{canViewInstitution&&<option value="institution">Mi institución</option>}{canViewAll&&<option value="all">Todas</option>}</Filter>
       <Filter label="Despacho" name="dependency" value={query.dependency}><option value="">Todos los despachos</option>{depRows.map((dep)=><option key={dep.id} value={dep.id}>{dep.name}</option>)}</Filter>
       <Filter label="Institución" name="institution" value={query.institution}><option value="">Todas las instituciones</option>{depRows.filter((dep)=>!dep.parent_id).map((dep)=><option key={dep.id} value={dep.id}>{dep.name}</option>)}</Filter>
@@ -72,6 +72,7 @@ function normalizeStatus(value:string,archived:string|null){if(archived)return "
 function isClosed(status:string){return ["realizada","pendiente_acta","acta_generada","cancelada","archivada"].includes(status);}
 function descendants(root:string,children:Map<string,string[]>){const result=new Set<string>([root]);const queue=[root];while(queue.length){for(const child of children.get(queue.shift()!)??[]){if(!result.has(child)){result.add(child);queue.push(child);}}}return result;}
 function Filter({label,name,value,children}:{label:string;name:string;value?:string;children:React.ReactNode}){return <label className="grid min-w-0 gap-1 text-xs font-medium">{label}<select name={name} defaultValue={value??""} className="h-9 min-w-0 rounded-md border bg-white px-3 text-sm font-normal">{children}</select></label>;}
+function hearingStatusLabel(status:string){return ({programada:"Programada",en_curso:"En curso",realizada:"Realizada",aplazada:"Aplazada",reprogramada:"Reprogramada",cancelada:"Cancelada",pendiente_acta:"Pendiente de acta",acta_generada:"Acta generada",archivada:"Archivada"} as Record<string,string>)[status]??status;}
 
 async function loadHearingAgenda(
   supabase: Awaited<ReturnType<typeof requirePermission>>["supabase"],
