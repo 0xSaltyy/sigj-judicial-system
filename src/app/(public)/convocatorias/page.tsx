@@ -13,7 +13,7 @@ export default async function PublicSelections({
   const query = await searchParams;
   const supabase = await createClient();
   const { data } = supabase
-    ? await supabase.from("public_selection_processes").select("*").order("closing_at")
+    ? await supabase.from("public_selection_processes").select("id,slug,title,position_title,institution_name,dependency_name,vacancies,closing_at,description").order("closing_at").limit(50)
     : { data: [] };
   const normalized = (query.q ?? "").trim().toLocaleLowerCase("es");
   const institutions = Array.from(new Set((data ?? []).map((item) => item.institution_name).filter(Boolean))).sort();
@@ -91,7 +91,7 @@ export default async function PublicSelections({
           {rows.map((process) => (
             <article
               key={process.id}
-              className="min-w-0 rounded-xl border bg-white p-6"
+              className="focus-lift min-w-0 rounded-xl border bg-white p-6"
             >
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">

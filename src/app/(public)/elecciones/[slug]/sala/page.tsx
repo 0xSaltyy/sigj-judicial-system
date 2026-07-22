@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +78,9 @@ export default async function LiveScrutinyRoom({ params }: { params: Promise<{ s
               <p className="text-xs uppercase tracking-[.18em] text-[#d8c083]">Avance publicado</p>
               <p className="mt-1 text-4xl font-bold">{formatPercent(progress)}</p>
               <p className="mt-1 text-xs text-slate-300">Actualizado {formatDate(lastUpdate)}</p>
+              <div className="mt-3 flex justify-end">
+                <AutoRefresh intervalMs={45000} label="Actualización automática cada 45 s" />
+              </div>
             </div>
           </div>
           {!visible ? (
@@ -86,7 +90,7 @@ export default async function LiveScrutinyRoom({ params }: { params: Promise<{ s
           ) : (
             <>
               <div className="mt-8 h-4 overflow-hidden rounded-full bg-white/15">
-                <div className="h-full rounded-full bg-[#d8c083]" style={{ width: `${progress}%` }} />
+                <div className="h-full progress-smooth rounded-full bg-[#d8c083]" style={{ width: `${progress}%` }} />
               </div>
               <div className="mt-8 grid gap-4 lg:grid-cols-3">
                 {rows.map((row) => (
@@ -98,7 +102,7 @@ export default async function LiveScrutinyRoom({ params }: { params: Promise<{ s
                     {winnerVisible && election.winner_option_id === row.option_id && <Badge className="mt-3 bg-emerald-700">Ganador oficial</Badge>}
                     <p className="mt-4 text-5xl font-bold">{formatPercent(Number(row.public_percent))}</p>
                     <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
-                      <div className="h-full bg-[#b38a3c]" style={{ width: `${Math.min(100, Math.max(0, Number(row.public_percent)))}%` }} />
+                      <div className="h-full progress-smooth bg-[#b38a3c]" style={{ width: `${Math.min(100, Math.max(0, Number(row.public_percent)))}%` }} />
                     </div>
                   </article>
                 ))}

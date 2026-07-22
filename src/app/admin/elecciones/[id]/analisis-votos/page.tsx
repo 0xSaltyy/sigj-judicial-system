@@ -91,6 +91,7 @@ export default async function SuspiciousVoteAnalysisPage({ params, searchParams 
 
   const signalVoteIds = signalIds(query.signal, { repeatedDiscord, similarDiscord, rapidWindows, ipGroups, deviceGroups, nameGroups, observedVotes });
   const filteredVotes = allVotes.filter((vote) => matchesFilters(vote, query, signalVoteIds));
+  const visibleVotes = filteredVotes.slice(0, 100);
   const hasIpData = allVotes.some((vote) => Boolean(vote.ip_hash));
   const hasDeviceData = allVotes.some((vote) => Boolean(vote.user_agent_hash || vote.device_hint_hash));
 
@@ -178,15 +179,16 @@ export default async function SuspiciousVoteAnalysisPage({ params, searchParams 
       <section className="overflow-x-auto rounded-xl border bg-white">
         <div className="border-b p-5">
           <h2 className="text-lg font-semibold text-[#153553]">Tabla general de votos online</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Solo lectura. Los filtros no alteran votos, estados ni resultados.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Solo lectura. Los filtros no alteran votos, estados ni resultados. Se muestran hasta 100 filas para mantener la revisión fluida.</p>
         </div>
         <table className="w-full min-w-[1180px] text-left text-sm">
           <thead><tr className="border-b bg-slate-50"><th className="p-3">Comprobante</th><th className="p-3">Discord</th><th className="p-3">Nombre / Roblox</th><th className="p-3">Estado</th><th className="p-3">Fecha</th><th className="p-3">Selección</th><th className="p-3">Hashes</th><th className="p-3">Señales</th></tr></thead>
           <tbody>
-            {filteredVotes.map((vote) => <tr key={vote.id} className="border-b align-top"><td className="p-3 font-mono text-xs">{vote.receipt_code}</td><td className="p-3">{vote.discord_username || vote.discord_id || "—"}<p className="font-mono text-[11px] text-muted-foreground">{vote.discord_normalized || "sin normalizar"}</p></td><td className="p-3">{vote.visible_name || "—"}<p className="text-xs text-muted-foreground">{vote.roblox_username || "Sin Roblox"}</p></td><td className="p-3"><Badge variant="outline">{statusLabel(VOTE_STATUS_LABELS, vote.status)}</Badge>{vote.duplicate_candidate && <Badge variant="outline" className="ml-1 border-amber-200 bg-amber-50">duplicado candidato</Badge>}</td><td className="p-3">{formatDate(vote.submitted_at)}</td><td className="p-3">{selectedLabel(vote)}</td><td className="p-3 font-mono text-[11px] text-muted-foreground">IP: {shortHash(vote.ip_hash)}<br />UA: {shortHash(vote.user_agent_hash)}<br />Dev: {shortHash(vote.device_hint_hash)}</td><td className="p-3">{voteSignals(vote, { repeatedDiscord, similarDiscord, rapidWindows, ipGroups, deviceGroups, nameGroups, observedVotes }).join(" · ") || "—"}</td></tr>)}
+            {visibleVotes.map((vote) => <tr key={vote.id} className="interactive-row border-b align-top"><td className="p-3 font-mono text-xs">{vote.receipt_code}</td><td className="p-3">{vote.discord_username || vote.discord_id || "—"}<p className="font-mono text-[11px] text-muted-foreground">{vote.discord_normalized || "sin normalizar"}</p></td><td className="p-3">{vote.visible_name || "—"}<p className="text-xs text-muted-foreground">{vote.roblox_username || "Sin Roblox"}</p></td><td className="p-3"><Badge variant="outline">{statusLabel(VOTE_STATUS_LABELS, vote.status)}</Badge>{vote.duplicate_candidate && <Badge variant="outline" className="ml-1 border-amber-200 bg-amber-50">duplicado candidato</Badge>}</td><td className="p-3">{formatDate(vote.submitted_at)}</td><td className="p-3">{selectedLabel(vote)}</td><td className="p-3 font-mono text-[11px] text-muted-foreground">IP: {shortHash(vote.ip_hash)}<br />UA: {shortHash(vote.user_agent_hash)}<br />Dev: {shortHash(vote.device_hint_hash)}</td><td className="p-3">{voteSignals(vote, { repeatedDiscord, similarDiscord, rapidWindows, ipGroups, deviceGroups, nameGroups, observedVotes }).join(" · ") || "—"}</td></tr>)}
           </tbody>
         </table>
         {!filteredVotes.length && <p className="p-8 text-center text-sm text-muted-foreground">No hay votos con los filtros actuales.</p>}
+        {filteredVotes.length > visibleVotes.length && <p className="border-t p-4 text-xs text-muted-foreground">Hay {filteredVotes.length.toLocaleString("es-CO")} votos con los filtros actuales; se muestran los primeros {visibleVotes.length.toLocaleString("es-CO")} para mantener la página ágil.</p>}
       </section>
     </>
   );

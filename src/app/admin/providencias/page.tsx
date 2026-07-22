@@ -39,7 +39,8 @@ export default async function AdminProceedingsPage({
     .select(
       "id,providence_number,title,type,chamber,status,created_at,archived_at,case:cases(internal_number)",
     )
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(25);
   return (
     <>
       <RealtimeRefresh
@@ -83,7 +84,7 @@ export default async function AdminProceedingsPage({
             {(data ?? []).map((p) => (
               <TableRow
                 key={p.id}
-                className={p.archived_at ? "bg-slate-50/70" : undefined}
+                className={p.archived_at ? "interactive-row bg-slate-50/70" : "interactive-row"}
               >
                 <TableCell className="mono-number text-xs">
                   {p.providence_number}
@@ -132,6 +133,9 @@ export default async function AdminProceedingsPage({
             No hay providencias.
           </p>
         )}
+        <p className="border-t p-4 text-xs text-muted-foreground">
+          Se muestran hasta 25 providencias recientes. Use búsquedas específicas desde expedientes para navegar historiales largos.
+        </p>
       </div>
     </>
   );

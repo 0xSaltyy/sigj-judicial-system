@@ -5,6 +5,7 @@ import {
   FolderKanban,
   Gavel,
   Plus,
+  RefreshCw,
 } from "lucide-react";
 import { AdminPageHeader, MetricCard } from "@/components/admin-page";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
@@ -92,26 +93,52 @@ export default async function DashboardPage() {
       ? { title: "Hay postulaciones pendientes de revisión.", detail: `${pendingApplications} postulación(es) recién recibidas.`, href: "/admin/seleccion" }
       : null,
   ].filter(Boolean) as Array<{ title: string; detail: string; href: string }>;
+  const updatedAt = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
+  const pendingActions = [
+    canHearings && hearings ? { label: "Revisar agenda de hoy", value: String(hearings), href: "/admin/audiencias" } : null,
+    canProceedings && pending ? { label: "Providencias pendientes", value: String(pending), href: "/admin/providencias" } : null,
+    canVotes && (pendingOpinions ?? []).length ? { label: "Votos particulares", value: String((pendingOpinions ?? []).length), href: "/admin/providencias" } : null,
+    canElections && pendingElectionVotes ? { label: "Votos electorales por validar", value: String(pendingElectionVotes), href: "/admin/elecciones" } : null,
+    canSelection && pendingApplications ? { label: "Postulaciones recibidas", value: String(pendingApplications), href: "/admin/seleccion" } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string; href: string }>;
   return (
     <>
       <RealtimeRefresh channel="admin-dashboard" subscriptions={DASHBOARD_REALTIME} />
       <AdminPageHeader
         title="Panel del Palacio Judicial"
-        description="Resumen operativo en tiempo real."
+        description={`Resumen operativo en tiempo real. Última actualización: ${updatedAt}.`}
         action={
-          canCreateCases ? (
-            <Button asChild className="bg-[#153b5c]">
-              <Link href="/admin/expedientes/nuevo">
-                <Plus className="size-4" /> Nueva radicación
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href="/admin/dashboard">
+                <RefreshCw className="size-4" /> Actualizar
               </Link>
             </Button>
-          ) : (
-            <Button disabled title="No tiene permiso para crear expedientes">
-              <Plus className="size-4" /> Nueva radicación
-            </Button>
-          )
+            {canCreateCases ? (
+              <Button asChild className="bg-[#153b5c]">
+                <Link href="/admin/expedientes/nuevo">
+                  <Plus className="size-4" /> Nueva radicación
+                </Link>
+              </Button>
+            ) : (
+              <Button disabled title="No tiene permiso para crear expedientes">
+                <Plus className="size-4" /> Nueva radicación
+              </Button>
+            )}
+          </div>
         }
       />
+      {pendingActions.length > 0 && (
+        <section className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {pendingActions.slice(0, 4).map((item) => (
+            <Link key={item.label} href={item.href} className="app-card-enter rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#b38a3c]/50 hover:shadow-md">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Acción pendiente</p>
+              <p className="mt-2 text-2xl font-semibold text-[#153553]">{item.value}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{item.label}</p>
+            </Link>
+          ))}
+        </section>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {canCases && (
           <MetricCard label="Expedientes activos" value={String(cases ?? 0)} detail="No archivados" icon={<FolderKanban className="size-5" />} />
@@ -162,7 +189,7 @@ export default async function DashboardPage() {
               <Link
                 key={c.id}
                 href={`/admin/expedientes/${c.id}`}
-                className="flex justify-between rounded border p-3"
+                className="interactive-row flex justify-between rounded border p-3"
               >
                 <span className="mono-number text-xs">
                   {c.internal_number}
@@ -185,7 +212,7 @@ export default async function DashboardPage() {
               <Link
                 key={h.id}
                 href={`/admin/audiencias/${h.id}/editar`}
-                className="block rounded border p-3 text-sm"
+                className="interactive-row block rounded border p-3 text-sm"
               >
                 <b>{h.title}</b>
                 <small className="mt-1 block text-muted-foreground">

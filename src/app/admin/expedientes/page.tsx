@@ -51,7 +51,7 @@ export default async function CasesPage({
       "id,internal_number,judicial_number,title,ticket_name,chamber,status,confidentiality_level,filed_at,claimant_name,defendant_name,archived_at",
     )
     .order("filed_at", { ascending: false })
-    .limit(100);
+    .limit(25);
   if (query.q)
     request = request.or(
       `internal_number.ilike.%${query.q}%,judicial_number.ilike.%${query.q}%,title.ilike.%${query.q}%,ticket_name.ilike.%${query.q}%`,
@@ -205,7 +205,7 @@ export default async function CasesPage({
           </p>
         )}
         <p className="border-t p-4 text-xs text-muted-foreground">
-          Se muestran hasta 100 resultados recientes. Use los filtros para
+          Se muestran hasta 25 resultados recientes. Use los filtros para
           acotar la consulta.
         </p>
       </div>

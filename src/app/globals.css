@@ -50,6 +50,11 @@
   .notification-pulse { animation: notification-pulse 1.8s ease-in-out infinite; }
   .tree-row-enter { animation: tree-row-enter 180ms ease-out both; }
   .command-palette-enter { animation: command-palette-enter 180ms ease-out both; }
+  .interactive-row { transition: background-color 160ms ease, box-shadow 180ms ease, transform 180ms ease; }
+  .interactive-row:hover { background-color: color-mix(in srgb, var(--muted) 45%, white); box-shadow: 0 8px 24px rgba(17,43,70,.06); }
+  .progress-smooth { transition: width 220ms ease; }
+  .focus-lift { transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+  .focus-lift:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(17,43,70,.08); }
 }
 
 @keyframes section-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }

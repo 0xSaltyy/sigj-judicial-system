@@ -18,19 +18,21 @@ type SafeError={code?:string;message?:string;details?:string;hint?:string};
 export default async function AdminHearingsPage({searchParams}:{searchParams:Promise<Query&{error?:string;success?:string}>}) {
   const {supabase,profile}=await requirePermission({resource:"audiencias",action:"view"});
   const query=await searchParams;
-  const [canCreate,canViewDependency,canViewInstitution,canViewAll,agenda,{data:dependencies,error:dependenciesError},{data:profiles,error:profilesError}]=await Promise.all([
+  const [canCreate,canViewDependency,canViewInstitution,canViewAll,agenda,{data:dependencies,error:dependenciesError}]=await Promise.all([
     can(profile,"create","audiencias",{supabase}),can(profile,"view_dependency","audiencias",{supabase}),can(profile,"view_institution","audiencias",{supabase}),can(profile,"view_all","audiencias",{supabase}),
     loadHearingAgenda(supabase,profile),
     supabase.from("dependencies").select("id,name,parent_id,type").eq("is_active",true).is("archived_at",null).order("name"),
-    supabase.from("profiles").select("id,full_name,is_owner"),
   ]);
   logAdminDiagnostic("admin/audiencias","dependencies",dependenciesError,profile);
+  const agendaRows=(agenda.data as HearingRow[]);
+  const creatorIds=Array.from(new Set(agendaRows.map((row)=>row.created_by).filter(Boolean) as string[])).slice(0,100);
+  const {data:profiles,error:profilesError}=creatorIds.length?await supabase.from("profiles").select("id,full_name,is_owner").in("id",creatorIds):{data:[],error:null};
   logAdminDiagnostic("admin/audiencias","profiles",profilesError,profile);
   const nameById=new Map((profiles??[]).map((item)=>[item.id,item.is_owner?"Lilith D'Amico":item.full_name]));
   const depRows=dependencies??[];const children=new Map<string,string[]>();for(const dep of depRows){if(dep.parent_id)children.set(dep.parent_id,[...(children.get(dep.parent_id)??[]),dep.id]);}
   const institutionIds=query.institution?descendants(query.institution,children):null;
   const normalized=(query.q??"").trim().toLocaleLowerCase("es");
-  const items=(agenda.data as HearingRow[]).map((row)=>toItem(row,nameById)).filter((item)=>{
+  const items=agendaRows.map((row)=>toItem(row,nameById)).filter((item)=>{
     const haystack=`${item.title} ${item.type} ${item.radicado} ${item.caseTitle} ${item.dependency} ${item.judge} ${item.location} ${item.participants} ${item.createdBy}`.toLocaleLowerCase("es");
     if(normalized&&!haystack.includes(normalized))return false;
     if(query.status&&item.status!==query.status)return false;

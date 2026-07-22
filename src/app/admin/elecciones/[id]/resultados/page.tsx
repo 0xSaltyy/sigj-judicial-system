@@ -23,7 +23,7 @@ export default async function ElectionResultsAdmin({params,searchParams}:{params
     supabase.from("elections").select("id,title,status,total_expected_votes,winner_option_id,winner_published_at").eq("id",id).maybeSingle(),
     supabase.rpc("election_count_totals",{p_election_id:id}),
     supabase.from("election_options").select("id,candidate_name,display_order").eq("election_id",id).eq("active",true).order("display_order"),
-    supabase.from("election_count_batches").select("id,status,option_counts,annulled_votes,rejected_votes,note,created_at,submitted_at").eq("election_id",id).order("created_at",{ascending:false}),
+    supabase.from("election_count_batches").select("id,status,option_counts,annulled_votes,rejected_votes,note,created_at,submitted_at").eq("election_id",id).in("status",["draft","submitted","returned","rejected"]).order("created_at",{ascending:false}).limit(80),
     supabase.from("election_public_updates").select("id,update_number,snapshot_type,progress_percentage,updated_at,note").eq("election_id",id).eq("public_visible",true).order("update_number",{ascending:false}).limit(8),
     supabase.from("election_acts").select("id").eq("election_id",id).limit(1),
   ]);
@@ -135,7 +135,7 @@ export default async function ElectionResultsAdmin({params,searchParams}:{params
 }
 
 function PublishButton({id,kind,label}:{id:string;kind:"preliminary"|"final";label:string}){return <form action={publishElectionResults}><input type="hidden" name="election_id" value={id}/><input type="hidden" name="kind" value={kind}/><SubmitButton variant="outline" pendingLabel="Publicando…" confirmMessage={kind==="final"?"Esta acción publicará resultados definitivos con datos validados. ¿Continuar?":"Esta acción publicará resultados preliminares con datos validados. ¿Continuar?"}>{label}</SubmitButton></form>;}
-function Info({title,detail}:{title:string;detail:string}){return <div className="rounded-xl border bg-white p-4"><p className="font-semibold text-[#153553]">{title}</p><p className="mt-1 text-sm text-muted-foreground">{detail}</p></div>;}
+function Info({title,detail}:{title:string;detail:string}){return <div className="app-card-enter rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[#b38a3c]/50 hover:shadow-md"><p className="font-semibold text-[#153553]">{title}</p><p className="mt-1 text-sm text-muted-foreground">{detail}</p></div>;}
 function BatchSummary({batch,options}:{batch:BatchRow;options:OptionRow[]}){return <div className="mt-3 grid gap-1 text-xs text-muted-foreground">{options.map((option)=><p key={option.id}>{option.candidate_name}: {Number(batch.option_counts?.[option.id]??0).toLocaleString("es-CO")}</p>)}<p>Anulados: {Number(batch.annulled_votes??0).toLocaleString("es-CO")} · Rechazados/no válidos: {Number(batch.rejected_votes??0).toLocaleString("es-CO")}</p>{batch.note&&<p>Nota: {batch.note}</p>}</div>;}
 function sumCounts(counts:Record<string,number>|null|undefined){return Object.values(counts??{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);}
 function sumBatch(batch:BatchRow){return sumCounts(batch.option_counts)+Number(batch.annulled_votes??0)+Number(batch.rejected_votes??0);}
