@@ -15,12 +15,12 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
       <PageHero
         eyebrow="Postulaciones"
         title="Postulaciones a juez, abogado e investigador"
-        description="Convocatorias ficticias para cargos internos del Department of Justice Roleplay."
+        description="Convocatorias para cargos internos del Departamento."
       />
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_.85fr] lg:px-8 lg:py-16">
+      <div className="mx-auto grid max-w-[1180px] gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_420px] lg:px-8 lg:py-16">
         <section className="grid gap-4">
           {applications.map((item) => (
-            <article key={item.id} className="reveal interactive-card rounded-xl border bg-white p-6">
+            <article key={item.id} className="reveal border bg-white p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9a752f]">{item.status}</p>
@@ -33,9 +33,9 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
             </article>
           ))}
         </section>
-        <aside className="reveal rounded-xl border bg-white p-6">
+        <aside className="reveal border bg-white p-6">
           <h2 className="font-serif text-2xl font-semibold text-[#102d49]">Formulario de postulación</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">Este formulario demuestra los campos del flujo. En producción se guarda en Supabase y actualiza el panel interno en tiempo real.</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">La información se registra en Supabase y actualiza el panel interno en tiempo real.</p>
           {query.submitted && <p className="mt-4 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Postulación recibida correctamente.</p>}
           {query.error && <p className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">{query.error}</p>}
           <form action={submitRoleplayApplication} className="mt-6 grid gap-4">
@@ -50,10 +50,10 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
             <Textarea name="experience" placeholder="Experiencia" className="min-h-24" required />
             <Textarea name="education" placeholder="Formación" className="min-h-20" />
             <Textarea name="statement" placeholder="Carta o declaración personal" className="min-h-32" required />
-            <Button type="submit" className="gap-2 bg-[#153b5c]"><Send className="size-4" /> Enviar postulación roleplay</Button>
+            <Button type="submit" className="gap-2 rounded-none bg-[#005ea8] hover:bg-[#1a4480]"><Send className="size-4" /> Enviar postulación</Button>
           </form>
-          <p className="mt-4 flex gap-2 rounded border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
-            <ClipboardCheck className="mt-0.5 size-4 shrink-0" /> Las postulaciones son ficticias y no equivalen a empleo, cargo público o licencia profesional real.
+          <p className="mt-4 flex gap-2 border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+            <ClipboardCheck className="mt-0.5 size-4 shrink-0" /> Guarde el código de seguimiento que se entrega al enviar la solicitud.
           </p>
         </aside>
       </div>

@@ -3,30 +3,30 @@ import { cn } from "@/lib/utils";
 
 export function InstitutionalMark({
   compact = false,
-  dark = true,
+  dark = false,
 }: {
   compact?: boolean;
   dark?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid size-12 shrink-0 place-items-center rounded-full bg-white p-1.5 shadow-sm ring-1 ring-[#cfb16c]/70">
+    <div className="flex items-center gap-4">
+      <div className="grid size-16 shrink-0 place-items-center bg-white p-1 ring-1 ring-slate-200">
         <Image
           src="/department-seal.png"
-          alt="Sello ficticio Department of Justice Roleplay"
-          width={48}
-          height={48}
+          alt="Department of Justice seal"
+          width={64}
+          height={64}
           className="h-full w-full object-contain"
           priority
         />
       </div>
       {!compact && (
         <div className="leading-tight">
-          <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-[#cdb374]">
-            Roleplay Department
+          <p className={cn("text-[11px] font-semibold uppercase tracking-[.18em]", dark ? "text-slate-300" : "text-[#5b7287]")}>
+            United States
           </p>
-          <p className={cn("mt-1 font-serif text-sm font-semibold", dark ? "text-white" : "text-[#102d49]")}>
-            Department of Justice RP
+          <p className={cn("mt-1 font-serif text-2xl font-semibold tracking-tight", dark ? "text-white" : "text-[#112f4e]")}>
+            U.S. Department of Justice
           </p>
         </div>
       )}

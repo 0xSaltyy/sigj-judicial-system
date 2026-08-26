@@ -11,16 +11,16 @@ export default function WorkPage() {
     <>
       <PageHero
         eyebrow="Nuestro trabajo"
-        title="Divisiones y funciones del DOJ Roleplay"
-        description="Áreas ficticias de trabajo para administrar casos, órdenes, comunicaciones y registros internos."
+        title="Divisiones y funciones"
+        description="Áreas de trabajo para administrar casos, órdenes, comunicaciones y registros internos."
       />
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <div className="grid gap-5 md:grid-cols-2">
+      <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+        <div className="grid gap-px border bg-slate-200 md:grid-cols-2">
           {workAreas.map((area, index) => {
             const Icon = icons[index] ?? Gavel;
             return (
-              <article key={area.title} className="reveal interactive-card rounded-xl border bg-white p-6">
-                <Icon className="size-7 text-[#9a752f]" />
+              <article key={area.title} className="reveal bg-white p-7 transition hover:bg-[#edf5fb]">
+                <Icon className="size-7 text-[#005ea8]" />
                 <h2 className="mt-4 font-serif text-xl font-semibold text-[#102d49]">{area.title}</h2>
                 <p className="mt-3 text-sm leading-7 text-muted-foreground">{area.description}</p>
               </article>

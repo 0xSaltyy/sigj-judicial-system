@@ -1,216 +1,160 @@
-import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  BadgeCheck,
   BriefcaseBusiness,
   CalendarDays,
   FileCheck2,
   FileSearch,
-  Gavel,
   Megaphone,
   Scale,
-  ShieldAlert,
+  Search,
   UserRoundCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { applications, cases, formatDate, hearings, notices, ROLEPLAY_NOTICE, warrants, workAreas } from "@/lib/demo-data";
+import { applications, cases, formatDate, hearings, notices, warrants, workAreas } from "@/lib/demo-data";
 
 const actionCenter = [
-  { title: "Consultar expedientes", description: "Revise expedientes públicos mediante número de docket.", href: "/consulta", icon: FileSearch },
-  { title: "Ver providencias", description: "Decisiones ficticias publicadas para consulta comunitaria.", href: "/providencias", icon: FileCheck2 },
-  { title: "Revisar audiencias", description: "Agenda pública de sesiones narrativas y audiencias.", href: "/audiencias", icon: CalendarDays },
-  { title: "Postularse a juez", description: "Convocatorias para cargos judiciales de roleplay.", href: "/postulaciones", icon: Scale },
-  { title: "Registrarse como abogado", description: "Solicitud para litigar en expedientes de la comunidad.", href: "/postulaciones", icon: BriefcaseBusiness },
-  { title: "Consultar comunicados", description: "Noticias, directivas y avisos del Departamento RP.", href: "/comunicados", icon: Megaphone },
-  { title: "Acceso del personal", description: "Ingreso exclusivo para cuentas creadas por el OWNER.", href: "/login", icon: UserRoundCheck },
+  { title: "Consultar expedientes", href: "/consulta", icon: FileSearch },
+  { title: "Ver providencias", href: "/providencias", icon: FileCheck2 },
+  { title: "Revisar audiencias", href: "/audiencias", icon: CalendarDays },
+  { title: "Postularse a juez", href: "/postulaciones", icon: Scale },
+  { title: "Registrarse como abogado", href: "/postulaciones", icon: BriefcaseBusiness },
+  { title: "Consultar comunicados", href: "/comunicados", icon: Megaphone },
+  { title: "Acceso del personal", href: "/login", icon: UserRoundCheck },
 ];
 
 const stats = [
-  ["1.248", "Expedientes roleplay activos"],
+  ["1,248", "Expedientes activos"],
   ["36", "Audiencias programadas"],
   ["487", "Documentos publicados"],
-  ["19", "Warrants ficticios activos"],
+  ["19", "Órdenes activas"],
 ];
 
 export default function HomePage() {
   const publicCases = cases.filter((item) => item.publicVisibility).slice(0, 3);
   const publicWarrants = warrants.filter((item) => item.public).slice(0, 2);
+  const featured = notices[0];
 
   return (
     <>
-      <section className="relative overflow-hidden bg-[#08233d] text-white institutional-grid">
-        <div className="absolute -right-28 top-[-90px] size-[520px] rounded-full border border-white/5" />
-        <div className="absolute -right-4 top-24 size-[300px] rounded-full border border-[#c4a35a]/10" />
-        <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-[1.12fr_.88fr] lg:px-8">
-          <div className="reveal">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-sm border border-amber-300/40 bg-amber-200/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[.15em] text-amber-100">
-              <ShieldAlert className="size-3.5" /> {ROLEPLAY_NOTICE}
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-[.28em] text-[#d1b56f]">
-              Department of Justice · Roleplay Portal
-            </p>
-            <h1 className="mt-4 max-w-4xl font-serif text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-[3.7rem]">
-              Justicia ficticia, expedientes y operaciones institucionales para una comunidad de roleplay.
-            </h1>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
-              Portal completo para administrar comunicados, expedientes, audiencias, providencias, postulaciones
-              y warrants narrativos sin producir efectos legales reales.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-[#b38a3c] text-white hover:bg-[#9c762e]">
-                <Link href="/consulta">Consultar expediente <ArrowRight /></Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white">
-                <Link href="/login">Iniciar sesión</Link>
-              </Button>
-            </div>
-          </div>
-          <div className="reveal hidden items-center justify-center lg:flex">
-            <div className="relative rounded-[2rem] border border-white/10 bg-white/[.035] p-10 shadow-2xl">
-              <div className="rounded-full bg-white p-6 shadow-xl">
-                <Image src="/department-seal.png" alt="Sello Department of Justice Roleplay" width={310} height={310} className="h-auto w-[310px]" priority />
-              </div>
-              <p className="mt-6 text-center text-[10px] font-semibold uppercase tracking-[.28em] text-slate-300">
-                Fictional Roleplay Jurisdiction
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section className="border-b bg-white">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4 lg:px-8">
-          {stats.map(([value, label], i) => (
-            <div key={label} className={`reveal py-7 text-center lg:py-8 ${i > 0 ? "lg:border-l" : ""}`}>
-              <p className="mono-number stat-count text-2xl font-semibold text-[#153b5c] sm:text-3xl">{value}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="centro-acciones" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-        <SectionHeading eyebrow="Centro de acciones" title="Servicios principales para visitantes y personal" description="Accesos directos a los flujos más usados del Departamento de Justicia Roleplay." />
-        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {actionCenter.map(({ title, description, href, icon: Icon }) => (
-            <Link key={title} href={href} className="group reveal">
-              <Card className="interactive-card h-full rounded-md border-t-2 border-t-transparent py-0 transition">
-                <CardContent className="p-6">
-                  <div className="grid size-11 place-items-center rounded bg-[#edf2f6] text-[#183d61] transition group-hover:bg-[#183d61] group-hover:text-white">
-                    <Icon className="size-5" />
-                  </div>
-                  <h3 className="mt-5 font-serif font-semibold text-[#153553]">{title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-                  <span className="mt-5 flex items-center gap-2 text-xs font-semibold text-[#9a752f]">
-                    Abrir servicio <ArrowRight className="size-3.5 transition group-hover:translate-x-1" />
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-[#edf1f4]">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_.9fr] lg:px-8">
+        <div className="mx-auto grid max-w-[1180px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:px-8 lg:py-14">
           <div className="reveal">
-            <div className="flex items-end justify-between gap-4">
-              <SectionHeading eyebrow="Comunicados" title="Noticias recientes" />
-              <Link href="/comunicados" className="text-xs font-semibold text-[#183d61]">Ver todos</Link>
-            </div>
-            <div className="mt-6 divide-y rounded-md border bg-white px-5">
-              {notices.map((notice) => (
-                <Link key={notice.slug} href={`/comunicados/${notice.slug}`} className="block py-5 transition hover:bg-slate-50">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-[#9b762f]">
-                    <span>{notice.category}</span><span className="text-slate-300">·</span><time className="text-slate-500">{formatDate(notice.date)}</time>
-                  </div>
-                  <h3 className="mt-2 font-serif text-base font-semibold leading-5 text-[#153553]">{notice.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{notice.excerpt}</p>
-                </Link>
-              ))}
+            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#b21b1b]">Featured</p>
+            <h1 className="mt-3 max-w-4xl font-serif text-4xl font-semibold leading-tight text-[#112f4e] sm:text-5xl">
+              {featured.title}
+            </h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-700">{featured.excerpt}</p>
+            <div className="mt-6 flex flex-wrap items-center gap-4">
+              <Button asChild className="rounded-none bg-[#005ea8] hover:bg-[#1a4480]">
+                <Link href={`/comunicados/${featured.slug}`}>Leer comunicado <ArrowRight className="size-4" /></Link>
+              </Button>
+              <Link href="/consulta" className="inline-flex items-center gap-2 text-sm font-semibold text-[#005ea8] hover:underline">
+                Consultar expediente <Search className="size-4" />
+              </Link>
             </div>
           </div>
-          <div className="reveal rounded-2xl border bg-white p-6">
-            <SectionHeading eyebrow="Misión institucional" title="Servicio narrativo, transparencia y control" description="El Departamento organiza procesos ficticios, protege información reservada del roleplay y ofrece consulta pública limitada para mantener claridad entre ficción y realidad." />
-            <ul className="mt-6 space-y-3 text-sm leading-6 text-slate-700">
-              {["Integridad narrativa y trazabilidad de acciones.", "Separación visible frente al DOJ real.", "Permisos de servidor para proteger rutas internas.", "Documentos descargables con marcas de roleplay."].map((item) => (
-                <li key={item} className="flex gap-3"><BadgeCheck className="mt-0.5 size-4 shrink-0 text-[#9a752f]" /> {item}</li>
-              ))}
-            </ul>
+          <aside className="reveal border-l-4 border-[#b21b1b] bg-[#f5f7f9] p-6">
+            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#5b7287]">Attorney General</p>
+            <h2 className="mt-3 font-serif text-3xl font-semibold text-[#112f4e]">Pam Bondi</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-700">Attorney General</p>
+            <p className="mt-5 text-sm leading-7 text-slate-700">
+              La oficina coordina la publicación de comunicados, la consulta de expedientes, la agenda pública y los servicios del personal autorizado.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section id="centro-acciones" className="border-y bg-[#f5f7f9]">
+        <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8">
+          <SectionHeading eyebrow="Action Center" title="Centro de acciones" />
+          <div className="mt-8 grid gap-px border bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
+            {actionCenter.map(({ title, href, icon: Icon }) => (
+              <Link key={title} href={href} className="group reveal bg-white p-6 transition hover:bg-[#edf5fb]">
+                <Icon className="size-8 text-[#005ea8]" />
+                <h3 className="mt-5 font-serif text-lg font-semibold leading-6 text-[#112f4e]">{title}</h3>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#005ea8]">
+                  Abrir <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        <SectionHeading eyebrow="Nuestro trabajo" title="Áreas de trabajo" description="Divisiones ficticias inspiradas en una estructura institucional, adaptadas al universo de roleplay." />
-        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {workAreas.map((area) => (
-            <article key={area.title} className="reveal interactive-card rounded-xl border bg-white p-5">
-              <Scale className="size-6 text-[#9a752f]" />
-              <h3 className="mt-4 font-serif font-semibold text-[#153553]">{area.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{area.description}</p>
-            </article>
+      <section className="bg-white">
+        <div className="mx-auto grid max-w-[1180px] gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
+          <div className="reveal">
+            <SectionHeading eyebrow="Our Mission" title="Nuestra misión" />
+          </div>
+          <div className="reveal">
+            <p className="font-serif text-2xl leading-10 text-[#112f4e]">
+              Defender la integridad de los procesos del Departamento, mantener segura la información interna y ofrecer servicios públicos claros para consulta, audiencias, comunicaciones y registros.
+            </p>
+            <div className="mt-8 grid gap-5 border-t pt-7 md:grid-cols-2">
+              {["Independencia e imparcialidad", "Honestidad e integridad", "Respeto", "Excelencia operativa"].map((value) => (
+                <div key={value}>
+                  <h3 className="font-serif text-lg font-semibold text-[#112f4e]">{value}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">Guía para la administración de expedientes, comunicaciones y servicios institucionales.</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y bg-[#112f4e] text-white">
+        <div className="mx-auto grid max-w-[1180px] grid-cols-2 px-4 sm:px-6 lg:grid-cols-4 lg:px-8">
+          {stats.map(([value, label], i) => (
+            <div key={label} className={`reveal py-8 text-center ${i > 0 ? "lg:border-l lg:border-white/15" : ""}`}>
+              <p className="mono-number stat-count text-3xl font-semibold sm:text-4xl">{value}</p>
+              <p className="mt-2 text-xs uppercase tracking-[.12em] text-slate-300">{label}</p>
+            </div>
           ))}
         </div>
       </section>
 
       <section className="bg-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-3 lg:px-8">
-          <Panel title="Expedientes públicos recientes" href="/expedientes-publicos">
-            {publicCases.map((item) => (
-              <Link key={item.id} href="/consulta" className="block rounded border p-4 transition hover:bg-slate-50">
-                <p className="mono-number text-xs font-semibold text-[#153553]">{item.internalNumber}</p>
-                <p className="mt-2 text-sm font-medium">{item.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{item.status} · {formatDate(item.filedAt)}</p>
-              </Link>
-            ))}
-          </Panel>
-          <Panel title="Próximas audiencias públicas" href="/audiencias">
-            {hearings.slice(0, 3).map((hearing) => (
-              <div key={hearing.id} className="flex gap-4 rounded border p-4">
-                <div className="w-14 shrink-0 rounded bg-[#153b5c] p-2 text-center text-white">
-                  <p className="text-[10px] font-semibold">{hearing.date}</p>
-                  <p className="mono-number mt-1 text-xs text-[#e4ca8c]">{hearing.time}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-[#153553]">{hearing.title}</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">{hearing.court} · {hearing.room}</p>
-                </div>
-              </div>
-            ))}
-          </Panel>
-          <Panel title="Warrants públicos roleplay" href="/warrants">
-            {publicWarrants.map((warrant) => (
-              <article key={warrant.id} className="rounded border border-amber-200 bg-amber-50 p-4">
-                <p className="mono-number text-xs font-semibold text-amber-950">{warrant.number}</p>
-                <p className="mt-2 text-sm font-medium text-[#153553]">{warrant.type}</p>
-                <p className="mt-1 text-xs text-amber-900">{warrant.status} · vence {formatDate(warrant.expires)}</p>
+        <div className="mx-auto max-w-[1180px] px-4 py-14 sm:px-6 lg:px-8">
+          <SectionHeading eyebrow="Our Work" title="Áreas de trabajo" />
+          <div className="mt-8 grid gap-px border bg-slate-200 md:grid-cols-2">
+            {workAreas.map((area) => (
+              <article key={area.title} className="reveal bg-white p-6">
+                <Scale className="size-7 text-[#005ea8]" />
+                <h3 className="mt-4 font-serif text-xl font-semibold text-[#112f4e]">{area.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-700">{area.description}</p>
               </article>
             ))}
-            <p className="text-xs leading-5 text-muted-foreground">Toda orden exportada debe mostrar: ROLEPLAY DOCUMENT — NOT A REAL GOVERNMENT OR COURT ORDER.</p>
-          </Panel>
+          </div>
         </div>
       </section>
 
-      <section className="bg-[#0b2238] text-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[.7fr_1.3fr] lg:px-8">
-          <div className="reveal rounded-2xl border border-white/10 bg-white/5 p-6">
-            <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#d1b56f]">Attorney General</p>
-            <h2 className="mt-3 font-serif text-3xl font-semibold">Avery Caldwell</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-300">
-              Personaje ficticio responsable de coordinar política interna, permisos y publicaciones del Departamento Roleplay.
-            </p>
+      <section className="bg-[#f5f7f9]">
+        <div className="mx-auto grid max-w-[1180px] gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.2fr_.8fr] lg:px-8">
+          <div className="reveal">
+            <div className="flex items-end justify-between gap-4">
+              <SectionHeading eyebrow="News" title="Comunicados recientes" />
+              <Link href="/comunicados" className="text-sm font-semibold text-[#005ea8] hover:underline">Más comunicados</Link>
+            </div>
+            <div className="mt-6 divide-y border bg-white">
+              {notices.map((notice) => (
+                <Link key={notice.slug} href={`/comunicados/${notice.slug}`} className="block p-5 transition hover:bg-[#edf5fb]">
+                  <div className="text-xs font-semibold uppercase tracking-[.12em] text-[#b21b1b]">{notice.category}</div>
+                  <h3 className="mt-2 font-serif text-xl font-semibold leading-7 text-[#112f4e]">{notice.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{notice.excerpt}</p>
+                  <time className="mt-3 block text-xs text-slate-500">{formatDate(notice.date)}</time>
+                </Link>
+              ))}
+            </div>
           </div>
           <div className="reveal">
-            <SectionHeading eyebrow="Postulaciones abiertas" title="Ciclo de selección del Departamento" description="Convocatorias para jueces, abogados e investigadores dentro de la comunidad." inverse />
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <SectionHeading eyebrow="Applications" title="Convocatorias abiertas" />
+            <div className="mt-6 divide-y border bg-white">
               {applications.map((application) => (
-                <Link key={application.id} href="/postulaciones" className="rounded-xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-0.5 hover:bg-white/10">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#d1b56f]">{application.status}</p>
-                  <h3 className="mt-2 font-serif font-semibold">{application.title}</h3>
-                  <p className="mt-2 text-xs leading-5 text-slate-300">{application.vacancies} vacantes · cierre {formatDate(application.closes)}</p>
+                <Link key={application.id} href="/postulaciones" className="block p-5 transition hover:bg-[#edf5fb]">
+                  <p className="text-xs font-semibold uppercase tracking-[.12em] text-[#5b7287]">{application.status}</p>
+                  <h3 className="mt-2 font-serif text-lg font-semibold text-[#112f4e]">{application.title}</h3>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">{application.vacancies} vacantes · cierre {formatDate(application.closes)}</p>
                 </Link>
               ))}
             </div>
@@ -218,49 +162,58 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="border-y border-amber-200 bg-amber-50">
-        <div className="mx-auto flex max-w-7xl gap-4 px-4 py-7 sm:px-6 lg:px-8">
-          <Gavel className="mt-0.5 size-5 shrink-0 text-amber-800" />
-          <div>
-            <h2 className="text-sm font-semibold text-amber-950">Aviso permanente de roleplay</h2>
-            <p className="mt-1 text-sm leading-6 text-amber-900/80">
-              {ROLEPLAY_NOTICE} Ningún expediente, warrant, providencia, cargo o documento de este portal tiene validez jurídica real.
-            </p>
-          </div>
+      <section className="bg-white">
+        <div className="mx-auto grid max-w-[1180px] gap-8 px-4 py-14 sm:px-6 lg:grid-cols-3 lg:px-8">
+          <Panel title="Expedientes públicos" href="/expedientes-publicos">
+            {publicCases.map((item) => (
+              <Link key={item.id} href="/consulta" className="block border-b py-4 last:border-0">
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.internalNumber}</p>
+                <p className="mt-2 text-sm font-semibold text-[#112f4e]">{item.title}</p>
+                <p className="mt-1 text-xs text-slate-600">{item.status} · {formatDate(item.filedAt)}</p>
+              </Link>
+            ))}
+          </Panel>
+          <Panel title="Audiencias públicas" href="/audiencias">
+            {hearings.slice(0, 3).map((hearing) => (
+              <div key={hearing.id} className="border-b py-4 last:border-0">
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{hearing.date} · {hearing.time}</p>
+                <h3 className="mt-2 text-sm font-semibold text-[#112f4e]">{hearing.title}</h3>
+                <p className="mt-1 text-xs text-slate-600">{hearing.court} · {hearing.room}</p>
+              </div>
+            ))}
+          </Panel>
+          <Panel title="Órdenes públicas" href="/warrants">
+            {publicWarrants.map((warrant) => (
+              <article key={warrant.id} className="border-b py-4 last:border-0">
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{warrant.number}</p>
+                <p className="mt-2 text-sm font-semibold text-[#112f4e]">{warrant.type}</p>
+                <p className="mt-1 text-xs text-slate-600">{warrant.status} · vence {formatDate(warrant.expires)}</p>
+              </article>
+            ))}
+          </Panel>
         </div>
       </section>
     </>
   );
 }
 
-function SectionHeading({
-  eyebrow,
-  title,
-  description,
-  inverse = false,
-}: {
-  eyebrow: string;
-  title: string;
-  description?: string;
-  inverse?: boolean;
-}) {
+function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <div className="max-w-2xl">
-      <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9b762f]">{eyebrow}</p>
-      <h2 className={`mt-3 font-serif text-3xl font-semibold ${inverse ? "text-white" : "text-[#102d49]"}`}>{title}</h2>
-      {description && <p className={`mt-3 text-sm leading-6 ${inverse ? "text-slate-300" : "text-muted-foreground"}`}>{description}</p>}
+    <div>
+      <p className="border-l-4 border-[#b21b1b] pl-3 text-xs font-semibold uppercase tracking-[.16em] text-[#5b7287]">{eyebrow}</p>
+      <h2 className="mt-3 font-serif text-3xl font-semibold text-[#112f4e]">{title}</h2>
     </div>
   );
 }
 
 function Panel({ title, href, children }: { title: string; href: string; children: React.ReactNode }) {
   return (
-    <section className="reveal rounded-xl border bg-white p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-serif text-xl font-semibold text-[#102d49]">{title}</h2>
-        <Link href={href} className="text-xs font-semibold text-[#8c6929]">Ver más</Link>
+    <section className="reveal border bg-white p-5">
+      <div className="flex items-center justify-between gap-3 border-b pb-4">
+        <h2 className="font-serif text-xl font-semibold text-[#112f4e]">{title}</h2>
+        <Link href={href} className="text-sm font-semibold text-[#005ea8] hover:underline">Ver más</Link>
       </div>
-      <div className="mt-5 grid gap-3">{children}</div>
+      <div>{children}</div>
     </section>
   );
 }

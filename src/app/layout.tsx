@@ -6,8 +6,8 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Department of Justice Roleplay", template: "%s | DOJ Roleplay" },
-  description: "Portal ficticio de roleplay no afiliado al United States Department of Justice real.",
+  title: { default: "U.S. Department of Justice", template: "%s | U.S. Department of Justice" },
+  description: "Portal institucional de servicios, expedientes, comunicados y audiencias.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

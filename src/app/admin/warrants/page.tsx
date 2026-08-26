@@ -40,7 +40,7 @@ export default async function AdminWarrantsPage({ searchParams }: { searchParams
 
   return (
     <>
-      <AdminPageHeader title="Warrants roleplay" description="Creación y seguimiento de órdenes ficticias vinculadas a expedientes." />
+      <AdminPageHeader title="Warrants" description="Creación y seguimiento de órdenes vinculadas a expedientes." />
       {query.created && <p className="mb-5 rounded border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">Warrant creado correctamente.</p>}
       {query.error && <p className="mb-5 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-900">{query.error}</p>}
       <div className="grid gap-6 xl:grid-cols-[.9fr_1.1fr]">
@@ -48,12 +48,12 @@ export default async function AdminWarrantsPage({ searchParams }: { searchParams
           <CardHeader><CardTitle className="flex items-center gap-2 text-base text-[#153553]"><ScrollText className="size-4" /> Crear warrant</CardTitle></CardHeader>
           <CardContent>
             <form action={createRoleplayWarrant} className="grid gap-4">
-              <Field label="Número único" name="warrant_number" placeholder="RP-WR-2026-00017" />
-              <Field label="Tipo" name="warrant_type" placeholder="Search warrant roleplay" />
+              <Field label="Número único" name="warrant_number" placeholder="DOJ-WR-2026-00017" />
+              <Field label="Tipo" name="warrant_type" placeholder="Search warrant" />
               <Field label="ID de expediente relacionado (opcional)" name="case_id" required={false} />
               <div className="space-y-2"><Label htmlFor="target_description">Persona, lugar u objeto relacionado</Label><Textarea id="target_description" name="target_description" required /></div>
               <div className="space-y-2"><Label htmlFor="reason">Motivo</Label><Textarea id="reason" name="reason" required /></div>
-              <div className="space-y-2"><Label htmlFor="legal_basis">Fundamentos roleplay</Label><Textarea id="legal_basis" name="legal_basis" required /></div>
+              <div className="space-y-2"><Label htmlFor="legal_basis">Fundamentos</Label><Textarea id="legal_basis" name="legal_basis" required /></div>
               <Field label="Fecha de expiración" name="expires_at" type="datetime-local" required={false} />
               <div className="space-y-2">
                 <Label htmlFor="confidentiality">Confidencialidad</Label>
@@ -65,7 +65,7 @@ export default async function AdminWarrantsPage({ searchParams }: { searchParams
                 </select>
               </div>
               <div className="space-y-2"><Label htmlFor="observations">Observaciones</Label><Textarea id="observations" name="observations" /></div>
-              <Button type="submit" className="bg-[#153b5c]">Crear warrant ficticio</Button>
+              <Button type="submit" className="bg-[#153b5c]">Crear warrant</Button>
             </form>
           </CardContent>
         </Card>
