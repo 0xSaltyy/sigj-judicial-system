@@ -1,0 +1,3 @@
+import { FileUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+export function DocumentUploader({ name = "attachment" }: { name?: string }) { return <label className="flex cursor-pointer flex-col items-center rounded-lg border border-dashed p-8 text-center hover:bg-slate-50"><FileUp className="size-7 text-[#416786]" /><span className="mt-3 text-sm font-semibold text-[#153553]">Adjuntar documento</span><span className="mt-1 text-xs text-muted-foreground">PDF, DOCX, PNG o JPG · máximo 20 MB</span><Input name={name} type="file" accept=".pdf,.docx,.png,.jpg,.jpeg" className="mt-4 max-w-sm" /></label>; }

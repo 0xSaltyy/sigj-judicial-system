@@ -1,0 +1,2 @@
+import { templates } from "@/lib/demo-data";
+export function ProvidenceTemplateSelector({ name = "template", defaultValue }: { name?: string; defaultValue?: string }) { return <select name={name} defaultValue={defaultValue ?? Object.keys(templates)[0]} className="h-9 w-full rounded-md border px-3 text-sm">{Object.keys(templates).map((template) => <option key={template}>{template}</option>)}</select>; }
