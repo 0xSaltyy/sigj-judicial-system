@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteRoleplayApplication } from "@/app/actions/applications";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export function ApplicationDeleteAction({
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const [checked, setChecked] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const canSubmit = checked && confirmation === "ELIMINAR POSTULACION" && !pending;
 
   return (
@@ -68,8 +68,13 @@ export function ApplicationDeleteAction({
                 Cancelar
               </Button>
               <form
-                action={(formData) => {
-                  startTransition(() => deleteRoleplayApplication(formData));
+                action={deleteRoleplayApplication}
+                onSubmit={(event) => {
+                  if (!canSubmit) {
+                    event.preventDefault();
+                    return;
+                  }
+                  setPending(true);
                 }}
               >
                 <input type="hidden" name="id" value={id} />

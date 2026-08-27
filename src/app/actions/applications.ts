@@ -35,7 +35,9 @@ export async function deleteRoleplayApplication(formData: FormData) {
   if (!user) redirect("/login");
 
   const { data: actor } = await supabase.from("profiles").select("id,role,is_owner,is_active").eq("id", user.id).single();
-  if (!actor?.is_active || !actor.is_owner || !["OWNER", "ATTORNEY_GENERAL", "SUPER_ADMIN"].includes(String(actor.role))) {
+  const actorRole = String(actor?.role || "");
+  const canDeleteApplications = Boolean(actor?.is_active && (actor?.is_owner || actorRole === "OWNER" || actorRole === "ATTORNEY_GENERAL"));
+  if (!canDeleteApplications) {
     await supabase.from("audit_logs").insert({
       user_id: user.id,
       action: "DELETE_DENIED",
