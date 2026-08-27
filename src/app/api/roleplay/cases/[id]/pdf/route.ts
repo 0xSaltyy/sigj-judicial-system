@@ -7,7 +7,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const supabase = await createClient();
   if (!supabase) return new NextResponse("Supabase no está configurado.", { status: 503 });
   const [{ data: record }, actions, proceedings, hearings, warrants] = await Promise.all([
-    supabase.from("cases").select("id,internal_number,judicial_number,title,status,confidentiality_level,chamber,process_type,process_subtype,claimant_name,defendant_name,summary,filed_at").eq("id", id).eq("public_visibility", true).eq("confidentiality_level", "Público").is("archived_at", null).maybeSingle(),
+    supabase.from("cases").select("id,case_number,docket_number,internal_number,judicial_number,title,status,confidentiality_level,chamber,process_type,process_subtype,claimant_name,defendant_name,summary,filed_at").eq("id", id).eq("public_visibility", true).eq("confidentiality_level", "Público").is("archived_at", null).maybeSingle(),
     supabase.from("case_actions").select("action_date,action_type,description").eq("case_id", id).eq("visibility", "public").is("archived_at", null).order("action_date", { ascending: true }),
     supabase.from("proceedings").select("providence_number,title,status").eq("case_id", id).eq("visibility", "public").eq("status", "Publicado").is("archived_at", null).order("created_at", { ascending: true }),
     supabase.from("hearings").select("scheduled_at,title,status").eq("case_id", id).eq("is_public", true).is("archived_at", null).order("scheduled_at", { ascending: true }),
@@ -20,8 +20,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     "ROLEPLAY DOCUMENT — NOT A REAL GOVERNMENT OR COURT ORDER.",
     ROLEPLAY_NOTICE,
     "",
-    `Expediente: ${record.internal_number}`,
-    `Docket: ${record.judicial_number}`,
+    `Número de caso: ${record.case_number || record.internal_number}`,
+    `Número de expediente judicial: ${record.docket_number || "Aún no se ha asignado un número de expediente judicial."}`,
     `Título: ${record.title}`,
     `Estado: ${record.status}`,
     `Nivel de acceso: ${record.confidentiality_level}`,
@@ -58,7 +58,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return new NextResponse(pdf, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${record.internal_number}.pdf"`,
+      "Content-Disposition": `attachment; filename="${record.case_number || record.internal_number}.pdf"`,
       "Cache-Control": "no-store",
     },
   });

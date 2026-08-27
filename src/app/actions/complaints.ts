@@ -28,7 +28,7 @@ export async function submitComplaint(formData: FormData) {
   if (!parsed.success) redirect(`/denuncias/nueva?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   const admin = createAdminClient();
   if (!admin) redirect("/denuncias/nueva?error=Supabase%20no%20est%C3%A1%20configurado");
-  const privateCode = `DEN-${randomBytes(9).toString("base64url").toUpperCase()}`;
+  const privateCode = `RP-CMP-PRIVATE-${randomBytes(9).toString("base64url").toUpperCase()}`;
   const privateCodeHash = createHash("sha256").update(privateCode).digest("hex");
   const anonymous = parsed.data.anonymous === "on";
   const { data, error } = await admin.from("complaints").insert({
@@ -71,7 +71,7 @@ export async function lookupComplaintStatus(formData: FormData) {
   if (!parsed.success) redirect(`/denuncias/estado?error=${encodeURIComponent("No se encontró una denuncia con los datos ingresados.")}`);
   const supabase = await createClient();
   if (!supabase) redirect("/denuncias/estado?error=Supabase%20no%20est%C3%A1%20configurado");
-  const { data, error } = await supabase.rpc("lookup_complaint_status", parsed.data);
+  const { data, error } = await supabase.rpc("lookup_complaint_status", { p_tracking_number: parsed.data.tracking_number, p_private_code: parsed.data.private_code });
   if (error || !data || data.length === 0) redirect(`/denuncias/estado?error=${encodeURIComponent("No se encontró una denuncia con los datos ingresados.")}`);
   const result = data[0] as { tracking_number: string };
   redirect(`/denuncias/estado?tracking=${encodeURIComponent(result.tracking_number)}&code=${encodeURIComponent(parsed.data.private_code)}`);

@@ -73,7 +73,7 @@ export default async function ComplaintStatusPage({ searchParams }: { searchPara
 async function fetchStatus(tracking_number: string, private_code: string): Promise<ComplaintStatus | null> {
   const supabase = await createClient();
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc("lookup_complaint_status", { tracking_number, private_code });
+  const { data, error } = await supabase.rpc("lookup_complaint_status", { p_tracking_number: tracking_number, p_private_code: private_code });
   if (error || !data || data.length === 0) return null;
   return data[0] as ComplaintStatus;
 }

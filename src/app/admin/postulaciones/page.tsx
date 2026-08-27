@@ -15,6 +15,8 @@ export const metadata = { title: "Postulaciones" };
 
 type ApplicationRow = {
   id: string;
+  application_number: string | null;
+  tracking_number: string | null;
   tracking_code: string;
   application_type: string;
   applicant_name: string;
@@ -40,7 +42,7 @@ export default async function AdminApplicationsPage({
   const { data } = supabase
     ? await supabase
         .from("roleplay_applications")
-        .select("id,tracking_code,application_type,applicant_name,contact_info,experience,education,statement,status,public_message,internal_notes,submitted_at,updated_at,archived_at")
+        .select("id,application_number,tracking_number,tracking_code,application_type,applicant_name,contact_info,experience,education,statement,status,public_message,internal_notes,submitted_at,updated_at,archived_at")
         .order("submitted_at", { ascending: false })
         .limit(100)
     : { data: null };
@@ -68,7 +70,8 @@ export default async function AdminApplicationsPage({
             <article key={item.id} className="formal-card p-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.tracking_code}</p>
+                  <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.application_number || "Número de postulación pendiente"}</p>
+                  <p className="mono-number mt-1 text-[11px] text-slate-500">Seguimiento: {item.tracking_number || item.tracking_code}</p>
                   <h2 className="mt-1 font-serif text-xl font-semibold text-[#0a2540]">{item.applicant_name}</h2>
                   <p className="mt-1 text-xs text-slate-600">
                     {labelType(item.application_type)} · {safeText(item.contact_info, "Sin contacto")}
@@ -117,7 +120,7 @@ export default async function AdminApplicationsPage({
 
               <div className="mt-4 flex flex-wrap gap-2 border-t border-[#cfd6dc] pt-4">
                 <LifecycleActions resource="roleplay_applications" id={item.id} archived={Boolean(item.archived_at)} compact allowDelete={false} />
-                <ApplicationDeleteAction id={item.id} applicantName={item.applicant_name} trackingCode={item.tracking_code} />
+                <ApplicationDeleteAction id={item.id} applicantName={item.applicant_name} trackingCode={item.tracking_number || item.tracking_code} />
               </div>
             </article>
           ))}

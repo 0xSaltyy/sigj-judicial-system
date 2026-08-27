@@ -150,9 +150,9 @@ export const judicialStates = [
 export const dependencies = ["Office of the Attorney General", "Criminal Division", "Civil Division", "Warrants & Orders Unit", "Magistrate Office", "Public Communications Office", "Technology & Records Unit", "Office of Professional Standards", "Human Resources"];
 
 export const templates: Record<string, string> = {
-  "Orden procesal": "# DEPARTMENT OF JUSTICE ROLEPLAY\n\n**Expediente:** {{radicado}}  \n**División:** {{division}}  \n**Funcionario:** {{ponente}}\n\n## FINDINGS\n[Describa hechos ficticios]\n\n## ORDER\n**FIRST.** This roleplay document is issued only for narrative purposes.\n\n**SECOND.** No real legal effect is created.\n\nROLEPLAY DOCUMENT — NOT A REAL GOVERNMENT OR COURT ORDER.",
+  "Orden procesal": "# DEPARTMENT OF JUSTICE ROLEPLAY\n\n**Número de caso:** {{case_number}}  \n**División:** {{division}}  \n**Funcionario:** {{ponente}}\n\n## FINDINGS\n[Describa hechos ficticios]\n\n## ORDER\n**FIRST.** This roleplay document is issued only for narrative purposes.\n\n**SECOND.** No real legal effect is created.\n\nROLEPLAY DOCUMENT — NOT A REAL GOVERNMENT OR COURT ORDER.",
   "Resolución": "# RESOLUCIÓN ROLEPLAY\n\n## Antecedentes\n[Antecedentes ficticios]\n\n## Consideraciones\n[Consideraciones]\n\n## Resuelve\n[Decisión simulada]\n\nROLEPLAY DOCUMENT — NOT A REAL GOVERNMENT OR COURT ORDER.",
-  "Acta de audiencia": "# ACTA DE AUDIENCIA ROLEPLAY\n\n**Fecha y hora:** {{fecha}}  \n**Expediente:** {{radicado}}  \n**Sala:** {{despacho}}\n\n## Participantes\n- [Nombre y rol]\n\n## Desarrollo\n[Registro de la sesión]\n\n## Decisiones\n[Decisiones]\n\nROLEPLAY WEBSITE — documento ficticio sin validez real.",
+  "Acta de audiencia": "# ACTA DE AUDIENCIA ROLEPLAY\n\n**Fecha y hora:** {{fecha}}  \n**Número de caso:** {{case_number}}  \n**Sala:** {{despacho}}\n\n## Participantes\n- [Nombre y rol]\n\n## Desarrollo\n[Registro de la sesión]\n\n## Decisiones\n[Decisiones]\n\nROLEPLAY WEBSITE — documento ficticio sin validez real.",
 };
 
 export function formatDate(value: string) {

@@ -17,17 +17,18 @@ export async function createCase(formData: FormData) {
   const supabase = await createClient();
   if (!supabase) redirect(`/admin/expedientes/nuevo?error=${encodeURIComponent("Supabase no está configurado")}`);
   const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/login");
-  const chamberCode = chamberCodes[parsed.data.chamber] ?? "SG";
-  const [{ data: internalNumber }, { data: judicialNumber }] = await Promise.all([
-    supabase.rpc("generate_internal_case_number", { chamber_code: chamberCode }),
+  const chamberCode = chamberCodes[parsed.data.chamber] ?? "MC";
+  const [{ data: caseNumber }, { data: judicialNumber }] = await Promise.all([
+    supabase.rpc("generate_case_number_for_date", { p_process_type: parsed.data.process_type, p_opened_at: parsed.data.filed_at }),
     supabase.rpc("generate_judicial_case_number", { dependency_code: "001" }),
   ]);
-  const payload = { ...parsed.data, amount: parsed.data.amount ? Number(parsed.data.amount) : null, title: `${parsed.data.process_type} · ${parsed.data.process_subtype}`, internal_number: internalNumber, judicial_number: judicialNumber, status: "Radicado", public_visibility: parsed.data.confidentiality_level === "Público", created_by: user.id };
+  const stableCaseNumber = typeof caseNumber === "string" && caseNumber ? caseNumber : `RP-${chamberCode}-${new Date(parsed.data.filed_at).getUTCFullYear()}-${Date.now().toString().slice(-6)}`;
+  const payload = { ...parsed.data, amount: parsed.data.amount ? Number(parsed.data.amount) : null, title: `${parsed.data.process_type} · ${parsed.data.process_subtype}`, case_number: stableCaseNumber, internal_number: stableCaseNumber, judicial_number: judicialNumber, docket_number: null, filing_status: "Sin presentación judicial", status: "Abierto", public_visibility: parsed.data.confidentiality_level === "Público", created_by: user.id };
   const { data: record, error } = await supabase.from("cases").insert(payload).select("id").single();
-  if (error || !record) redirect(`/admin/expedientes/nuevo?error=${encodeURIComponent(error?.message ?? "No fue posible radicar")}`);
+  if (error || !record) redirect(`/admin/expedientes/nuevo?error=${encodeURIComponent(error?.message ?? "No fue posible crear el caso")}`);
   await Promise.all([
     supabase.from("case_parties").insert([{ case_id: record.id, name: parsed.data.claimant_name, party_type: "Solicitante" }, { case_id: record.id, name: parsed.data.defendant_name, party_type: "Convocada" }]),
-    supabase.from("case_actions").insert({ case_id: record.id, action_type: "Radicación", title: "Radicación del expediente", description: "Se registra el expediente y se asignan números únicos de radicación.", visibility: parsed.data.confidentiality_level === "Público" ? "public" : "internal", created_by: user.id }),
+    supabase.from("case_actions").insert({ case_id: record.id, action_type: "Apertura de caso", title: "Apertura del caso", description: "Se registra el caso y se asigna un número de caso único.", visibility: parsed.data.confidentiality_level === "Público" ? "public" : "internal", created_by: user.id }),
   ]);
   const file = formData.get("attachment");
   if (file instanceof File && file.size > 0) {

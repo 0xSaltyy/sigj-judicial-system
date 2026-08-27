@@ -34,7 +34,7 @@ const workAreas = [
 ];
 
 type Notice = { id: string; title: string; slug: string; category: string; content_markdown: string; published_at: string | null };
-type PublicCase = { id: string; internal_number: string; title: string; status: string; filed_at: string };
+type PublicCase = { id: string; case_number: string | null; internal_number: string; title: string; status: string; filed_at: string };
 type PublicHearing = { id: string; title: string; scheduled_at: string; room: string; status: string };
 type PublicWarrant = { id: string; warrant_number: string; warrant_type: string; status: string; expires_at: string | null };
 
@@ -51,7 +51,7 @@ export default async function HomePage() {
     warrantsCount,
   ] = supabase ? await Promise.all([
     supabase.from("public_notices").select("id,title,slug,category,content_markdown,published_at").eq("status", "Publicado").is("archived_at", null).order("published_at", { ascending: false }).limit(4),
-    supabase.from("cases").select("id,internal_number,title,status,filed_at").eq("public_visibility", true).eq("confidentiality_level", "Público").is("archived_at", null).order("filed_at", { ascending: false }).limit(3),
+    supabase.from("cases").select("id,case_number,internal_number,title,status,filed_at").eq("public_visibility", true).eq("confidentiality_level", "Público").is("archived_at", null).order("filed_at", { ascending: false }).limit(3),
     supabase.from("hearings").select("id,title,scheduled_at,room,status").eq("is_public", true).is("archived_at", null).gte("scheduled_at", new Date().toISOString()).order("scheduled_at", { ascending: true }).limit(3),
     supabase.from("roleplay_warrants").select("id,warrant_number,warrant_type,status,expires_at").eq("confidentiality", "public").in("status", ["Aprobada", "Activa", "Ejecutada", "Vencida"]).is("archived_at", null).order("created_at", { ascending: false }).limit(2),
     supabase.from("cases").select("id", { count: "exact", head: true }).is("archived_at", null),
@@ -204,7 +204,7 @@ export default async function HomePage() {
           <Panel title="Expedientes públicos" href="/expedientes-publicos">
             {publicCases.map((item) => (
               <Link key={item.id} href="/consulta" className="block border-b py-4 last:border-0">
-                <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.internal_number}</p>
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.case_number || item.internal_number}</p>
                 <p className="mt-2 text-sm font-semibold text-[#112f4e]">{item.title}</p>
                 <p className="mt-1 text-xs text-slate-600">{item.status} · {formatDate(item.filed_at)}</p>
               </Link>

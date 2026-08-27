@@ -54,12 +54,13 @@ export async function deleteRoleplayApplication(formData: FormData) {
 
   const { data: application, error: loadError } = await admin
     .from("roleplay_applications")
-    .select("id,tracking_code,applicant_name,application_type,answers")
+    .select("id,tracking_code,tracking_number,application_number,applicant_name,application_type,answers")
     .eq("id", id)
     .single();
 
   if (loadError || !application) redirect(`${back}?error=${encodeURIComponent(loadError?.message || "No se encontró la postulación")}`);
-  if (application.applicant_name !== expectedName || application.tracking_code !== expectedTracking) {
+  const storedTracking = application.tracking_number || application.tracking_code;
+  if (application.applicant_name !== expectedName || storedTracking !== expectedTracking) {
     redirect(`${back}?error=${encodeURIComponent("Los datos de confirmación no coinciden con la postulación")}`);
   }
 
@@ -77,7 +78,9 @@ export async function deleteRoleplayApplication(formData: FormData) {
     description: "Tombstone: postulación eliminada permanentemente por OWNER",
     metadata: {
       deleted_record_identifier: id,
-      tracking_code: application.tracking_code,
+      application_number: application.application_number,
+      tracking_number: storedTracking,
+      legacy_tracking_code: application.tracking_code,
       application_type: application.application_type,
       authorized_user: user.id,
       reason,

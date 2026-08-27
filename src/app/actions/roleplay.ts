@@ -88,9 +88,9 @@ export async function submitRoleplayApplication(formData: FormData) {
     ...parsed.data,
     answers: {},
     status: "Recibida",
-  }).select("tracking_code").single();
+  }).select("tracking_number,tracking_code").single();
   if (error) redirect(`/postulaciones?error=${encodeURIComponent("No fue posible recibir la postulación")}`);
-  redirect(`/convocatorias/estado?submitted=1&tracking=${encodeURIComponent(data.tracking_code)}`);
+  redirect(`/convocatorias/estado?submitted=1&tracking=${encodeURIComponent(data.tracking_number || data.tracking_code)}`);
 }
 
 export async function createRoleplayWarrant(formData: FormData) {
