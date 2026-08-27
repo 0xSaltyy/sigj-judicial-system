@@ -4,7 +4,7 @@ import { PageHero } from "@/components/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/demo-data";
+import { formatDate } from "@/lib/display";
 import { getWarrantTemplate } from "@/lib/warrants";
 
 export const metadata = { title: "Warrants" };

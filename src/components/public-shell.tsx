@@ -4,7 +4,7 @@ import { InstitutionalMark } from "@/components/institutional-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { ROLEPLAY_NOTICE } from "@/lib/demo-data";
+import { ROLEPLAY_NOTICE } from "@/lib/identity";
 
 const links = [
   ["Inicio", "/"],

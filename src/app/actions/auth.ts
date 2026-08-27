@@ -9,10 +9,15 @@ export async function login(formData: FormData) {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(`/login?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   const supabase = await createClient();
-  if (!supabase) redirect("/admin/dashboard?demo=1");
+  if (!supabase) redirect(`/login?error=${encodeURIComponent("Supabase no está configurado")}`);
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) redirect(`/login?error=${encodeURIComponent("Credenciales inválidas o usuario inactivo")}`);
-  if (data.user?.user_metadata?.force_password_change) redirect("/actualizar-password?required=1");
+  const { data: profile } = await supabase.from("profiles").select("is_active,must_change_password").eq("id", data.user.id).single();
+  if (!profile?.is_active) {
+    await supabase.auth.signOut();
+    redirect(`/login?error=${encodeURIComponent("La cuenta está suspendida. Solicite revisión al OWNER.")}`);
+  }
+  if (data.user?.user_metadata?.force_password_change || profile.must_change_password) redirect("/actualizar-password?required=1");
   redirect("/admin/dashboard");
 }
 
@@ -21,8 +26,6 @@ export async function logout() { const supabase = await createClient(); if (supa
 export async function recoverPassword(formData: FormData) {
   const email = z.string().email().safeParse(formData.get("email"));
   if (!email.success) redirect("/recuperar-password?error=Correo%20no%20válido");
-  const supabase = await createClient();
-  if (supabase) await supabase.auth.resetPasswordForEmail(email.data, { redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/actualizar-password` });
   redirect("/recuperar-password?sent=1");
 }
 
@@ -32,5 +35,7 @@ export async function updatePassword(formData: FormData) {
   const supabase = await createClient(); if (!supabase) redirect("/actualizar-password?updated=1");
   const { error } = await supabase.auth.updateUser({ password: parsed.data, data: { force_password_change: false } });
   if (error) redirect(`/actualizar-password?error=${encodeURIComponent(error.message)}`);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) await supabase.from("profiles").update({ must_change_password: false, password_reset_required_at: null }).eq("id", user.id);
   redirect("/login?updated=1");
 }

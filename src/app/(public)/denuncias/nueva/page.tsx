@@ -17,7 +17,7 @@ export default async function NewComplaintPage({ searchParams }: { searchParams:
           <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#5b7287]">Canal público</p>
           <h1 className="mt-3 font-serif text-4xl font-semibold text-[#112f4e]">Realizar denuncia</h1>
           <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-700">
-            Registre una denuncia dentro del entorno de roleplay. Al enviarla recibirá un número de denuncia y un código privado para consultar el estado.
+            Registre una denuncia institucional. Al enviarla recibirá un número de denuncia y un código privado para consultar el estado.
           </p>
           <Button asChild variant="outline" className="mt-5 rounded-none gap-2">
             <Link href="/denuncias/estado"><Search className="size-4" /> Consultar estado de una denuncia</Link>
@@ -26,7 +26,7 @@ export default async function NewComplaintPage({ searchParams }: { searchParams:
 
         {query.error ? <p className="mb-5 border border-red-200 bg-red-50 p-4 text-sm text-red-900">{query.error}</p> : null}
 
-        <form action={submitComplaint} className="grid gap-6 border bg-white p-6 shadow-sm" encType="multipart/form-data">
+        <form action={submitComplaint} className="grid gap-6 border bg-white p-6 shadow-sm">
           <div className="flex gap-3 rounded-none border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950">
             <ShieldAlert className="mt-0.5 size-5 shrink-0" />
             <p>Los adjuntos quedan en almacenamiento privado. La consulta pública requiere el código privado, no muestra notas internas ni datos de revisión.</p>
@@ -54,7 +54,7 @@ export default async function NewComplaintPage({ searchParams }: { searchParams:
           </label>
           <label className="flex items-start gap-3 text-sm text-slate-700">
             <input type="checkbox" name="confirmation" required className="mt-1" />
-            Confirmo que la información fue enviada para fines de roleplay y que conservaré el código privado de seguimiento.
+            Confirmo que la información enviada es correcta y que conservaré el código privado de seguimiento.
           </label>
           <div className="flex flex-wrap gap-3 border-t pt-5">
             <Button type="submit" className="rounded-none bg-[#005ea8] hover:bg-[#1a4480]">Enviar denuncia</Button>

@@ -27,9 +27,9 @@ const actionCenter = [
 ];
 
 const workAreas = [
-  ["División Criminal", "Investigaciones, warrants de roleplay y coordinación con fiscales autorizados."],
+  ["División Criminal", "Investigaciones, warrants y coordinación con fiscales autorizados."],
   ["División Civil", "Gestión de expedientes públicos, audiencias y actuaciones administrativas."],
-  ["Oficina de Comunicaciones", "Comunicados, recursos públicos y anuncios institucionales del roleplay."],
+  ["Oficina de Comunicaciones", "Comunicados, recursos públicos y anuncios institucionales."],
   ["Registros y Tecnología", "Custodia de documentos, auditoría y servicios de consulta pública."],
 ];
 
@@ -78,9 +78,9 @@ export default async function HomePage() {
           <div className="reveal">
             <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#b21b1b]">Featured</p>
             <h1 className="mt-3 max-w-4xl font-serif text-4xl font-semibold leading-tight text-[#112f4e] sm:text-5xl">
-              {featured?.title ?? "Department of Justice Roleplay"}
+              {featured?.title ?? "U.S. Department of Justice"}
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-700">{featured ? excerpt(featured.content_markdown) : "Portal público para comunicados, expedientes, audiencias, warrants, postulaciones y denuncias del entorno de roleplay."}</p>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-700">{featured ? excerpt(featured.content_markdown) : "Portal público para comunicados, expedientes, audiencias, warrants, postulaciones y denuncias."}</p>
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <Button asChild className="rounded-none bg-[#005ea8] hover:bg-[#1a4480]">
                 <Link href={featured ? `/comunicados/${featured.slug}` : "/comunicados"}>{featured ? "Leer comunicado" : "Ver comunicados"} <ArrowRight className="size-4" /></Link>

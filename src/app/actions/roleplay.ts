@@ -83,21 +83,21 @@ export async function submitRoleplayApplication(formData: FormData) {
   const parsed = applicationSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(`/postulaciones?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   const supabase = await createClient();
-  if (!supabase) redirect("/postulaciones?submitted=demo");
-  const { error } = await supabase.from("roleplay_applications").insert({
+  if (!supabase) redirect(`/postulaciones?error=${encodeURIComponent("Supabase no está configurado")}`);
+  const { data, error } = await supabase.from("roleplay_applications").insert({
     ...parsed.data,
     answers: {},
     status: "Recibida",
-  });
+  }).select("tracking_code").single();
   if (error) redirect(`/postulaciones?error=${encodeURIComponent("No fue posible recibir la postulación")}`);
-  redirect("/postulaciones?submitted=1");
+  redirect(`/convocatorias/estado?submitted=1&tracking=${encodeURIComponent(data.tracking_code)}`);
 }
 
 export async function createRoleplayWarrant(formData: FormData) {
   const parsed = warrantSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(`/admin/warrants?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   const supabase = await createClient();
-  if (!supabase) redirect("/admin/warrants?created=demo");
+  if (!supabase) redirect(`/admin/warrants?error=${encodeURIComponent("Supabase no está configurado")}`);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   const { data: actor } = await supabase.from("profiles").select("id,role,is_active").eq("id", user.id).single();

@@ -14,7 +14,7 @@ const baseData: WarrantFormData = {
   warrant_type: "search_seizure",
   court: "UNITED STATES DISTRICT COURT",
   district: "District of Columbia",
-  division: "Criminal Division",
+  division: "División Criminal",
   city_state: "Washington, D.C.",
   execution_window: "daytime",
   max_execution_days: "14",

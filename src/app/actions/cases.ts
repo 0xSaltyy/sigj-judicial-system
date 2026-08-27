@@ -15,7 +15,7 @@ export async function createCase(formData: FormData) {
   const parsed = caseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(`/admin/expedientes/nuevo?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
   const supabase = await createClient();
-  if (!supabase) redirect("/admin/expedientes/penal-000001?created=demo");
+  if (!supabase) redirect(`/admin/expedientes/nuevo?error=${encodeURIComponent("Supabase no está configurado")}`);
   const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect("/login");
   const chamberCode = chamberCodes[parsed.data.chamber] ?? "SG";
   const [{ data: internalNumber }, { data: judicialNumber }] = await Promise.all([

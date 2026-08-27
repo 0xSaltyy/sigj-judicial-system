@@ -11,6 +11,7 @@ const redirectByResource: Record<string, string> = {
   public_notices: "/admin/comunicados",
   judicial_states: "/admin/estados",
   roleplay_warrants: "/admin/warrants",
+  roleplay_applications: "/admin/postulaciones",
   complaints: "/admin/denuncias",
 };
 
@@ -25,11 +26,11 @@ export async function manageLifecycle(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  if (resource === "roleplay_warrants") {
+  if (resource === "roleplay_warrants" || resource === "roleplay_applications") {
     if (operation === "delete" && confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`${back}?error=${encodeURIComponent("Confirmación incorrecta")}`);
     const query = operation === "delete"
-      ? supabase.from("roleplay_warrants").delete().eq("id", id)
-      : supabase.from("roleplay_warrants").update(operation === "restore" ? { archived_at: null } : { archived_at: new Date().toISOString(), status: "Revocada" }).eq("id", id);
+      ? supabase.from(resource).delete().eq("id", id)
+      : supabase.from(resource).update(operation === "restore" ? { archived_at: null } : { archived_at: new Date().toISOString(), status: resource === "roleplay_warrants" ? "Revocada" : "Retirada" }).eq("id", id);
     const { error } = await query;
     if (error) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
     redirect(`${back}?updated=1`);

@@ -37,11 +37,47 @@ export async function inviteUser(formData: FormData) {
   const { error: profileError } = await admin.from("profiles").update({
     full_name: parsed.data.full_name,
     email: parsed.data.institutional_email || parsed.data.email,
+    institutional_email: parsed.data.institutional_email || null,
     role: parsed.data.role,
     dependency_id: parsed.data.dependency_id || null,
     position_title: parsed.data.position_title || null,
     is_active: true,
+    must_change_password: true,
   }).eq("id", data.user.id);
   if (profileError) redirect(`/admin/usuarios/nuevo?error=${encodeURIComponent(profileError.message)}`);
   redirect("/admin/usuarios?created=1");
+}
+
+export async function manageUserAccount(formData: FormData) {
+  const id = String(formData.get("id") || "");
+  const action = String(formData.get("action") || "");
+  const reason = String(formData.get("reason") || "");
+  const password = String(formData.get("temporary_password") || "");
+  const client = await createClient();
+  const admin = createAdminClient();
+  if (!client || !admin) redirect("/admin/usuarios?error=Supabase%20no%20configurado");
+  const { data: { user } } = await client.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: actor } = await client.from("profiles").select("role,is_active,is_owner").eq("id", user.id).single();
+  if (!actor?.is_active || !["SUPER_ADMIN", "OWNER", "ATTORNEY_GENERAL"].includes(String(actor.role))) redirect("/no-autorizado");
+  if (action === "password_reset" && password.length < 12) redirect("/admin/usuarios?error=La%20contrase%C3%B1a%20temporal%20debe%20tener%2012%20caracteres");
+
+  const { error: guardError } = await client.rpc("set_profile_account_state", { p_target: id, p_action: action, p_reason: reason || null });
+  if (guardError) redirect(`/admin/usuarios?error=${encodeURIComponent(guardError.message)}`);
+
+  if (action === "password_reset") {
+    const { error } = await admin.auth.admin.updateUserById(id, {
+      password,
+      user_metadata: { force_password_change: true },
+    });
+    if (error) redirect(`/admin/usuarios?error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (action === "suspend") {
+    await admin.auth.admin.updateUserById(id, { ban_duration: "876000h" });
+  }
+  if (action === "reactivate") {
+    await admin.auth.admin.updateUserById(id, { ban_duration: "none" });
+  }
+  redirect("/admin/usuarios?updated=1");
 }
