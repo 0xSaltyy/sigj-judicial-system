@@ -16,6 +16,7 @@ const links = [
   ["Expedientes públicos", "/expedientes-publicos"],
   ["Audiencias", "/audiencias"],
   ["Warrants", "/warrants"],
+  ["Denuncias", "/denuncias/nueva"],
   ["Recursos", "/recursos"],
   ["Iniciar sesión", "/login"],
 ];
@@ -28,6 +29,8 @@ const footerColumns = [
       ["Ver providencias", "/providencias"],
       ["Audiencias", "/audiencias"],
       ["Warrants públicos", "/warrants"],
+      ["Realizar denuncia", "/denuncias/nueva"],
+      ["Consultar denuncia", "/denuncias/estado"],
     ],
   },
   {
@@ -44,6 +47,7 @@ const footerColumns = [
     items: [
       ["Centro de acciones", "/#centro-acciones"],
       ["Expedientes públicos", "/expedientes-publicos"],
+      ["Estado de denuncia", "/denuncias/estado"],
       ["Recursos", "/recursos"],
       ["Acceso del personal", "/login"],
     ],

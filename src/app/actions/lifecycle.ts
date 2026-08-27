@@ -1,0 +1,57 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+const redirectByResource: Record<string, string> = {
+  cases: "/admin/expedientes",
+  case_actions: "/admin/actuaciones",
+  hearings: "/admin/audiencias",
+  proceedings: "/admin/providencias",
+  public_notices: "/admin/comunicados",
+  judicial_states: "/admin/estados",
+  roleplay_warrants: "/admin/warrants",
+  complaints: "/admin/denuncias",
+};
+
+export async function manageLifecycle(formData: FormData) {
+  const resource = String(formData.get("resource") || "");
+  const id = String(formData.get("id") || "");
+  const operation = String(formData.get("operation") || "");
+  const confirmation = String(formData.get("confirmation") || "");
+  const back = redirectByResource[resource] ?? "/admin/dashboard";
+  const supabase = await createClient();
+  if (!supabase) redirect(`${back}?error=Supabase%20no%20configurado`);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  if (resource === "roleplay_warrants") {
+    if (operation === "delete" && confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`${back}?error=${encodeURIComponent("Confirmación incorrecta")}`);
+    const query = operation === "delete"
+      ? supabase.from("roleplay_warrants").delete().eq("id", id)
+      : supabase.from("roleplay_warrants").update(operation === "restore" ? { archived_at: null } : { archived_at: new Date().toISOString(), status: "Revocada" }).eq("id", id);
+    const { error } = await query;
+    if (error) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+    redirect(`${back}?updated=1`);
+  }
+
+  if (resource === "complaints") {
+    if (operation === "delete" && confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`${back}?error=${encodeURIComponent("Confirmación incorrecta")}`);
+    const query = operation === "delete"
+      ? supabase.from("complaints").delete().eq("id", id)
+      : supabase.from("complaints").update(operation === "restore" ? { archived_at: null, archived_by: null, status: "Recibida" } : { archived_at: new Date().toISOString(), status: "Archivada" }).eq("id", id);
+    const { error } = await query;
+    if (error) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+    redirect(`${back}?updated=1`);
+  }
+
+  const { data, error } = await supabase.rpc("manage_record_lifecycle", {
+    p_resource: resource,
+    p_record_id: id,
+    p_operation: operation,
+    p_confirmation: confirmation || null,
+  });
+  const result = data as { ok?: boolean; error?: string } | null;
+  if (error || !result?.ok) redirect(`${back}?error=${encodeURIComponent(error?.message || result?.error || "No fue posible completar la operación")}`);
+  redirect(`${back}?updated=1`);
+}

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { WarrantForm } from "@/components/warrant-form";
 import { getWarrantTemplate } from "@/lib/warrants";
+import { LifecycleActions } from "@/components/lifecycle-actions";
 
 type DbWarrant = {
   id: string;
@@ -18,6 +19,7 @@ type DbWarrant = {
   confidentiality: string;
   expires_at: string | null;
   case_number: string | null;
+  archived_at: string | null;
 };
 
 export const metadata = { title: "Warrants" };
@@ -26,7 +28,7 @@ export default async function AdminWarrantsPage({ searchParams }: { searchParams
   const query = await searchParams;
   const supabase = await createClient();
   const { data } = supabase
-    ? await supabase.from("roleplay_warrants").select("id,warrant_number,warrant_type,warrant_title,target_description,status,confidentiality,expires_at,case_number").order("created_at", { ascending: false }).limit(25)
+    ? await supabase.from("roleplay_warrants").select("id,warrant_number,warrant_type,warrant_title,target_description,status,confidentiality,expires_at,case_number,archived_at").order("created_at", { ascending: false }).limit(25)
     : { data: null };
   const rows: DbWarrant[] = data ?? [];
 
@@ -69,6 +71,7 @@ export default async function AdminWarrantsPage({ searchParams }: { searchParams
                 <div className="mt-4 flex flex-wrap gap-2 border-t pt-3">
                   <Button asChild size="sm" variant="outline" className="gap-2 rounded-none"><Link href={`/admin/warrants/${item.id}/imprimir`}><Eye className="size-4" /> Vista previa</Link></Button>
                   <Button asChild size="sm" variant="outline" className="gap-2 rounded-none"><Link href={`/api/roleplay/warrants/${item.id}/pdf`}><Download className="size-4" /> Descargar PDF</Link></Button>
+                  <LifecycleActions resource="roleplay_warrants" id={item.id} archived={Boolean(item.archived_at)} compact />
                 </div>
                 <p className="mt-3 border-t pt-3 text-[11px] font-semibold uppercase tracking-wide text-red-800">ROLEPLAY DOCUMENT — NOT A REAL GOVERNMENT OR COURT ORDER.</p>
               </article>

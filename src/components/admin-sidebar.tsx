@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Building2, CalendarDays, ChevronDown, ClipboardList, FileSignature, FolderKanban, Gauge, History, LogOut, Megaphone, Scale, ScrollText, Search, Settings, Users } from "lucide-react";
+import { Activity, Building2, CalendarDays, ChevronDown, ClipboardList, FileSignature, FolderKanban, Gauge, History, LogOut, Megaphone, Scale, ScrollText, Search, Settings, ShieldAlert, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -13,7 +13,7 @@ export const adminNav = [
   { label: "Panel general", href: "/admin/dashboard", icon: Gauge }, { label: "Expedientes", href: "/admin/expedientes", icon: FolderKanban },
   { label: "Actuaciones", href: "/admin/actuaciones", icon: Activity }, { label: "Providencias", href: "/admin/providencias", icon: FileSignature },
   { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays }, { label: "Warrants", href: "/admin/warrants", icon: ScrollText }, { label: "Estados judiciales", href: "/admin/estados", icon: ClipboardList },
-  { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone }, { label: "Dependencias", href: "/admin/dependencias", icon: Building2 },
+  { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone }, { label: "Denuncias", href: "/admin/denuncias", icon: ShieldAlert }, { label: "Dependencias", href: "/admin/dependencias", icon: Building2 },
   { label: "Usuarios", href: "/admin/usuarios", icon: Users }, { label: "Auditoría", href: "/admin/auditoria", icon: History },
   { label: "Configuración", href: "/admin/configuracion", icon: Settings },
 ];
