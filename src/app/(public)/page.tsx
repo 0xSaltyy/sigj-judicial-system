@@ -73,16 +73,16 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="border-b bg-white">
-        <div className="mx-auto grid max-w-[1180px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:px-8 lg:py-14">
-          <div className="reveal">
-            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#b21b1b]">Featured</p>
-            <h1 className="mt-3 max-w-4xl font-serif text-4xl font-semibold leading-tight text-[#112f4e] sm:text-5xl">
+      <section className="section-rule bg-[#fffdf8]">
+        <div className="site-container grid gap-0 py-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:py-12">
+          <div className="reveal border border-[#cfd6dc] bg-[#fffdf8] p-6 sm:p-8 lg:border-r-0 lg:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#8f1d1d]">Featured content</p>
+            <h1 className="mt-4 max-w-4xl font-serif text-4xl font-semibold leading-[1.05] text-[#0a2540] sm:text-5xl lg:text-6xl">
               {featured?.title ?? "U.S. Department of Justice"}
             </h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-700">{featured ? excerpt(featured.content_markdown) : "Portal público para comunicados, expedientes, audiencias, warrants, postulaciones y denuncias."}</p>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-700">{featured ? excerpt(featured.content_markdown) : "Portal público para comunicados, expedientes, audiencias, warrants, postulaciones y denuncias."}</p>
             <div className="mt-6 flex flex-wrap items-center gap-4">
-              <Button asChild className="rounded-none bg-[#005ea8] hover:bg-[#1a4480]">
+              <Button asChild size="lg" className="rounded-none bg-[#005ea8] hover:bg-[#0a2540]">
                 <Link href={featured ? `/comunicados/${featured.slug}` : "/comunicados"}>{featured ? "Leer comunicado" : "Ver comunicados"} <ArrowRight className="size-4" /></Link>
               </Button>
               <Link href="/consulta" className="inline-flex items-center gap-2 text-sm font-semibold text-[#005ea8] hover:underline">
@@ -90,25 +90,30 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-          <aside className="reveal border-l-4 border-[#b21b1b] bg-[#f5f7f9] p-6">
-            <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#5b7287]">Attorney General</p>
-            <h2 className="mt-3 font-serif text-3xl font-semibold text-[#112f4e]">Pam Bondi</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-700">Attorney General</p>
-            <p className="mt-5 text-sm leading-7 text-slate-700">
+          <aside className="reveal bg-[#0a2540] p-6 text-white sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[.18em] text-slate-300">Attorney General</p>
+            <h2 className="mt-4 font-serif text-3xl font-semibold">Pam Bondi</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-300">Attorney General</p>
+            <p className="mt-6 text-sm leading-7 text-slate-200">
               La oficina coordina la publicación de comunicados, la consulta de expedientes, la agenda pública y los servicios del personal autorizado.
             </p>
+            <div className="mt-8 border-t border-white/15 pt-5">
+              <Link href="/acerca" className="inline-flex items-center gap-2 text-sm font-semibold text-white hover:underline">
+                Conocer el Departamento <ArrowRight className="size-4" />
+              </Link>
+            </div>
           </aside>
         </div>
       </section>
 
-      <section id="centro-acciones" className="border-y bg-[#f5f7f9]">
-        <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8">
+      <section id="centro-acciones" className="border-y border-[#cfd6dc] bg-[#f3f1ec]">
+        <div className="site-container public-section">
           <SectionHeading eyebrow="Action Center" title="Centro de acciones" />
-          <div className="mt-8 grid gap-px border bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 grid gap-px border border-[#cfd6dc] bg-[#cfd6dc] sm:grid-cols-2 lg:grid-cols-4">
             {actionCenter.map(({ title, href, icon: Icon }) => (
-              <Link key={title} href={href} className="group reveal bg-white p-6 transition hover:bg-[#edf5fb]">
+              <Link key={title} href={href} className="group reveal bg-[#fffdf8] p-6 transition hover:bg-[#f7f1e5]">
                 <Icon className="size-8 text-[#005ea8]" />
-                <h3 className="mt-5 font-serif text-lg font-semibold leading-6 text-[#112f4e]">{title}</h3>
+                <h3 className="mt-5 font-serif text-lg font-semibold leading-6 text-[#0a2540]">{title}</h3>
                 <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#005ea8]">
                   Abrir <ArrowRight className="size-4 transition group-hover:translate-x-1" />
                 </span>
@@ -118,13 +123,13 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white">
-        <div className="mx-auto grid max-w-[1180px] gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[.8fr_1.2fr] lg:px-8">
+      <section className="bg-[#fffdf8]">
+        <div className="site-container grid gap-10 py-14 lg:grid-cols-[.8fr_1.2fr]">
           <div className="reveal">
             <SectionHeading eyebrow="Our Mission" title="Nuestra misión" />
           </div>
           <div className="reveal">
-            <p className="font-serif text-2xl leading-10 text-[#112f4e]">
+            <p className="font-serif text-2xl leading-10 text-[#0a2540]">
               Defender la integridad de los procesos del Departamento, mantener segura la información interna y ofrecer servicios públicos claros para consulta, audiencias, comunicaciones y registros.
             </p>
             <div className="mt-8 grid gap-5 border-t pt-7 md:grid-cols-2">
@@ -139,8 +144,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="border-y bg-[#112f4e] text-white">
-        <div className="mx-auto grid max-w-[1180px] grid-cols-2 px-4 sm:px-6 lg:grid-cols-4 lg:px-8">
+      <section className="border-y border-[#06192b] bg-[#0a2540] text-white">
+        <div className="site-container grid grid-cols-2 lg:grid-cols-4">
           {stats.map(([value, label], i) => (
             <div key={label} className={`reveal py-8 text-center ${i > 0 ? "lg:border-l lg:border-white/15" : ""}`}>
               <p className="mono-number stat-count text-3xl font-semibold sm:text-4xl">{value}</p>
@@ -150,12 +155,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-[1180px] px-4 py-14 sm:px-6 lg:px-8">
+      <section className="bg-[#fffdf8]">
+        <div className="site-container public-section">
           <SectionHeading eyebrow="Our Work" title="Áreas de trabajo" />
-          <div className="mt-8 grid gap-px border bg-slate-200 md:grid-cols-2">
+          <div className="mt-8 grid gap-px border border-[#cfd6dc] bg-[#cfd6dc] md:grid-cols-2">
             {workAreas.map(([title, description]) => (
-              <article key={title} className="reveal bg-white p-6">
+              <article key={title} className="reveal bg-[#fffdf8] p-6">
                 <Scale className="size-7 text-[#005ea8]" />
                 <h3 className="mt-4 font-serif text-xl font-semibold text-[#112f4e]">{title}</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-700">{description}</p>
@@ -165,14 +170,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-[#f5f7f9]">
-        <div className="mx-auto grid max-w-[1180px] gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.2fr_.8fr] lg:px-8">
+      <section className="bg-[#f3f1ec]">
+        <div className="site-container grid gap-10 py-14 lg:grid-cols-[1.2fr_.8fr]">
           <div className="reveal">
             <div className="flex items-end justify-between gap-4">
               <SectionHeading eyebrow="News" title="Comunicados recientes" />
               <Link href="/comunicados" className="text-sm font-semibold text-[#005ea8] hover:underline">Más comunicados</Link>
             </div>
-            <div className="mt-6 divide-y border bg-white">
+            <div className="mt-6 divide-y border border-[#cfd6dc] bg-[#fffdf8]">
               {notices.length === 0 ? <EmptyLine text="No hay comunicados publicados por el momento." /> : null}
               {notices.map((notice) => (
                 <Link key={notice.slug} href={`/comunicados/${notice.slug}`} className="block p-5 transition hover:bg-[#edf5fb]">
@@ -186,7 +191,7 @@ export default async function HomePage() {
           </div>
           <div className="reveal">
             <SectionHeading eyebrow="Applications" title="Convocatorias abiertas" />
-            <div className="mt-6 divide-y border bg-white">
+            <div className="mt-6 divide-y border border-[#cfd6dc] bg-[#fffdf8]">
               <EmptyLine text="No hay convocatorias abiertas en este momento." />
               <Link href="/postulaciones" className="block p-5 text-sm font-semibold text-[#005ea8] hover:bg-[#edf5fb]">Ver convocatorias y estado de postulación</Link>
             </div>
@@ -194,8 +199,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white">
-        <div className="mx-auto grid max-w-[1180px] gap-8 px-4 py-14 sm:px-6 lg:grid-cols-3 lg:px-8">
+      <section className="bg-[#fffdf8]">
+        <div className="site-container grid gap-8 py-14 lg:grid-cols-3">
           <Panel title="Expedientes públicos" href="/expedientes-publicos">
             {publicCases.map((item) => (
               <Link key={item.id} href="/consulta" className="block border-b py-4 last:border-0">
@@ -251,7 +256,7 @@ function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) 
 
 function Panel({ title, href, children }: { title: string; href: string; children: React.ReactNode }) {
   return (
-    <section className="reveal border bg-white p-5">
+    <section className="reveal formal-card p-5">
       <div className="flex items-center justify-between gap-3 border-b pb-4">
         <h2 className="font-serif text-xl font-semibold text-[#112f4e]">{title}</h2>
         <Link href={href} className="text-sm font-semibold text-[#005ea8] hover:underline">Ver más</Link>

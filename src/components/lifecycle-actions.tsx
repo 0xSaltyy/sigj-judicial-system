@@ -4,7 +4,7 @@ import { ArchiveRestore, ArchiveX, Trash2 } from "lucide-react";
 import { manageLifecycle } from "@/app/actions/lifecycle";
 import { Button } from "@/components/ui/button";
 
-export function LifecycleActions({ resource, id, archived = false, compact = false }: { resource: string; id: string; archived?: boolean; compact?: boolean }) {
+export function LifecycleActions({ resource, id, archived = false, compact = false, allowDelete = true }: { resource: string; id: string; archived?: boolean; compact?: boolean; allowDelete?: boolean }) {
   const size = compact ? "sm" : "default";
   return (
     <div className="flex flex-wrap gap-2">
@@ -17,7 +17,7 @@ export function LifecycleActions({ resource, id, archived = false, compact = fal
           {archived ? "Restaurar" : "Archivar"}
         </Button>
       </form>
-      <form action={manageLifecycle} onSubmit={(event) => { if (!window.confirm("Esta acción eliminará definitivamente el registro. ¿Continuar?")) event.preventDefault(); }}>
+      {allowDelete ? <form action={manageLifecycle} onSubmit={(event) => { if (!window.confirm("Esta acción eliminará definitivamente el registro. ¿Continuar?")) event.preventDefault(); }}>
         <input type="hidden" name="resource" value={resource} />
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="operation" value="delete" />
@@ -25,7 +25,7 @@ export function LifecycleActions({ resource, id, archived = false, compact = fal
         <Button type="submit" size={size} variant="outline" className="gap-2 rounded-none border-red-200 text-red-800 hover:bg-red-50">
           <Trash2 className="size-4" /> Eliminar
         </Button>
-      </form>
+      </form> : null}
     </div>
   );
 }

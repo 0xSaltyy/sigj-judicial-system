@@ -26,6 +26,10 @@ export async function manageLifecycle(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  if (resource === "roleplay_applications" && operation === "delete") {
+    redirect(`${back}?error=${encodeURIComponent("Use el flujo OWNER de eliminación permanente de postulaciones")}`);
+  }
+
   if (resource === "roleplay_warrants" || resource === "roleplay_applications") {
     if (operation === "delete" && confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`${back}?error=${encodeURIComponent("Confirmación incorrecta")}`);
     const query = operation === "delete"
