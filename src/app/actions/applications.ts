@@ -34,11 +34,14 @@ export async function deleteRoleplayApplication(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: actor } = await supabase.from("profiles").select("id,role,is_owner,is_active").eq("id", user.id).single();
+  const admin = createAdminClient();
+  if (!admin) redirect(`${back}?error=${encodeURIComponent("Servicio administrativo no configurado")}`);
+
+  const { data: actor } = await admin.from("profiles").select("id,role,is_owner,is_active").eq("id", user.id).single();
   const actorRole = String(actor?.role || "");
-  const canDeleteApplications = Boolean(actor?.is_active && (actor?.is_owner || actorRole === "OWNER" || actorRole === "ATTORNEY_GENERAL"));
+  const canDeleteApplications = Boolean(actor?.is_active && (actor?.is_owner || ["SUPER_ADMIN", "OWNER", "ATTORNEY_GENERAL"].includes(actorRole)));
   if (!canDeleteApplications) {
-    await supabase.from("audit_logs").insert({
+    await admin.from("audit_logs").insert({
       user_id: user.id,
       action: "DELETE_DENIED",
       table_name: "roleplay_applications",
@@ -48,9 +51,6 @@ export async function deleteRoleplayApplication(formData: FormData) {
     });
     redirect("/no-autorizado");
   }
-
-  const admin = createAdminClient();
-  if (!admin) redirect(`${back}?error=${encodeURIComponent("Servicio administrativo no configurado")}`);
 
   const { data: application, error: loadError } = await admin
     .from("roleplay_applications")
