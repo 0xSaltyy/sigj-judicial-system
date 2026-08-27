@@ -75,7 +75,17 @@
 }
 
 @media print {
-  .no-print { display: none !important; }
-  body { background: white; }
+  @page { size: Letter; margin: 0; }
+  .no-print, nav, aside, header[data-app-header], [data-no-print="true"], .admin-shell, .breadcrumbs, .toast, .alert, .actions, button { display: none !important; }
+  body { background: white !important; }
   .paper { box-shadow: none; }
+  .warrant-document {
+    width: 8.5in !important;
+    min-height: 11in !important;
+    margin: 0 auto !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    page-break-after: always;
+  }
+  .avoid-break { break-inside: avoid; page-break-inside: avoid; }
 }
