@@ -31,9 +31,9 @@ const navGroups = [
     label: "Servicios públicos",
     href: "/consulta",
     items: [
-      ["Consultar expedientes", "/consulta"],
-      ["Providencias", "/providencias"],
-      ["Expedientes públicos", "/expedientes-publicos"],
+      ["Consultar Federal Cases", "/consulta"],
+      ["Orders", "/providencias"],
+      ["Cases públicos", "/expedientes-publicos"],
       ["Audiencias", "/audiencias"],
       ["Warrants", "/warrants"],
       ["Denuncias", "/denuncias/nueva"],
@@ -46,8 +46,8 @@ const footerColumns = [
   {
     title: "Servicios públicos",
     items: [
-      ["Consultar expedientes", "/consulta"],
-      ["Ver providencias", "/providencias"],
+      ["Consultar Federal Cases", "/consulta"],
+      ["Ver Orders", "/providencias"],
       ["Audiencias públicas", "/audiencias"],
       ["Warrants públicos", "/warrants"],
       ["Realizar denuncia", "/denuncias/nueva"],
@@ -68,7 +68,7 @@ const footerColumns = [
     title: "Recursos",
     items: [
       ["Centro de acciones", "/#centro-acciones"],
-      ["Expedientes públicos", "/expedientes-publicos"],
+      ["Cases públicos", "/expedientes-publicos"],
       ["Estado de postulación", "/convocatorias/estado"],
       ["Recursos", "/recursos"],
       ["Acceso del personal", "/login"],
@@ -176,7 +176,7 @@ export function InstitutionalFooter() {
         <div>
           <InstitutionalMark dark />
           <p className="mt-5 max-w-md text-sm leading-7 text-slate-300">
-            Portal público para consulta de expedientes, comunicaciones, audiencias, denuncias y servicios del personal autorizado.
+            Portal público para consulta de Federal Cases, comunicaciones, audiencias, denuncias y servicios del personal autorizado.
           </p>
         </div>
         {footerColumns.map((column) => (

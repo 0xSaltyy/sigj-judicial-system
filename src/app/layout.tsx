@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: { default: "U.S. Department of Justice", template: "%s | U.S. Department of Justice" },
-  description: "Portal institucional de servicios, expedientes, comunicados y audiencias.",
+  description: "Portal institucional de servicios, Federal Cases, DOJ Matters, comunicados y hearings.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

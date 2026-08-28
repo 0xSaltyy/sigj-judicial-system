@@ -5,8 +5,8 @@ import { PageHero } from "@/components/page-hero";
 export const metadata = { title: "Recursos" };
 
 const resources = [
-  { title: "Guía para consultar expedientes", description: "Cómo usar número de docket sin exponer datos internos.", href: "/consulta", icon: FileQuestion },
-  { title: "Reglas de documentos", description: "Cómo publicar providencias y consultar documentos del sistema.", href: "/providencias", icon: BookOpen },
+  { title: "Guía para consultar Federal Cases", description: "Cómo usar Case Number o Docket Number sin exponer Matters internos.", href: "/consulta", icon: FileQuestion },
+  { title: "Reglas de documentos", description: "Cómo publicar Orders y consultar documentos públicos del sistema.", href: "/providencias", icon: BookOpen },
   { title: "Soporte del personal", description: "Acceso interno para cuentas creadas por OWNER.", href: "/login", icon: LifeBuoy },
 ];
 

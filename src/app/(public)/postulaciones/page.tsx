@@ -25,7 +25,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams:
           <article className="reveal border bg-white p-6">
             <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9a752f]">Convocatorias</p>
             <h2 className="mt-2 font-serif text-2xl font-semibold text-[#102d49]">Canal general de postulación</h2>
-            <p className="mt-2 text-sm leading-7 text-muted-foreground">Las solicitudes recibidas se revisan desde el panel interno. Si no hay vacantes activas, el despacho podrá mantener la solicitud en archivo o cerrarla.</p>
+            <p className="mt-2 text-sm leading-7 text-muted-foreground">Las solicitudes recibidas se revisan desde el panel interno. Si no hay vacantes activas, el componente autorizado podrá mantener la solicitud en archivo o cerrarla.</p>
             <Button asChild variant="outline" className="mt-5 rounded-none"><Link href="/convocatorias/estado">Consultar estado de postulación</Link></Button>
           </article>
           <div className="grid gap-px border bg-slate-200 sm:grid-cols-2">

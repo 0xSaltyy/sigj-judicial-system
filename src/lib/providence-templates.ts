@@ -1,5 +1,5 @@
 export const templates: Record<string, string> = {
-  "Orden procesal": "# ORDEN PROCESAL\n\n**Número de caso:** {{case_number}}  \n**División:** {{division}}  \n**Funcionario:** {{ponente}}\n\n## Antecedentes\n[Describa los antecedentes relevantes]\n\n## Consideraciones\n[Desarrolle las razones de la decisión]\n\n## Resuelve\n**PRIMERO.** [Decisión]\n\n**SEGUNDO.** [Decisión complementaria]",
-  "Resolución": "# RESOLUCIÓN\n\n## Antecedentes\n[Antecedentes]\n\n## Consideraciones\n[Consideraciones]\n\n## Resuelve\n[Decisión]",
-  "Acta de audiencia": "# ACTA DE AUDIENCIA\n\n**Fecha y hora:** {{fecha}}  \n**Número de caso:** {{case_number}}  \n**Sala:** {{despacho}}\n\n## Participantes\n- [Nombre y rol]\n\n## Desarrollo\n[Registro de la sesión]\n\n## Decisiones\n[Decisiones]",
+  "Procedural Order": "# PROCEDURAL ORDER\n\n**Case Number:** {{case_number}}  \n**Docket Number:** {{docket_number}}  \n**Federal Court:** {{court}}\n\n## Background\n[Relevant background]\n\n## Findings\n[Reasons for the order]\n\n## Order\n**FIRST.** [Order]\n\n**SECOND.** [Supplemental order]",
+  "Memorandum Opinion and Order": "# MEMORANDUM OPINION AND ORDER\n\n**Case Number:** {{case_number}}  \n**Federal Court:** {{court}}\n\n## Background\n[Background]\n\n## Discussion\n[Analysis]\n\n## Conclusion\n[Disposition]",
+  "Hearing Minutes": "# HEARING MINUTES\n\n**Date and time:** {{date}}  \n**Case Number:** {{case_number}}  \n**Courtroom / remote link:** {{courtroom}}\n\n## Appearances\n- [Name and role]\n\n## Proceedings\n[Record of the hearing]\n\n## Rulings\n[Rulings or next steps]",
 };

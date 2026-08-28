@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Bell,
+  BriefcaseBusiness,
   Building2,
   CalendarDays,
   ClipboardList,
@@ -30,15 +31,16 @@ import { RealtimeStatus } from "@/components/realtime-status";
 
 export const adminNavGroups = [
   {
-    title: "Gestión judicial",
+    title: "Operación federal",
     items: [
       { label: "Panel general", href: "/admin/dashboard", icon: Gauge },
-      { label: "Expedientes", href: "/admin/expedientes", icon: FolderKanban },
-      { label: "Actuaciones", href: "/admin/actuaciones", icon: Activity },
-      { label: "Providencias", href: "/admin/providencias", icon: FileSignature },
-      { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays },
+      { label: "DOJ Matters", href: "/admin/matters", icon: BriefcaseBusiness },
+      { label: "Federal Cases", href: "/admin/expedientes", icon: FolderKanban },
+      { label: "Docket y eventos", href: "/admin/actuaciones", icon: Activity },
+      { label: "Orders", href: "/admin/providencias", icon: FileSignature },
+      { label: "Hearings", href: "/admin/audiencias", icon: CalendarDays },
       { label: "Warrants", href: "/admin/warrants", icon: ScrollText },
-      { label: "Estados judiciales", href: "/admin/estados", icon: ClipboardList },
+      { label: "Court notices", href: "/admin/estados", icon: ClipboardList },
     ],
   },
   {
@@ -52,7 +54,7 @@ export const adminNavGroups = [
   {
     title: "Administración",
     items: [
-      { label: "Dependencias", href: "/admin/dependencias", icon: Building2 },
+      { label: "Componentes DOJ", href: "/admin/dependencias", icon: Building2 },
       { label: "Usuarios", href: "/admin/usuarios", icon: Users },
       { label: "Auditoría", href: "/admin/auditoria", icon: History },
       { label: "Configuración", href: "/admin/configuracion", icon: Settings },
@@ -147,7 +149,7 @@ export function AdminTopbar() {
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
         <input
           className="h-9 w-full border border-[#b7c2cd] bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#005ea8] focus:ring-3 focus:ring-[#005ea8]/15"
-          placeholder="Buscar expediente, persona, warrant o providencia…"
+          placeholder="Buscar Matter, Case, persona, warrant u Order…"
           aria-label="Búsqueda global"
         />
       </div>

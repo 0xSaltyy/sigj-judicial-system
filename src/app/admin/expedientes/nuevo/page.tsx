@@ -1,18 +1,85 @@
-import { AlertTriangle, FileUp, Save } from "lucide-react";
-import { createCase } from "@/app/actions/cases";
 import { AdminPageHeader } from "@/components/admin-page";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-export const metadata = { title: "Nuevo caso" };
-const authorities = ["Tribunal Superior", "Corte Suprema de Justicia Simulada", "Juzgado de Circuito"];
-const chambers = ["Sala Penal", "Sala Civil", "Sala Laboral", "Sala Administrativa"];
-const processTypes = ["Civil", "Penal", "Laboral", "Administrativo", "Constitucional", "Disciplinario simulado"];
-const subtypes = ["Tutela", "Apelación", "Recurso extraordinario", "Nulidad", "Responsabilidad", "Ejecutivo", "Declarativo", "Control de legalidad", "Consulta", "Avocamiento"];
-export default async function NewCasePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) { const query = await searchParams; return <><AdminPageHeader title="Crear nuevo caso" description="Complete la información de recepción. El Número de caso se generará automáticamente en el servidor; el Docket Number solo se registra si el tribunal lo asigna posteriormente." />{query.error && <Alert variant="destructive" className="mb-5"><AlertTriangle className="size-4" /><AlertDescription>{query.error}</AlertDescription></Alert>}<form action={createCase} className="space-y-5"><Card><CardHeader><CardTitle className="text-base text-[#153553]">1. Clasificación del asunto</CardTitle></CardHeader><CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"><SelectField label="Tipo de autoridad" name="authority_type" options={authorities} /><SelectField label="Sala o despacho" name="chamber" options={chambers} /><SelectField label="Clase de proceso" name="process_type" options={processTypes} /><SelectField label="Subclase" name="process_subtype" options={subtypes} /></CardContent></Card><Card><CardHeader><CardTitle className="text-base text-[#153553]">2. Partes principales</CardTitle></CardHeader><CardContent className="grid gap-5 md:grid-cols-2"><TextField label="Demandante / accionante / solicitante" name="claimant_name" required /><TextField label="Demandado / accionado / investigado" name="defendant_name" required /><TextField label="Identificación del solicitante (opcional)" name="claimant_document" /><TextField label="Identificación de la parte convocada (opcional)" name="defendant_document" /></CardContent></Card><Card><CardHeader><CardTitle className="text-base text-[#153553]">3. Contenido y pretensiones</CardTitle></CardHeader><CardContent className="grid gap-5"><TextAreaField label="Resumen de hechos" name="summary" hint="Describa de forma clara los hechos principales (mínimo 20 caracteres)." /><TextAreaField label="Pretensiones o asunto" name="claims" /><div className="max-w-sm"><TextField label="Cuantía, si aplica" name="amount" type="number" /></div></CardContent></Card><Card><CardHeader><CardTitle className="text-base text-[#153553]">4. Datos de recepción</CardTitle></CardHeader><CardContent className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"><TextField label="Departamento" name="department" defaultValue="República Judicial" required /><TextField label="Municipio" name="municipality" defaultValue="Distrito Capital Simulado" required /><TextField label="Fecha de apertura" name="filed_at" type="date" defaultValue="2026-06-19" required /><SelectField label="Medio de recepción" name="reception_method" options={["Ventanilla", "Correo institucional", "Reparto interno", "Remisión de juzgado", "Recurso"]} /><SelectField label="Nivel de reserva" name="confidentiality_level" options={["Público", "Reservado", "Confidencial"]} /><div className="md:col-span-2 xl:col-span-3"><TextField label="Observaciones" name="observations" /></div></CardContent></Card><Card><CardHeader><CardTitle className="text-base text-[#153553]">5. Documentos anexos</CardTitle></CardHeader><CardContent><label htmlFor="attachment" className="flex cursor-pointer flex-col items-center rounded-lg border border-dashed p-8 text-center hover:bg-slate-50"><FileUp className="size-7 text-[#416786]" /><span className="mt-3 text-sm font-semibold text-[#153553]">Adjuntar documento inicial</span><span className="mt-1 text-xs text-muted-foreground">PDF, DOCX o imagen. Se almacenará en el bucket privado case-documents.</span><Input id="attachment" name="attachment" type="file" className="mt-4 max-w-sm" /></label></CardContent></Card><Alert className="border-amber-200 bg-amber-50"><AlertTriangle className="size-4 text-amber-800" /><AlertDescription className="text-amber-900">Los expedientes reservados o confidenciales nunca se publican automáticamente.</AlertDescription></Alert><div className="flex justify-end"><Button type="submit" size="lg" className="gap-2 bg-[#153b5c]"><Save className="size-4" /> Crear caso</Button></div></form></>; }
-function TextField({ label, name, type = "text", required, defaultValue }: { label: string; name: string; type?: string; required?: boolean; defaultValue?: string }) { return <div className="space-y-2"><Label htmlFor={name}>{label}{required && <span className="text-red-600"> *</span>}</Label><Input id={name} name={name} type={type} required={required} defaultValue={defaultValue} /></div>; }
-function TextAreaField({ label, name, hint }: { label: string; name: string; hint?: string }) { return <div className="space-y-2"><Label htmlFor={name}>{label} <span className="text-red-600">*</span></Label><Textarea id={name} name={name} required className="min-h-28" />{hint && <p className="text-xs text-muted-foreground">{hint}</p>}</div>; }
-function SelectField({ label, name, options }: { label: string; name: string; options: string[] }) { return <div className="space-y-2"><Label htmlFor={name}>{label} <span className="text-red-600">*</span></Label><select id={name} name={name} required className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"><option value="">Seleccione…</option>{options.map((option) => <option key={option}>{option}</option>)}</select></div>; }
+import { FederalRecordForm } from "@/components/federal-record-form";
+import { createClient } from "@/lib/supabase/server";
+import { fallbackFederalCourts, fallbackNatureOfSuit, type CourtDivisionOption, type FederalCourtOption, type NatureOfSuitOption } from "@/lib/federal-model";
+
+export const metadata = { title: "Abrir Matter o Case" };
+
+type CourtRow = {
+  id: string;
+  court_system: string;
+  court_level: string;
+  official_name: string;
+  abbreviation: string;
+  circuit: string | null;
+  district: string | null;
+  state_or_territory: string | null;
+  accepted_case_categories: string[] | null;
+};
+
+type NatureRow = {
+  code: string;
+  official_label: string;
+  display_label_es: string;
+  category: string;
+};
+
+type DivisionRow = {
+  id: string;
+  court_id: string;
+  name: string;
+  city: string | null;
+  courthouse_name: string | null;
+  clerk_office: string | null;
+};
+
+export default async function NewFederalRecordPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const query = await searchParams;
+  const supabase = await createClient();
+  const [courtsResult, divisionsResult, natureResult] = supabase ? await Promise.all([
+    supabase.from("federal_courts").select("id,court_system,court_level,official_name,abbreviation,circuit,district,state_or_territory,accepted_case_categories").eq("active", true).order("court_level").order("official_name"),
+    supabase.from("court_divisions").select("id,court_id,name,city,courthouse_name,clerk_office").eq("active", true).order("name"),
+    supabase.from("nature_of_suit_catalog").select("code,official_label,display_label_es,category").eq("active", true).order("sort_order"),
+  ]) : [{ data: null }, { data: null }, { data: null }];
+
+  const courts = ((courtsResult.data ?? []) as CourtRow[]).map((court): FederalCourtOption => ({
+    id: court.id,
+    courtSystem: court.court_system,
+    courtLevel: court.court_level,
+    officialName: court.official_name,
+    abbreviation: court.abbreviation,
+    circuit: court.circuit,
+    district: court.district,
+    stateOrTerritory: court.state_or_territory,
+    acceptedCaseCategories: (court.accepted_case_categories ?? []) as FederalCourtOption["acceptedCaseCategories"],
+  }));
+  const natureOfSuit = ((natureResult.data ?? []) as NatureRow[]).map((item): NatureOfSuitOption => ({
+    code: item.code,
+    officialLabel: item.official_label,
+    displayLabelEs: item.display_label_es,
+    category: item.category,
+  }));
+  const divisions = ((divisionsResult.data ?? []) as DivisionRow[]).map((division): CourtDivisionOption => ({
+    id: division.id,
+    courtId: division.court_id,
+    name: division.name,
+    city: division.city,
+    courthouseName: division.courthouse_name,
+    clerkOffice: division.clerk_office,
+  }));
+
+  return (
+    <>
+      <AdminPageHeader
+        title="Abrir Matter o Case federal"
+        description="Seleccione primero si el registro pertenece al trabajo interno del DOJ o a un procedimiento presentado ante un tribunal federal. El servidor genera Matter Number o Case Number y mantiene separado el Docket Number."
+      />
+      <FederalRecordForm
+        courts={courts.length ? courts : fallbackFederalCourts}
+        divisions={divisions}
+        natureOfSuit={natureOfSuit.length ? natureOfSuit : fallbackNatureOfSuit}
+        error={query.error}
+      />
+    </>
+  );
+}

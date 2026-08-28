@@ -16,8 +16,8 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatDateTime } from "@/lib/display";
 
 const actionCenter = [
-  { title: "Consultar expedientes", href: "/consulta", icon: FileSearch },
-  { title: "Ver providencias", href: "/providencias", icon: FileCheck2 },
+  { title: "Consultar Federal Cases", href: "/consulta", icon: FileSearch },
+  { title: "Ver Orders", href: "/providencias", icon: FileCheck2 },
   { title: "Revisar audiencias", href: "/audiencias", icon: CalendarDays },
   { title: "Postularse a juez", href: "/postulaciones", icon: Scale },
   { title: "Registrarse como abogado", href: "/postulaciones", icon: BriefcaseBusiness },
@@ -28,13 +28,13 @@ const actionCenter = [
 
 const workAreas = [
   ["División Criminal", "Investigaciones, warrants y coordinación con fiscales autorizados."],
-  ["División Civil", "Gestión de expedientes públicos, audiencias y actuaciones administrativas."],
+  ["División Civil", "Gestión de Civil Cases, hearings, filings y órdenes públicas."],
   ["Oficina de Comunicaciones", "Comunicados, recursos públicos y anuncios institucionales."],
   ["Registros y Tecnología", "Custodia de documentos, auditoría y servicios de consulta pública."],
 ];
 
 type Notice = { id: string; title: string; slug: string; category: string; content_markdown: string; published_at: string | null };
-type PublicCase = { id: string; case_number: string | null; internal_number: string; title: string; status: string; filed_at: string };
+type PublicCase = { id: string; case_number: string | null; internal_number: string; title: string; case_caption: string | null; case_category: string; court_name: string | null; status: string; filed_at: string };
 type PublicHearing = { id: string; title: string; scheduled_at: string; room: string; status: string };
 type PublicWarrant = { id: string; warrant_number: string; warrant_type: string; status: string; expires_at: string | null };
 
@@ -51,10 +51,10 @@ export default async function HomePage() {
     warrantsCount,
   ] = supabase ? await Promise.all([
     supabase.from("public_notices").select("id,title,slug,category,content_markdown,published_at").eq("status", "Publicado").is("archived_at", null).order("published_at", { ascending: false }).limit(4),
-    supabase.from("cases").select("id,case_number,internal_number,title,status,filed_at").eq("public_visibility", true).eq("confidentiality_level", "Público").is("archived_at", null).order("filed_at", { ascending: false }).limit(3),
+    supabase.from("public_case_lookup").select("id,case_number,internal_number,title,case_caption,case_category,court_name,status,filed_at").order("filed_at", { ascending: false }).limit(3),
     supabase.from("hearings").select("id,title,scheduled_at,room,status").eq("is_public", true).is("archived_at", null).gte("scheduled_at", new Date().toISOString()).order("scheduled_at", { ascending: true }).limit(3),
     supabase.from("roleplay_warrants").select("id,warrant_number,warrant_type,status,expires_at").eq("confidentiality", "public").in("status", ["Aprobada", "Activa", "Ejecutada", "Vencida"]).is("archived_at", null).order("created_at", { ascending: false }).limit(2),
-    supabase.from("cases").select("id", { count: "exact", head: true }).is("archived_at", null),
+    supabase.from("public_case_lookup").select("id", { count: "exact", head: true }),
     supabase.from("hearings").select("id", { count: "exact", head: true }).is("archived_at", null),
     supabase.from("proceedings").select("id", { count: "exact", head: true }).eq("visibility", "public").eq("status", "Publicado").is("archived_at", null),
     supabase.from("roleplay_warrants").select("id", { count: "exact", head: true }).in("status", ["Aprobada", "Activa"]).is("archived_at", null),
@@ -65,7 +65,7 @@ export default async function HomePage() {
   const publicWarrants = (warrantsResult?.data ?? []) as PublicWarrant[];
   const featured = notices[0];
   const stats = [
-    [String(casesCount?.count ?? 0), "Expedientes activos"],
+    [String(casesCount?.count ?? 0), "Federal Cases activos"],
     [String(hearingsCount?.count ?? 0), "Audiencias programadas"],
     [String(proceedingsCount?.count ?? 0), "Documentos publicados"],
     [String(warrantsCount?.count ?? 0), "Órdenes activas"],
@@ -80,13 +80,13 @@ export default async function HomePage() {
             <h1 className="mt-4 max-w-4xl font-serif text-4xl font-semibold leading-[1.05] text-[#0a2540] sm:text-5xl lg:text-6xl">
               {featured?.title ?? "U.S. Department of Justice"}
             </h1>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-700">{featured ? excerpt(featured.content_markdown) : "Portal público para comunicados, expedientes, audiencias, warrants, postulaciones y denuncias."}</p>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-700">{featured ? excerpt(featured.content_markdown) : "Portal público para comunicados, Federal Cases, hearings, warrants, postulaciones y denuncias."}</p>
             <div className="mt-6 flex flex-wrap items-center gap-4">
               <Button asChild size="lg" className="rounded-none bg-[#005ea8] hover:bg-[#0a2540]">
                 <Link href={featured ? `/comunicados/${featured.slug}` : "/comunicados"}>{featured ? "Leer comunicado" : "Ver comunicados"} <ArrowRight className="size-4" /></Link>
               </Button>
               <Link href="/consulta" className="inline-flex items-center gap-2 text-sm font-semibold text-[#005ea8] hover:underline">
-                Consultar expediente <Search className="size-4" />
+                Consultar Case <Search className="size-4" />
               </Link>
             </div>
           </div>
@@ -95,7 +95,7 @@ export default async function HomePage() {
             <h2 className="mt-4 font-serif text-3xl font-semibold">Pam Bondi</h2>
             <p className="mt-1 text-sm font-semibold text-slate-300">Attorney General</p>
             <p className="mt-6 text-sm leading-7 text-slate-200">
-              La oficina coordina la publicación de comunicados, la consulta de expedientes, la agenda pública y los servicios del personal autorizado.
+              La oficina coordina la publicación de comunicados, la consulta de Federal Cases, la agenda pública y los servicios del personal autorizado.
             </p>
             <div className="mt-8 border-t border-white/15 pt-5">
               <Link href="/acerca" className="inline-flex items-center gap-2 text-sm font-semibold text-white hover:underline">
@@ -136,7 +136,7 @@ export default async function HomePage() {
               {["Independencia e imparcialidad", "Honestidad e integridad", "Respeto", "Excelencia operativa"].map((value) => (
                 <div key={value}>
                   <h3 className="font-serif text-lg font-semibold text-[#112f4e]">{value}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">Guía para la administración de expedientes, comunicaciones y servicios institucionales.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">Guía para la administración de Matters, Federal Cases, comunicaciones y servicios institucionales.</p>
                 </div>
               ))}
             </div>
@@ -201,15 +201,15 @@ export default async function HomePage() {
 
       <section className="bg-[#fffdf8]">
         <div className="site-container grid gap-8 py-14 lg:grid-cols-3">
-          <Panel title="Expedientes públicos" href="/expedientes-publicos">
+          <Panel title="Federal Cases públicos" href="/expedientes-publicos">
             {publicCases.map((item) => (
               <Link key={item.id} href="/consulta" className="block border-b py-4 last:border-0">
                 <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.case_number || item.internal_number}</p>
-                <p className="mt-2 text-sm font-semibold text-[#112f4e]">{item.title}</p>
-                <p className="mt-1 text-xs text-slate-600">{item.status} · {formatDate(item.filed_at)}</p>
+                <p className="mt-2 text-sm font-semibold text-[#112f4e]">{item.case_caption || item.title}</p>
+                <p className="mt-1 text-xs text-slate-600">{item.case_category} · {item.court_name || "Federal court"} · {item.status} · {formatDate(item.filed_at)}</p>
               </Link>
             ))}
-            {publicCases.length === 0 ? <EmptyLine text="No hay expedientes públicos disponibles." /> : null}
+            {publicCases.length === 0 ? <EmptyLine text="No hay Federal Cases públicos disponibles." /> : null}
           </Panel>
           <Panel title="Audiencias públicas" href="/audiencias">
             {publicHearings.map((hearing) => (

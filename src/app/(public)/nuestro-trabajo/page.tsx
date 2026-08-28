@@ -5,7 +5,7 @@ export const metadata = { title: "Nuestro trabajo" };
 
 const workAreas = [
   { title: "División Criminal", description: "Investigaciones, audiencias, warrants y coordinación con fiscales autorizados.", icon: Gavel },
-  { title: "División Civil", description: "Gestión de controversias civiles, escritos, providencias y audiencias públicas.", icon: FileText },
+  { title: "División Civil", description: "Gestión de Civil Cases, filings, Orders y hearings públicos.", icon: FileText },
   { title: "Registros y Seguridad", description: "Custodia documental, permisos, auditoría y protección de archivos reservados.", icon: ShieldCheck },
   { title: "Administración Institucional", description: "Convocatorias, comunicaciones públicas, cuentas internas y seguimiento operativo.", icon: BriefcaseBusiness },
 ];
