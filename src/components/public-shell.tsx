@@ -32,6 +32,7 @@ const navGroups = [
     href: "/consulta",
     items: [
       ["Consultar Federal Cases", "/consulta"],
+      ["Registros y antecedentes", "/antecedentes"],
       ["Orders", "/providencias"],
       ["Cases públicos", "/expedientes-publicos"],
       ["Audiencias", "/audiencias"],
@@ -52,6 +53,7 @@ const footerColumns = [
       ["Warrants públicos", "/warrants"],
       ["Realizar denuncia", "/denuncias/nueva"],
       ["Consultar denuncia", "/denuncias/estado"],
+      ["Solicitar mi resumen de antecedentes", "/antecedentes/solicitar"],
     ],
   },
   {
@@ -69,6 +71,8 @@ const footerColumns = [
     items: [
       ["Centro de acciones", "/#centro-acciones"],
       ["Cases públicos", "/expedientes-publicos"],
+      ["Solicitar corrección", "/antecedentes/correccion"],
+      ["Verificar documento", "/verificar-documento"],
       ["Estado de postulación", "/convocatorias/estado"],
       ["Recursos", "/recursos"],
       ["Acceso del personal", "/login"],

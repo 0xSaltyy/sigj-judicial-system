@@ -23,23 +23,35 @@ type PublicCase = {
   filed_at: string;
 };
 
-export default async function PublicCasesPage() {
+export default async function PublicCasesPage({ searchParams }: { searchParams: Promise<{ q?: string; category?: string; court?: string }> }) {
+  const query = await searchParams;
+  const q = cleanFilter(query.q);
+  const category = cleanFilter(query.category);
+  const court = cleanFilter(query.court);
   const supabase = await createClient();
-  const { data } = supabase ? await supabase
-    .from("public_case_lookup")
-    .select("id,case_number,internal_number,docket_number,title,summary,case_caption,case_category,court_name,court_abbreviation,status,filed_at")
-    .order("filed_at", { ascending: false })
-    .limit(50) : { data: null };
+  let request = supabase
+    ? supabase
+        .from("public_case_lookup")
+        .select("id,case_number,internal_number,docket_number,title,summary,case_caption,case_category,court_name,court_abbreviation,status,filed_at")
+        .order("filed_at", { ascending: false })
+        .limit(50)
+    : null;
+  if (request && q) request = request.or(`case_number.ilike.%${q}%,internal_number.ilike.%${q}%,docket_number.ilike.%${q}%,title.ilike.%${q}%,case_caption.ilike.%${q}%`);
+  if (request && category) request = request.eq("case_category", category);
+  if (request && court) request = request.or(`court_name.ilike.%${court}%,court_abbreviation.ilike.%${court}%`);
+  const { data } = request ? await request : { data: null };
   const publicCases = (data ?? []) as PublicCase[];
 
   return (
     <>
       <PageHero eyebrow="Federal Cases públicos" title="Casos públicos federales" description="Listado limitado a Cases marcados como public-safe. Matters internos, partes sealed, notas y documentos restringidos no se exponen." />
       <div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <div className="mb-6 grid gap-3 border bg-white p-4 sm:grid-cols-[1fr_auto]">
-          <Input placeholder="Buscar por Case Number, Docket Number, caption, estado o tribunal…" />
+        <form className="mb-6 grid gap-3 border bg-white p-4 lg:grid-cols-[1.2fr_.8fr_.8fr_auto]">
+          <Input name="q" defaultValue={q} placeholder="Case Number, Docket Number o caption…" />
+          <Input name="court" defaultValue={court} placeholder="Court / abbreviation" />
+          <Input name="category" defaultValue={category} placeholder="Category, ej. Criminal" />
           <Button variant="outline" className="gap-2 rounded-none"><Search className="size-4" /> Buscar</Button>
-        </div>
+        </form>
         <div className="divide-y border bg-white">
           {publicCases.length === 0 ? <Empty text="No hay Federal Cases públicos disponibles." /> : publicCases.map((item) => (
             <article key={item.id} className="reveal p-6">
@@ -64,4 +76,8 @@ export default async function PublicCasesPage() {
 
 function Empty({ text }: { text: string }) {
   return <div className="grid min-h-56 place-items-center p-8 text-center"><div><FileSearch className="mx-auto size-8 text-slate-400" /><p className="mt-3 text-sm text-slate-600">{text}</p></div></div>;
+}
+
+function cleanFilter(value?: string) {
+  return (value ?? "").replace(/[%,()]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
 }

@@ -20,6 +20,7 @@ import {
   Search,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ export const adminNavGroups = [
       { label: "Panel general", href: "/admin/dashboard", icon: Gauge },
       { label: "DOJ Matters", href: "/admin/matters", icon: BriefcaseBusiness },
       { label: "Federal Cases", href: "/admin/expedientes", icon: FolderKanban },
+      { label: "Criminal History Records", href: "/admin/antecedentes", icon: ShieldCheck },
       { label: "Docket y eventos", href: "/admin/actuaciones", icon: Activity },
       { label: "Orders", href: "/admin/providencias", icon: FileSignature },
       { label: "Hearings", href: "/admin/audiencias", icon: CalendarDays },

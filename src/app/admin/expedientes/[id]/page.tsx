@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, CalendarPlus, FilePlus2, LockKeyhole, Plus, Printer, Upload, UserRoundPlus } from "lucide-react";
+import { Archive, CalendarPlus, FilePlus2, LockKeyhole, Plus, Printer, ShieldCheck, Upload, UserRoundPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin-page";
 import { CaseStatusBadge, ConfidentialityBadge } from "@/components/status-badges";
@@ -54,7 +54,7 @@ type MotionRow = { id: string; motion_type: string; status: string; filed_at: st
 type OrderRow = { id: string; order_type: string; signed_at: string | null; entered_at: string | null; effect: string | null; visibility: string };
 type WorkflowRow = { id: string; title: string; description: string | null; event_code: string; occurred_at: string; previous_status: string | null; new_status: string | null };
 
-export default async function CaseDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
+export default async function CaseDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; disposition?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
@@ -98,6 +98,7 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
         action={<div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="gap-2"><Link href={`/admin/expedientes/${caseItem.id}/constancia`}><Printer className="size-4" /> Opening certificate</Link></Button><Button className="gap-2 bg-[#153b5c]"><Plus className="size-4" /> Add docket/event</Button></div>}
       />
       {query.created && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Federal Case created. Case Number was generated server-side; Docket Number remains separate.</AlertDescription></Alert>}
+      {query.disposition && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Final criminal disposition recorded and linked to the Person criminal-history summary.</AlertDescription></Alert>}
       {(caseItem.sealed || caseItem.grand_jury_restricted || caseItem.federal_access_level !== "Public") && (
         <Alert className="mb-5 border-red-200 bg-red-50">
           <LockKeyhole className="size-4 text-red-700" />
@@ -132,6 +133,7 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
         <ActionButton icon={<Upload />} label="Upload document" />
         <ActionButton icon={<CalendarPlus />} label="Schedule hearing" />
         <ActionButton icon={<FilePlus2 />} label="Create order" href="/admin/providencias/nueva" />
+        {(caseItem.case_category === "Criminal" || caseItem.case_category === "Magistrate Judge proceeding") ? <ActionButton icon={<ShieldCheck />} label="Registrar disposición final" href={`/admin/expedientes/${caseItem.id}/disposicion-final`} /> : null}
         <ActionButton icon={<UserRoundPlus />} label="Assign attorney or judge" />
         <ActionButton icon={<Archive />} label="Archive" />
       </div>

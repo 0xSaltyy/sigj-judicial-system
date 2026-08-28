@@ -9,6 +9,7 @@ import {
   Scale,
   Search,
   ShieldAlert,
+  ShieldCheck,
   UserRoundCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ const actionCenter = [
   { title: "Postularse a juez", href: "/postulaciones", icon: Scale },
   { title: "Registrarse como abogado", href: "/postulaciones", icon: BriefcaseBusiness },
   { title: "Realizar una denuncia", href: "/denuncias/nueva", icon: ShieldAlert },
+  { title: "Solicitar mi resumen", href: "/antecedentes/solicitar", icon: ShieldCheck },
   { title: "Consultar comunicados", href: "/comunicados", icon: Megaphone },
   { title: "Acceso del personal", href: "/login", icon: UserRoundCheck },
 ];
