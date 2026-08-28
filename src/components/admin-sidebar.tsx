@@ -1,246 +1,171 @@
 "use client";
+
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Activity,
-  Building2,
   Bell,
-  BriefcaseBusiness,
+  Building2,
   CalendarDays,
-  ChevronDown,
+  ClipboardList,
   FileSignature,
   FolderKanban,
   Gauge,
   History,
   LogOut,
   Megaphone,
+  Menu,
+  ScrollText,
   Search,
   Settings,
-  ShieldCheck,
-  Vote,
+  ShieldAlert,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CommandPalette, type CommandPaletteItem } from "@/components/command-palette";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { logout } from "@/app/actions/auth";
+import { InstitutionalMark } from "@/components/institutional-mark";
+import { RealtimeStatus } from "@/components/realtime-status";
 
-export const adminNav = [
-  { label: "Panel general", href: "/admin/dashboard", icon: Gauge },
-  { label: "Expedientes", href: "/admin/expedientes", icon: FolderKanban, permission: "cases" },
-  { label: "Actuaciones", href: "/admin/actuaciones", icon: Activity, permission: "actions" },
-  { label: "Providencias", href: "/admin/providencias", icon: FileSignature, permission: "proceedings" },
-  { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays, permission: "hearings" },
-  { label: "Procesos de selección", href: "/admin/seleccion", icon: BriefcaseBusiness, permission: "selection" },
-  { label: "Elecciones", href: "/admin/elecciones", icon: Vote, permission: "elections" },
-  { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone, permission: "notices" },
-  { label: "Notificaciones", href: "/admin/notificaciones", icon: Bell, permission: "notifications" },
-  { label: "Instituciones", href: "/admin/dependencias", icon: Building2, permission: "dependencies" },
-  { label: "Usuarios", href: "/admin/usuarios", icon: Users, permission: "users" },
+export const adminNavGroups = [
   {
-    label: "Roles y permisos",
-    href: "/admin/roles",
-    icon: ShieldCheck,
-    permission: "roles",
+    title: "Gestión judicial",
+    items: [
+      { label: "Panel general", href: "/admin/dashboard", icon: Gauge },
+      { label: "Expedientes", href: "/admin/expedientes", icon: FolderKanban },
+      { label: "Actuaciones", href: "/admin/actuaciones", icon: Activity },
+      { label: "Providencias", href: "/admin/providencias", icon: FileSignature },
+      { label: "Audiencias", href: "/admin/audiencias", icon: CalendarDays },
+      { label: "Warrants", href: "/admin/warrants", icon: ScrollText },
+      { label: "Estados judiciales", href: "/admin/estados", icon: ClipboardList },
+    ],
   },
   {
-    label: "Auditoría",
-    href: "/admin/auditoria",
-    icon: History,
-    permission: "audit",
+    title: "Atención pública",
+    items: [
+      { label: "Denuncias", href: "/admin/denuncias", icon: ShieldAlert },
+      { label: "Postulaciones", href: "/admin/postulaciones", icon: ClipboardList },
+      { label: "Comunicados", href: "/admin/comunicados", icon: Megaphone },
+    ],
   },
-  { label: "Configuración", href: "/admin/configuracion", icon: Settings, permission: "settings" },
+  {
+    title: "Administración",
+    items: [
+      { label: "Dependencias", href: "/admin/dependencias", icon: Building2 },
+      { label: "Usuarios", href: "/admin/usuarios", icon: Users },
+      { label: "Auditoría", href: "/admin/auditoria", icon: History },
+      { label: "Configuración", href: "/admin/configuracion", icon: Settings },
+    ],
+  },
 ];
 
-type Viewer = {
-  fullName: string;
-  role: string;
-  institution: string;
-  isOwner: boolean;
-  unreadNotifications?: number;
-  latestNotifications?: Array<{ id: string; title: string; message: string; link_url: string | null; read_at: string | null }>;
-  avatarUrl?: string | null;
-  permissions?: Record<string, boolean>;
-};
+export const adminNav = adminNavGroups.flatMap((group) => group.items);
 
-function SidebarLinks({ viewer }: { viewer: Viewer }) {
+function SidebarLinks() {
   const pathname = usePathname();
   return (
-    <nav className="mt-6 grid gap-1 px-3" aria-label="Panel interno">
-      {adminNav
-        .filter((item) => !item.permission || viewer.isOwner || viewer.permissions?.[item.permission as keyof NonNullable<Viewer["permissions"]>])
-        .map(({ label, href, icon: Icon }) => {
-          const active =
-            pathname === href ||
-            (href !== "/admin/dashboard" && pathname.startsWith(`${href}/`));
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 rounded px-3 py-2.5 text-[13px] transition",
-                active
-                  ? "bg-white/10 font-semibold text-white shadow-[inset_3px_0_0_#c7a75e]"
-                  : "text-slate-300 hover:bg-white/5 hover:text-white",
-              )}
-            >
-              <Icon className={cn("size-[17px]", active && "text-[#d2b56d]")} />
-              {label}
-            </Link>
-          );
-        })}
+    <nav className="grid gap-5 px-3 py-5" aria-label="Panel interno">
+      {adminNavGroups.map((group) => (
+        <section key={group.title}>
+          <h2 className="px-3 text-[10px] font-semibold uppercase tracking-[.18em] text-slate-400">{group.title}</h2>
+          <div className="mt-2 grid gap-0.5">
+            {group.items.map(({ label, href, icon: Icon }) => {
+              const active = pathname === href || (href !== "/admin/dashboard" && pathname.startsWith(`${href}/`));
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex min-h-9 items-center gap-2.5 border-l-2 px-3 py-2 text-[13px] transition",
+                    active
+                      ? "border-[#b21b1b] bg-white/10 font-semibold text-white"
+                      : "border-transparent text-slate-300 hover:border-white/20 hover:bg-white/5 hover:text-white",
+                  )}
+                >
+                  <Icon className={cn("size-[16px]", active ? "text-white" : "text-slate-400")} />
+                  <span className="truncate">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ))}
     </nav>
   );
 }
 
-export function AdminSidebar({
-  mobile = false,
-  viewer,
-}: {
-  mobile?: boolean;
-  viewer: Viewer;
-}) {
+export function AdminSidebar({ mobile = false }: { mobile?: boolean }) {
   const content = (
     <>
-      <div className="flex h-20 items-center border-b border-white/10 px-5">
-        <Link href="/admin/dashboard" className="flex items-center gap-3">
-          <div className="relative size-11 overflow-hidden rounded-md border border-white/20 bg-white p-1 shadow-sm">
-            <Image
-              src="/escudo-institucional.png"
-              alt="Escudo institucional de Colombia"
-              fill
-              sizes="44px"
-              className="object-contain p-1"
-              priority
-            />
-          </div>
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[.2em] text-[#cdb374]">
-              SIGJ
-            </p>
-            <p className="text-sm font-semibold text-white">Palacio Judicial</p>
+      <div className="border-b border-white/10 p-4">
+        <Link href="/admin/dashboard" className="block">
+          <InstitutionalMark dark compact small />
+          <div className="mt-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[.16em] text-slate-400">Internal Portal</p>
+            <p className="mt-1 font-serif text-lg font-semibold text-white">Justice Operations</p>
           </div>
         </Link>
       </div>
-      <SidebarLinks viewer={viewer} />
-      <div className="mt-auto border-t border-white/10 p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <SidebarLinks />
+      </div>
+      <div className="border-t border-white/10 p-4">
         <form action={logout}>
-          <button
-            type="submit"
-            className="flex items-center gap-2 text-xs text-slate-400 hover:text-white"
-          >
+          <button type="submit" className="flex min-h-9 items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white">
             <LogOut className="size-4" /> Cerrar sesión
           </button>
         </form>
       </div>
     </>
   );
-  if (mobile)
+
+  if (mobile) {
     return (
       <Sheet>
         <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative overflow-hidden rounded-md bg-white p-1 lg:hidden"
-            aria-label="Abrir navegación"
-          >
-            <Image
-              src="/escudo-institucional.png"
-              alt="Abrir navegación del SIGJ"
-              fill
-              sizes="32px"
-              className="object-contain p-1"
-            />
+          <Button variant="outline" size="icon" className="lg:hidden" aria-label="Abrir navegación">
+            <Menu className="size-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent
-          side="left"
-          className="flex w-72 flex-col border-0 bg-[#102d49] p-0"
-        >
+        <SheetContent side="left" className="flex w-[86vw] max-w-80 flex-col border-0 bg-[#0a2540] p-0">
           <SheetTitle className="sr-only">Navegación interna</SheetTitle>
           {content}
         </SheetContent>
       </Sheet>
     );
-  return (
-    <aside data-app-sidebar className="fixed inset-y-0 left-0 hidden w-64 flex-col bg-[#102d49] lg:flex">
-      {content}
-    </aside>
-  );
+  }
+
+  return <aside className="fixed inset-y-0 left-0 hidden w-[238px] flex-col bg-[#0a2540] lg:flex">{content}</aside>;
 }
 
-export function AdminTopbar({ viewer }: { viewer: Viewer }) {
-  const initials = viewer.fullName
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
+export function AdminTopbar() {
   return (
-    <header data-app-header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-white/95 px-4 backdrop-blur sm:px-6">
-      <AdminSidebar mobile viewer={viewer} />
-      <CommandPalette items={adminCommands(viewer)} />
-      <form
-        action="/admin/expedientes"
-        method="get"
-        role="search"
-        className="relative hidden max-w-lg flex-1 md:block"
-      >
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+    <header className="sticky top-0 z-30 flex h-15 items-center gap-3 border-b border-[#cfd6dc] bg-[#fffdf8]/95 px-4 backdrop-blur sm:px-6">
+      <AdminSidebar mobile />
+      <div className="relative hidden max-w-xl flex-1 md:block">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
         <input
-          name="q"
-          className="h-9 w-full rounded-md border bg-slate-50 pl-9 pr-3 text-sm outline-none focus:border-[#b38a3c]"
-          placeholder="Buscar radicado, parte o título…"
+          className="h-9 w-full border border-[#b7c2cd] bg-white pl-9 pr-3 text-sm outline-none transition focus:border-[#005ea8] focus:ring-3 focus:ring-[#005ea8]/15"
+          placeholder="Buscar expediente, persona, warrant o providencia…"
           aria-label="Búsqueda global"
         />
-      </form>
-      <div className="ml-auto flex items-center gap-3">
-        <DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="relative" aria-label="Notificaciones internas"><Bell className="size-5" />{Boolean(viewer.unreadNotifications) && <span className="notification-pulse absolute right-0 top-0 flex min-w-4 items-center justify-center rounded-full bg-red-700 px-1 text-[9px] font-bold text-white">{Math.min(viewer.unreadNotifications ?? 0,99)}</span>}</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]"><DropdownMenuLabel>Notificaciones internas</DropdownMenuLabel><DropdownMenuSeparator />{(viewer.latestNotifications ?? []).map((item) => <DropdownMenuItem key={item.id} asChild><Link href={item.link_url ?? "/admin/notificaciones"} className={`block min-w-0 cursor-pointer p-2 ${item.read_at ? "opacity-70" : "font-semibold"}`}><span className="block break-words text-xs">{item.title}</span><span className="mt-1 line-clamp-2 break-words text-[11px] font-normal text-muted-foreground">{item.message}</span></Link></DropdownMenuItem>)}{!viewer.latestNotifications?.length && <DropdownMenuItem disabled>Sin notificaciones</DropdownMenuItem>}<DropdownMenuSeparator /><DropdownMenuItem asChild><Link href="/admin/notificaciones" className="cursor-pointer justify-center font-semibold">Ver todas</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+      </div>
+      <div className="ml-auto hidden items-center gap-3 md:flex">
+        <RealtimeStatus />
+        <Button variant="outline" size="icon" aria-label="Notificaciones">
+          <Bell className="size-4" />
+        </Button>
+      </div>
+      <div className="flex items-center gap-3 border-l border-[#cfd6dc] pl-3">
         <div className="hidden text-right sm:block">
-          <p className="text-xs font-semibold text-[#153553]">
-            {viewer.fullName}
-          </p>
-          <p className="max-w-72 truncate text-[11px] text-muted-foreground">
-            {viewer.role} · {viewer.institution}
-          </p>
+          <p className="text-xs font-semibold text-[#0a2540]">Pam Bondi</p>
+          <p className="text-[11px] text-muted-foreground">Attorney General</p>
         </div>
-        <Link href="/admin/perfil" aria-label="Abrir mi perfil" className="flex size-9 items-center justify-center overflow-hidden rounded-full bg-[#173b5e] text-xs font-bold text-white">
-          {viewer.avatarUrl ? <Image src={viewer.avatarUrl} alt="" width={36} height={36} unoptimized className="size-full object-cover" /> : initials}
-        </Link>
-        <ChevronDown className="size-4 text-slate-400" />
+        <button className="grid size-9 place-items-center border border-[#0a2540] bg-[#0a2540] text-xs font-bold text-white" aria-label="Menú de cuenta">
+          PB
+        </button>
       </div>
     </header>
   );
-}
-
-function adminCommands(viewer: Viewer): CommandPaletteItem[] {
-  const allowed = (key?: string) =>
-    !key ||
-    viewer.isOwner ||
-    viewer.permissions?.[key as keyof NonNullable<Viewer["permissions"]>];
-  const commands: Array<CommandPaletteItem & { permission?: string }> = [
-    { label: "Panel general", href: "/admin/dashboard", description: "Resumen institucional" },
-    { label: "Crear expediente", href: "/admin/expedientes/nuevo", description: "Radicar nuevo expediente", permission: "cases" },
-    { label: "Buscar expediente", href: "/admin/expedientes", description: "Expedientes internos", permission: "cases" },
-    { label: "Audiencias", href: "/admin/audiencias", description: "Calendario de audiencias", permission: "hearings" },
-    { label: "Agenda judicial", href: "/admin/audiencias/agenda", description: "Vista agenda por día", permission: "hearings" },
-    { label: "Elecciones", href: "/admin/elecciones", description: "Módulo electoral", permission: "elections" },
-    { label: "Sala de escrutinio", href: "/admin/elecciones", description: "Abra una elección y use Pantalla", permission: "elections" },
-    { label: "Convocatorias", href: "/admin/seleccion", description: "Procesos de selección", permission: "selection" },
-    { label: "Estado de mi postulación", href: "/convocatorias/estado", description: "Panel público de seguimiento" },
-    { label: "Usuarios", href: "/admin/usuarios", description: "Gestión interna", permission: "users" },
-    { label: "Instituciones", href: "/admin/dependencias", description: "Estructura institucional", permission: "dependencies" },
-    { label: "Mi perfil", href: "/admin/perfil", description: "Identidad pública e interna" },
-    { label: "Auditoría", href: "/admin/auditoria", description: "Trazabilidad", permission: "audit" },
-  ];
-  return commands.filter((item) => allowed(item.permission));
 }

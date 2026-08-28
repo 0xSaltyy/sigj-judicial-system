@@ -1,95 +1,17 @@
 import { notFound } from "next/navigation";
-import { FormalProvidenceDocument } from "@/components/formal-providence-document";
 import { PrintButton } from "@/components/print-button";
-import { RealtimeRefresh } from "@/components/realtime-refresh";
-import { Button } from "@/components/ui/button";
-import { signatureImageDataUrl } from "@/lib/signature-images";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { publicProceedingRealtime } from "@/lib/realtime-subscriptions";
+import { formatDate } from "@/lib/display";
 
-export default async function ProceedingDetail({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+type ProceedingDetailRow = { providence_number: string; title: string; type: string; chamber: string; content_markdown: string; created_at: string; cases: { case_number: string | null; internal_number: string } | { case_number: string | null; internal_number: string }[] | null };
+
+export default async function ProceedingDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const { data: proceeding } = await supabase
-    .from("public_proceedings")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-  if (!proceeding) notFound();
-  const admin = createAdminClient();
-  const [{ data: privateRecord }, { data: signatureRows }] = admin
-    ? await Promise.all([
-        admin
-          .from("proceedings")
-          .select("pdf_path,pdf_original_name")
-          .eq("id", id)
-          .single(),
-        admin
-          .from("signatures")
-          .select(
-            "id,signer_name,signer_title,signature_image_path,purpose,signed_at,verification_code",
-          )
-          .eq("target_type", "proceeding")
-          .eq("target_id", id)
-          .eq("status", "signed")
-          .order("signature_order"),
-      ])
-    : [{ data: null }, { data: [] }];
-  const originalPdfUrl =
-    admin && privateRecord?.pdf_path
-      ? `/api/providencias/${id}/pdf?variant=original`
-      : null;
-  const combinedPdfUrl =
-    admin && privateRecord?.pdf_path ? `/api/providencias/${id}/pdf` : null;
-  const signatures = admin
-    ? await Promise.all(
-        (signatureRows ?? []).map(async (s) => ({
-          ...s,
-          imageUrl: await signatureImageDataUrl(admin, s.signature_image_path),
-        })),
-      )
-    : [];
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <RealtimeRefresh
-        channel={`public-proceeding-${id}`}
-        subscriptions={publicProceedingRealtime(id)}
-        protectUnsavedForms={false}
-      />
-      <div className="mb-5 flex justify-end no-print">
-        <PrintButton
-          label="Imprimir providencia"
-          href={`/imprimir/providencias/${id}`}
-        />
-        {combinedPdfUrl && (
-          <Button asChild className="ml-2">
-            <a href={combinedPdfUrl} target="_blank" rel="noreferrer">
-              PDF formal con firmas
-            </a>
-          </Button>
-        )}
-      </div>
-      <p className="no-print -mt-2 mb-5 text-right text-xs text-muted-foreground">
-        Para impresión limpia, desactive encabezados y pies del navegador o use
-        el PDF formal.
-      </p>
-      <FormalProvidenceDocument
-        proceeding={{
-          ...proceeding,
-          pdf_original_name: privateRecord?.pdf_original_name,
-        }}
-        caseRecord={proceeding}
-        signatures={signatures}
-        pdfUrl={originalPdfUrl}
-        combinedPdfUrl={combinedPdfUrl}
-        publicView
-      />
-    </div>
-  );
+  const { data } = await supabase.from("proceedings").select("providence_number,title,type,chamber,content_markdown,created_at,cases(case_number,internal_number)").eq("id", id).eq("status", "Publicado").eq("visibility", "public").is("archived_at", null).maybeSingle();
+  if (!data) notFound();
+  const item = data as ProceedingDetailRow;
+  const relatedCase = Array.isArray(item.cases) ? item.cases[0] : item.cases;
+  return <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6"><div className="mb-5 flex justify-end"><PrintButton label="Imprimir providencia" /></div><article className="paper min-h-[1000px] border px-8 py-12 sm:px-16"><header className="border-b-2 border-[#153553] pb-7 text-center"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#98712b]">U.S. Department of Justice</p><h1 className="mt-3 font-serif text-xl font-bold uppercase text-[#102d49]">{item.title}</h1><p className="mono-number mt-2 text-sm">{item.providence_number}</p></header><dl className="my-8 grid gap-2 text-sm sm:grid-cols-[160px_1fr]"><dt className="font-semibold">Número de caso</dt><dd className="mono-number">{relatedCase?.case_number || relatedCase?.internal_number}</dd><dt className="font-semibold">División</dt><dd>{item.chamber}</dd><dt className="font-semibold">Fecha</dt><dd>{formatDate(item.created_at)}</dd></dl><div className="whitespace-pre-wrap text-justify text-sm leading-7 text-slate-800">{item.content_markdown}</div></article></div>;
 }

@@ -1,63 +1,14 @@
 import { notFound } from "next/navigation";
-import {
-  JudicialDocumentHeader,
-  JudicialPrintFooter,
-  JudicialWatermark,
-} from "@/components/judicial-document";
-import { MarkdownViewer } from "@/components/markdown-editor";
-import { PrintButton } from "@/components/print-button";
-import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { Badge } from "@/components/ui/badge";
-import { formatDate } from "@/lib/demo-data";
+import { PrintButton } from "@/components/print-button";
 import { createClient } from "@/lib/supabase/server";
-import { noticeDetailRealtime } from "@/lib/realtime-subscriptions";
+import { formatDate } from "@/lib/display";
 
-export default async function NoticeDetail({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function NoticeDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const { data: notice } = await supabase
-    .from("public_notices")
-    .select("*")
-    .eq("slug", slug)
-    .eq("status", "Publicado")
-    .maybeSingle();
-  if (!notice) notFound();
-  return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <RealtimeRefresh
-        channel={`public-notice-${notice.id}`}
-        subscriptions={noticeDetailRealtime(notice.id)}
-        protectUnsavedForms={false}
-      />
-      <div className="mb-5 flex items-center justify-between no-print">
-        <Badge variant="outline">{notice.category}</Badge>
-        <PrintButton href={`/imprimir/comunicados/${slug}`} />
-      </div>
-      <article className="paper judicial-document rounded-lg border p-10">
-        <JudicialWatermark />
-        <JudicialDocumentHeader
-          documentType="Comunicado institucional"
-          title={notice.title}
-          dependency={notice.issuing_entity}
-          metadata={[
-            { label: "Categoría", value: notice.category },
-            { label: "Publicación", value: formatDate(notice.published_at) },
-            { label: "Entidad", value: notice.issuing_entity },
-            { label: "Referencia", value: notice.slug },
-          ]}
-        />
-        <div className="mt-8">
-          <MarkdownViewer content={notice.content_markdown} />
-        </div>
-        <JudicialPrintFooter
-          verification={`Comunicado institucional: ${notice.slug}.`}
-        />
-      </article>
-    </div>
-  );
+  const { data: item } = await supabase.from("public_notices").select("title,category,issuing_entity,content_markdown,published_at").eq("slug", slug).eq("status", "Publicado").is("archived_at", null).maybeSingle();
+  if (!item) notFound();
+  return <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:py-16"><article className="border bg-white p-7 sm:p-12"><div className="flex flex-wrap items-center justify-between gap-4"><Badge variant="outline" className="rounded-none border-[#b21b1b] bg-white text-[#b21b1b]">{item.category}</Badge><PrintButton /></div><h1 className="mt-8 font-serif text-3xl font-semibold leading-tight text-[#102d49] sm:text-4xl">{item.title}</h1><div className="mt-5 border-y py-4 text-sm text-muted-foreground">{item.issuing_entity} · {formatDate(item.published_at)}</div><div className="mt-8 whitespace-pre-wrap text-[15px] leading-8 text-slate-700">{item.content_markdown}</div></article></div>;
 }

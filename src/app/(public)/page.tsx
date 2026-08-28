@@ -1,87 +1,267 @@
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, FileSearch, Megaphone, Vote } from "lucide-react";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  CalendarDays,
+  FileCheck2,
+  FileSearch,
+  Megaphone,
+  Scale,
+  Search,
+  ShieldAlert,
+  UserRoundCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { formatDate } from "@/lib/demo-data";
 import { createClient } from "@/lib/supabase/server";
+import { formatDate, formatDateTime } from "@/lib/display";
 
-const services = [
-  { title: "Consulta de expedientes", description: "Consulte el estado y las actuaciones públicas usando el número de radicado.", href: "/consulta", icon: FileSearch },
-  { title: "Comunicados", description: "Información institucional, avisos públicos y novedades de la plataforma.", href: "/comunicados", icon: Megaphone },
-  { title: "Audiencias públicas", description: "Agenda de sesiones abiertas programadas por salas y despachos.", href: "/audiencias", icon: CalendarDays },
-  { title: "Elecciones", description: "Participe en votaciones institucionales, consulte resultados y verifique comprobantes.", href: "/elecciones", icon: Vote },
+const actionCenter = [
+  { title: "Consultar expedientes", href: "/consulta", icon: FileSearch },
+  { title: "Ver providencias", href: "/providencias", icon: FileCheck2 },
+  { title: "Revisar audiencias", href: "/audiencias", icon: CalendarDays },
+  { title: "Postularse a juez", href: "/postulaciones", icon: Scale },
+  { title: "Registrarse como abogado", href: "/postulaciones", icon: BriefcaseBusiness },
+  { title: "Realizar una denuncia", href: "/denuncias/nueva", icon: ShieldAlert },
+  { title: "Consultar comunicados", href: "/comunicados", icon: Megaphone },
+  { title: "Acceso del personal", href: "/login", icon: UserRoundCheck },
 ];
+
+const workAreas = [
+  ["División Criminal", "Investigaciones, warrants y coordinación con fiscales autorizados."],
+  ["División Civil", "Gestión de expedientes públicos, audiencias y actuaciones administrativas."],
+  ["Oficina de Comunicaciones", "Comunicados, recursos públicos y anuncios institucionales."],
+  ["Registros y Tecnología", "Custodia de documentos, auditoría y servicios de consulta pública."],
+];
+
+type Notice = { id: string; title: string; slug: string; category: string; content_markdown: string; published_at: string | null };
+type PublicCase = { id: string; case_number: string | null; internal_number: string; title: string; status: string; filed_at: string };
+type PublicHearing = { id: string; title: string; scheduled_at: string; room: string; status: string };
+type PublicWarrant = { id: string; warrant_number: string; warrant_type: string; status: string; expires_at: string | null };
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const [caseResult, hearingCount, proceedingCount, noticeCount, noticeResult, hearingResult] = supabase
-    ? await Promise.all([
-        supabase.from("public_case_lookup").select("id", { count: "exact", head: true }),
-        supabase.from("public_hearings").select("id", { count: "exact", head: true }),
-        supabase.from("public_proceedings").select("id", { count: "exact", head: true }),
-        supabase.from("public_notices").select("id", { count: "exact", head: true }).eq("status", "Publicado"),
-        supabase.from("public_notices").select("slug,title,category,published_at").eq("status", "Publicado").order("published_at", { ascending: false }).limit(3),
-        supabase.from("public_hearings").select("id,title,scheduled_at,room,chamber,internal_number").gte("scheduled_at", new Date().toISOString()).order("scheduled_at").limit(3),
-      ])
-    : [{ count: 0 }, { count: 0 }, { count: 0 }, { count: 0 }, { data: [] }, { data: [] }];
-
+  const [
+    noticesResult,
+    casesResult,
+    hearingsResult,
+    warrantsResult,
+    casesCount,
+    hearingsCount,
+    proceedingsCount,
+    warrantsCount,
+  ] = supabase ? await Promise.all([
+    supabase.from("public_notices").select("id,title,slug,category,content_markdown,published_at").eq("status", "Publicado").is("archived_at", null).order("published_at", { ascending: false }).limit(4),
+    supabase.from("cases").select("id,case_number,internal_number,title,status,filed_at").eq("public_visibility", true).eq("confidentiality_level", "Público").is("archived_at", null).order("filed_at", { ascending: false }).limit(3),
+    supabase.from("hearings").select("id,title,scheduled_at,room,status").eq("is_public", true).is("archived_at", null).gte("scheduled_at", new Date().toISOString()).order("scheduled_at", { ascending: true }).limit(3),
+    supabase.from("roleplay_warrants").select("id,warrant_number,warrant_type,status,expires_at").eq("confidentiality", "public").in("status", ["Aprobada", "Activa", "Ejecutada", "Vencida"]).is("archived_at", null).order("created_at", { ascending: false }).limit(2),
+    supabase.from("cases").select("id", { count: "exact", head: true }).is("archived_at", null),
+    supabase.from("hearings").select("id", { count: "exact", head: true }).is("archived_at", null),
+    supabase.from("proceedings").select("id", { count: "exact", head: true }).eq("visibility", "public").eq("status", "Publicado").is("archived_at", null),
+    supabase.from("roleplay_warrants").select("id", { count: "exact", head: true }).in("status", ["Aprobada", "Activa"]).is("archived_at", null),
+  ]) : [];
+  const notices = (noticesResult?.data ?? []) as Notice[];
+  const publicCases = (casesResult?.data ?? []) as PublicCase[];
+  const publicHearings = (hearingsResult?.data ?? []) as PublicHearing[];
+  const publicWarrants = (warrantsResult?.data ?? []) as PublicWarrant[];
+  const featured = notices[0];
   const stats = [
-    [String(caseResult.count ?? 0), "Expedientes públicos"],
-    [String(hearingCount.count ?? 0), "Audiencias programadas"],
-    [String(proceedingCount.count ?? 0), "Providencias publicadas"],
-    [String(noticeCount.count ?? 0), "Comunicados emitidos"],
+    [String(casesCount?.count ?? 0), "Expedientes activos"],
+    [String(hearingsCount?.count ?? 0), "Audiencias programadas"],
+    [String(proceedingsCount?.count ?? 0), "Documentos publicados"],
+    [String(warrantsCount?.count ?? 0), "Órdenes activas"],
   ];
-  const notices = (noticeResult.data ?? []).map((notice) => ({ ...notice, date: notice.published_at }));
-  const hearings = (hearingResult.data ?? []).map((hearing) => ({
-    ...hearing,
-    date: new Intl.DateTimeFormat("es-CO", { day: "2-digit", month: "short" }).format(new Date(hearing.scheduled_at)),
-    time: new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit" }).format(new Date(hearing.scheduled_at)),
-    court: hearing.chamber,
-    caseNumber: hearing.internal_number,
-  }));
 
-  return <>
-    <section className="relative overflow-hidden bg-[#102d49] text-white institutional-grid">
-      <div className="absolute -right-20 top-[-60px] size-[420px] rounded-full border border-white/5" />
-      <div className="absolute -right-2 top-14 size-[250px] rounded-full border border-[#c4a35a]/10" />
-      <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-[1.25fr_.75fr] lg:px-8 lg:py-28">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[.28em] text-[#d1b56f]">Palacio Judicial · República de Colombia</p>
-          <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.55rem]">Sistema Integral de<br /><span className="text-[#dfc985]">Gestión Judicial</span></h1>
-          <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">Plataforma unificada para la radicación, el trámite y la consulta de actuaciones judiciales.</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg" className="bg-[#b38a3c] text-white hover:bg-[#9c762e]"><Link href="/consulta">Consultar expediente <ArrowRight /></Link></Button>
-            <Button asChild size="lg" variant="outline" className="border-white/25 bg-white/5 text-white hover:bg-white/10 hover:text-white"><Link href="/login">Acceso institucional</Link></Button>
+  return (
+    <>
+      <section className="section-rule bg-[#fffdf8]">
+        <div className="site-container grid gap-0 py-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:py-12">
+          <div className="reveal border border-[#cfd6dc] bg-[#fffdf8] p-6 sm:p-8 lg:border-r-0 lg:p-10">
+            <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#8f1d1d]">Featured content</p>
+            <h1 className="mt-4 max-w-4xl font-serif text-4xl font-semibold leading-[1.05] text-[#0a2540] sm:text-5xl lg:text-6xl">
+              {featured?.title ?? "U.S. Department of Justice"}
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-700">{featured ? excerpt(featured.content_markdown) : "Portal público para comunicados, expedientes, audiencias, warrants, postulaciones y denuncias."}</p>
+            <div className="mt-6 flex flex-wrap items-center gap-4">
+              <Button asChild size="lg" className="rounded-none bg-[#005ea8] hover:bg-[#0a2540]">
+                <Link href={featured ? `/comunicados/${featured.slug}` : "/comunicados"}>{featured ? "Leer comunicado" : "Ver comunicados"} <ArrowRight className="size-4" /></Link>
+              </Button>
+              <Link href="/consulta" className="inline-flex items-center gap-2 text-sm font-semibold text-[#005ea8] hover:underline">
+                Consultar expediente <Search className="size-4" />
+              </Link>
+            </div>
+          </div>
+          <aside className="reveal bg-[#0a2540] p-6 text-white sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[.18em] text-slate-300">Attorney General</p>
+            <h2 className="mt-4 font-serif text-3xl font-semibold">Pam Bondi</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-300">Attorney General</p>
+            <p className="mt-6 text-sm leading-7 text-slate-200">
+              La oficina coordina la publicación de comunicados, la consulta de expedientes, la agenda pública y los servicios del personal autorizado.
+            </p>
+            <div className="mt-8 border-t border-white/15 pt-5">
+              <Link href="/acerca" className="inline-flex items-center gap-2 text-sm font-semibold text-white hover:underline">
+                Conocer el Departamento <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="centro-acciones" className="border-y border-[#cfd6dc] bg-[#f3f1ec]">
+        <div className="site-container public-section">
+          <SectionHeading eyebrow="Action Center" title="Centro de acciones" />
+          <div className="mt-8 grid gap-px border border-[#cfd6dc] bg-[#cfd6dc] sm:grid-cols-2 lg:grid-cols-4">
+            {actionCenter.map(({ title, href, icon: Icon }) => (
+              <Link key={title} href={href} className="group reveal bg-[#fffdf8] p-6 transition hover:bg-[#f7f1e5]">
+                <Icon className="size-8 text-[#005ea8]" />
+                <h3 className="mt-5 font-serif text-lg font-semibold leading-6 text-[#0a2540]">{title}</h3>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#005ea8]">
+                  Abrir <ArrowRight className="size-4 transition group-hover:translate-x-1" />
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
-        <div className="hidden items-center justify-center lg:flex">
-          <div className="relative grid size-72 place-items-center rounded-full border border-white/10">
-            <div className="relative size-48 overflow-hidden rounded-full border border-white/20 bg-white p-3 shadow-2xl"><Image src="/escudo-institucional.png" alt="Escudo institucional de Colombia" fill sizes="192px" className="object-contain p-2" priority /></div>
-            <span className="absolute bottom-5 text-[9px] uppercase tracking-[.3em] text-slate-400">Justicia · Servicio · Transparencia</span>
+      </section>
+
+      <section className="bg-[#fffdf8]">
+        <div className="site-container grid gap-10 py-14 lg:grid-cols-[.8fr_1.2fr]">
+          <div className="reveal">
+            <SectionHeading eyebrow="Our Mission" title="Nuestra misión" />
+          </div>
+          <div className="reveal">
+            <p className="font-serif text-2xl leading-10 text-[#0a2540]">
+              Defender la integridad de los procesos del Departamento, mantener segura la información interna y ofrecer servicios públicos claros para consulta, audiencias, comunicaciones y registros.
+            </p>
+            <div className="mt-8 grid gap-5 border-t pt-7 md:grid-cols-2">
+              {["Independencia e imparcialidad", "Honestidad e integridad", "Respeto", "Excelencia operativa"].map((value) => (
+                <div key={value}>
+                  <h3 className="font-serif text-lg font-semibold text-[#112f4e]">{value}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">Guía para la administración de expedientes, comunicaciones y servicios institucionales.</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section className="border-b bg-white">
-      <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-4 lg:px-8">
-        {stats.map(([value, label], index) => <div key={label} className={`py-7 text-center lg:py-8 ${index > 0 ? "border-l" : ""}`}><p className="mono-number text-2xl font-semibold text-[#153b5c] sm:text-3xl">{value}</p><p className="mt-1 text-xs text-muted-foreground">{label}</p></div>)}
-      </div>
-    </section>
+      <section className="border-y border-[#06192b] bg-[#0a2540] text-white">
+        <div className="site-container grid grid-cols-2 lg:grid-cols-4">
+          {stats.map(([value, label], i) => (
+            <div key={label} className={`reveal py-8 text-center ${i > 0 ? "lg:border-l lg:border-white/15" : ""}`}>
+              <p className="mono-number stat-count text-3xl font-semibold sm:text-4xl">{value}</p>
+              <p className="mt-2 text-xs uppercase tracking-[.12em] text-slate-300">{label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-    <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
-      <div className="max-w-2xl"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9b762f]">Servicios a la ciudadanía</p><h2 className="mt-3 text-3xl font-semibold text-[#102d49]">Información judicial en un solo lugar</h2><p className="mt-3 text-sm leading-6 text-muted-foreground">Acceda a la información pública de expedientes, audiencias y decisiones judiciales.</p></div>
-      <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {services.map(({ title, description, href, icon: Icon }) => <Link key={href} href={href} className="group"><Card className="h-full rounded-md border-t-2 border-t-transparent py-0 transition hover:-translate-y-1 hover:border-t-[#b38a3c] hover:shadow-lg"><CardContent className="p-6"><div className="grid size-11 place-items-center rounded bg-[#edf2f6] text-[#183d61] group-hover:bg-[#183d61] group-hover:text-white"><Icon className="size-5" /></div><h3 className="mt-5 font-semibold text-[#153553]">{title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p><span className="mt-5 flex items-center gap-2 text-xs font-semibold text-[#9a752f]">Ir al servicio <ArrowRight className="size-3.5 transition group-hover:translate-x-1" /></span></CardContent></Card></Link>)}
-      </div>
-    </section>
+      <section className="bg-[#fffdf8]">
+        <div className="site-container public-section">
+          <SectionHeading eyebrow="Our Work" title="Áreas de trabajo" />
+          <div className="mt-8 grid gap-px border border-[#cfd6dc] bg-[#cfd6dc] md:grid-cols-2">
+            {workAreas.map(([title, description]) => (
+              <article key={title} className="reveal bg-[#fffdf8] p-6">
+                <Scale className="size-7 text-[#005ea8]" />
+                <h3 className="mt-4 font-serif text-xl font-semibold text-[#112f4e]">{title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-700">{description}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
-    <section className="bg-[#edf1f4]">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:px-8">
-        <div><div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9b762f]">Información institucional</p><h2 className="mt-2 text-2xl font-semibold text-[#102d49]">Comunicados recientes</h2></div><Link href="/comunicados" className="text-xs font-semibold text-[#183d61]">Ver todos</Link></div><div className="mt-6 divide-y rounded-md border bg-white px-5">{notices.map((notice) => <Link key={notice.slug} href={`/comunicados/${notice.slug}`} className="block py-5"><div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-[#9b762f]"><span>{notice.category}</span><span className="text-slate-300">·</span><time className="text-slate-500">{formatDate(notice.date)}</time></div><h3 className="mt-2 text-sm font-semibold leading-5 text-[#153553] hover:underline">{notice.title}</h3></Link>)}</div></div>
-        <div><div className="flex items-end justify-between"><div><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#9b762f]">Agenda judicial</p><h2 className="mt-2 text-2xl font-semibold text-[#102d49]">Próximas audiencias</h2></div><Link href="/audiencias" className="text-xs font-semibold text-[#183d61]">Agenda completa</Link></div><div className="mt-6 divide-y rounded-md border bg-white px-5">{hearings.slice(0, 3).map((hearing) => <div key={hearing.id} className="flex gap-4 py-4"><div className="w-14 shrink-0 rounded bg-[#153b5c] p-2 text-center text-white"><p className="text-[10px] font-semibold">{hearing.date}</p><p className="mono-number mt-1 text-xs text-[#e4ca8c]">{hearing.time}</p></div><div><h3 className="text-sm font-semibold text-[#153553]">{hearing.title}</h3><p className="mt-1 text-xs text-muted-foreground">{hearing.court} · {hearing.room}</p><p className="mono-number mt-1 text-[11px] text-slate-500">{hearing.caseNumber}</p></div></div>)}</div></div>
+      <section className="bg-[#f3f1ec]">
+        <div className="site-container grid gap-10 py-14 lg:grid-cols-[1.2fr_.8fr]">
+          <div className="reveal">
+            <div className="flex items-end justify-between gap-4">
+              <SectionHeading eyebrow="News" title="Comunicados recientes" />
+              <Link href="/comunicados" className="text-sm font-semibold text-[#005ea8] hover:underline">Más comunicados</Link>
+            </div>
+            <div className="mt-6 divide-y border border-[#cfd6dc] bg-[#fffdf8]">
+              {notices.length === 0 ? <EmptyLine text="No hay comunicados publicados por el momento." /> : null}
+              {notices.map((notice) => (
+                <Link key={notice.slug} href={`/comunicados/${notice.slug}`} className="block p-5 transition hover:bg-[#edf5fb]">
+                  <div className="text-xs font-semibold uppercase tracking-[.12em] text-[#b21b1b]">{notice.category}</div>
+                  <h3 className="mt-2 font-serif text-xl font-semibold leading-7 text-[#112f4e]">{notice.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{excerpt(notice.content_markdown)}</p>
+                  <time className="mt-3 block text-xs text-slate-500">{formatDate(notice.published_at)}</time>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div className="reveal">
+            <SectionHeading eyebrow="Applications" title="Convocatorias abiertas" />
+            <div className="mt-6 divide-y border border-[#cfd6dc] bg-[#fffdf8]">
+              <EmptyLine text="No hay convocatorias abiertas en este momento." />
+              <Link href="/postulaciones" className="block p-5 text-sm font-semibold text-[#005ea8] hover:bg-[#edf5fb]">Ver convocatorias y estado de postulación</Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#fffdf8]">
+        <div className="site-container grid gap-8 py-14 lg:grid-cols-3">
+          <Panel title="Expedientes públicos" href="/expedientes-publicos">
+            {publicCases.map((item) => (
+              <Link key={item.id} href="/consulta" className="block border-b py-4 last:border-0">
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.case_number || item.internal_number}</p>
+                <p className="mt-2 text-sm font-semibold text-[#112f4e]">{item.title}</p>
+                <p className="mt-1 text-xs text-slate-600">{item.status} · {formatDate(item.filed_at)}</p>
+              </Link>
+            ))}
+            {publicCases.length === 0 ? <EmptyLine text="No hay expedientes públicos disponibles." /> : null}
+          </Panel>
+          <Panel title="Audiencias públicas" href="/audiencias">
+            {publicHearings.map((hearing) => (
+              <div key={hearing.id} className="border-b py-4 last:border-0">
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{formatDateTime(hearing.scheduled_at)}</p>
+                <h3 className="mt-2 text-sm font-semibold text-[#112f4e]">{hearing.title}</h3>
+                <p className="mt-1 text-xs text-slate-600">{hearing.room} · {hearing.status}</p>
+              </div>
+            ))}
+            {publicHearings.length === 0 ? <EmptyLine text="No hay audiencias públicas próximas." /> : null}
+          </Panel>
+          <Panel title="Órdenes públicas" href="/warrants">
+            {publicWarrants.map((warrant) => (
+              <article key={warrant.id} className="border-b py-4 last:border-0">
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{warrant.warrant_number}</p>
+                <p className="mt-2 text-sm font-semibold text-[#112f4e]">{warrant.warrant_type}</p>
+                <p className="mt-1 text-xs text-slate-600">{warrant.status} · vence {formatDate(warrant.expires_at)}</p>
+              </article>
+            ))}
+            {publicWarrants.length === 0 ? <EmptyLine text="No hay órdenes públicas disponibles." /> : null}
+          </Panel>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function excerpt(value: string) {
+  return value.replace(/[#*_`>-]/g, "").replace(/\s+/g, " ").trim().slice(0, 180) || "Contenido institucional disponible para consulta.";
+}
+
+function EmptyLine({ text }: { text: string }) {
+  return <p className="p-5 text-sm leading-6 text-slate-600">{text}</p>;
+}
+
+function SectionHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div>
+      <p className="border-l-4 border-[#b21b1b] pl-3 text-xs font-semibold uppercase tracking-[.16em] text-[#5b7287]">{eyebrow}</p>
+      <h2 className="mt-3 font-serif text-3xl font-semibold text-[#112f4e]">{title}</h2>
+    </div>
+  );
+}
+
+function Panel({ title, href, children }: { title: string; href: string; children: React.ReactNode }) {
+  return (
+    <section className="reveal formal-card p-5">
+      <div className="flex items-center justify-between gap-3 border-b pb-4">
+        <h2 className="font-serif text-xl font-semibold text-[#112f4e]">{title}</h2>
+        <Link href={href} className="text-sm font-semibold text-[#005ea8] hover:underline">Ver más</Link>
       </div>
+      <div>{children}</div>
     </section>
-  </>;
+  );
 }

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const statusData = [{ name: "Radicados", value: 42 }, { name: "Instrucción", value: 31 }, { name: "Audiencia", value: 18 }, { name: "Decisión", value: 15 }, { name: "Recurso", value: 9 }];
+const statusData = [{ name: "Abiertos", value: 42 }, { name: "Instrucción", value: 31 }, { name: "Audiencia", value: 18 }, { name: "Decisión", value: 15 }, { name: "Recurso", value: 9 }];
 const chamberData = [{ name: "Penal", value: 38 }, { name: "Civil", value: 31 }, { name: "Laboral", value: 24 }, { name: "Admin.", value: 22 }];
 const colors = ["#153b5c", "#b38a3c", "#527ba3", "#91a4b7", "#d1b16f"];
 

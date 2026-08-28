@@ -1,53 +1,19 @@
 import Link from "next/link";
+import { ArrowRight, BookOpen, Filter } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
-import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/demo-data";
-import { PROCEEDING_LIST_REALTIME } from "@/lib/realtime-subscriptions";
+import { formatDate } from "@/lib/display";
+
+export const metadata = { title: "Biblioteca de providencias" };
+type ProceedingRow = { id: string; providence_number: string; title: string; type: string; chamber: string; created_at: string; cases: { case_number: string | null; internal_number: string } | { case_number: string | null; internal_number: string }[] | null };
+
 export default async function ProceedingsPage() {
   const supabase = await createClient();
-  const { data } = supabase
-    ? await supabase
-        .from("public_proceedings")
-        .select("*")
-        .order("published_at", { ascending: false })
-    : { data: [] };
-  return (
-    <>
-      <RealtimeRefresh
-        channel="public-proceedings"
-        subscriptions={PROCEEDING_LIST_REALTIME}
-        protectUnsavedForms={false}
-      />
-      <PageHero
-        eyebrow="Relatoría"
-        title="Biblioteca de providencias"
-        description="Providencias publicadas y expresamente públicas."
-      />
-      <div className="mx-auto max-w-6xl divide-y rounded-lg border bg-white px-4 py-12">
-        {(data ?? []).map((p) => (
-          <article key={p.id} className="p-6">
-            <p className="text-xs uppercase text-[#98712b]">
-              {p.type} · {p.chamber}
-            </p>
-            <Link
-              href={`/providencias/${p.id}`}
-              className="mt-2 block text-lg font-semibold text-[#153553] hover:underline"
-            >
-              {p.title}
-            </Link>
-            <p className="mono-number mt-2 text-xs text-muted-foreground">
-              {p.providence_number} · {p.internal_number} ·{" "}
-              {formatDate(p.published_at)}
-            </p>
-          </article>
-        ))}
-        {!data?.length && (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            No hay providencias públicas.
-          </p>
-        )}
-      </div>
-    </>
-  );
+  const { data } = supabase ? await supabase.from("proceedings").select("id,providence_number,title,type,chamber,created_at,cases(case_number,internal_number)").eq("status", "Publicado").eq("visibility", "public").is("archived_at", null).order("created_at", { ascending: false }).limit(50) : { data: null };
+  const proceedings = (data ?? []) as ProceedingRow[];
+  return <><PageHero eyebrow="Relatoría" title="Biblioteca de providencias" description="Autos y sentencias publicados para consulta pública." /><div className="mx-auto max-w-[1180px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16"><div className="mb-6 flex flex-col gap-3 border bg-white p-4 sm:flex-row"><Input placeholder="Buscar por número de caso, título o ponente…" /><Button variant="outline" className="gap-2 rounded-none"><Filter className="size-4" /> Filtros</Button></div><div className="divide-y border bg-white">{proceedings.length === 0 ? <Empty text="No hay providencias públicas disponibles." /> : proceedings.map((item) => { const relatedCase = Array.isArray(item.cases) ? item.cases[0] : item.cases; return <article key={item.id} className="group flex flex-col gap-5 p-6 sm:flex-row"><div className="grid size-11 shrink-0 place-items-center bg-[#edf2f6] text-[#183d61]"><BookOpen className="size-5" /></div><div className="flex-1"><p className="text-[11px] font-semibold uppercase tracking-wider text-[#b21b1b]">{item.type} · {item.chamber}</p><h2 className="mt-2 text-lg font-semibold text-[#153553]">{item.title}</h2><p className="mono-number mt-2 text-xs text-muted-foreground">{item.providence_number} · {relatedCase?.case_number || relatedCase?.internal_number}</p><p className="mt-2 text-xs text-slate-500">{formatDate(item.created_at)}</p></div><Link href={`/providencias/${item.id}`} className="flex items-center gap-2 self-start text-sm font-semibold text-[#005ea8] sm:self-center">Consultar <ArrowRight className="size-4 transition group-hover:translate-x-1" /></Link></article>; })}</div></div></>;
 }
+
+function Empty({ text }: { text: string }) { return <div className="grid min-h-56 place-items-center p-8 text-center text-sm text-slate-600">{text}</div>; }

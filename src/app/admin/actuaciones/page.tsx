@@ -1,16 +1,19 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
-import { AdminPageHeader } from "@/components/admin-page";
-import { ActionMessage } from "@/components/action-message";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Activity, Filter, Plus } from "lucide-react";
+import { AdminPageHeader, EmptyState } from "@/components/admin-page";
 import { LifecycleActions } from "@/components/lifecycle-actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { can, requirePermission } from "@/lib/auth/permissions";
-import { formatDate } from "@/lib/demo-data";
-export default async function ActionsPage({ searchParams }: { searchParams: Promise<{ error?: string; success?: string }> }) {
-  const { supabase, profile } = await requirePermission({ resource: "actuaciones", action: "view" });
-  const [query, canCreate, canArchive, canRestore, canHardDelete] = await Promise.all([searchParams, can(profile, "create", "actuaciones", { supabase }), can(profile, "archive", "actuaciones", { supabase }), can(profile, "restore", "actuaciones", { supabase }), can(profile, "hard_delete", "actuaciones", { supabase })]);
-  const { data, error } = await supabase.from("case_actions").select("id,action_date,action_type,title,description,visibility,case_id,archived_at,case:cases(internal_number)").order("action_date", { ascending: false }).limit(200);
-  return <><AdminPageHeader title="Actuaciones procesales" description="Registro cronológico real de los expedientes." action={canCreate ? <Button asChild className="bg-[#153b5c]"><Link href="/admin/actuaciones/nueva"><Plus className="size-4" /> Nueva actuación</Link></Button> : <Button disabled title="No tiene permiso para crear actuaciones"><Plus className="size-4" /> Nueva actuación</Button>} /><ActionMessage error={query.error ?? (error ? "No fue posible cargar las actuaciones disponibles para su perfil." : undefined)} success={query.success} /><div className="overflow-x-auto rounded-lg border bg-white"><Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Actuación</TableHead><TableHead>Expediente</TableHead><TableHead>Visibilidad</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{(data ?? []).map((a) => <TableRow key={a.id} className={a.archived_at ? "bg-slate-50/70" : undefined}><TableCell className="text-xs">{formatDate(a.action_date)}</TableCell><TableCell><p className="font-semibold">{a.title}</p><p className="text-xs text-muted-foreground">{a.action_type} · {a.description}</p></TableCell><TableCell><Link className="mono-number text-xs text-[#153b5c] hover:underline" href={`/admin/expedientes/${a.case_id}`}>{a.case?.[0]?.internal_number ?? "No disponible"}</Link></TableCell><TableCell><Badge variant="outline">{a.archived_at ? "Archivada" : a.visibility}</Badge></TableCell><TableCell><LifecycleActions resource="case_actions" recordId={a.id} recordLabel={a.title} destination="/admin/actuaciones" archived={Boolean(a.archived_at)} canArchive={canArchive} canRestore={canRestore} canHardDelete={canHardDelete} compact /></TableCell></TableRow>)}</TableBody></Table>{!data?.length && <p className="p-8 text-center text-sm text-muted-foreground">No hay actuaciones disponibles para su perfil.</p>}</div></>;
+import { Badge } from "@/components/ui/badge";
+import { createClient } from "@/lib/supabase/server";
+import { formatDateTime } from "@/lib/display";
+
+export const metadata = { title: "Actuaciones" };
+type ActionRow = { id: string; action_type: string; title: string; description: string | null; visibility: string; action_date: string; archived_at: string | null; cases: { case_number: string | null; internal_number: string } | { case_number: string | null; internal_number: string }[] | null };
+
+export default async function ActionsPage() {
+  const supabase = await createClient();
+  const { data } = supabase ? await supabase.from("case_actions").select("id,action_type,title,description,visibility,action_date,archived_at,cases(case_number,internal_number)").order("action_date", { ascending: false }).limit(50) : { data: null };
+  const rows = (data ?? []) as ActionRow[];
+  return <><AdminPageHeader title="Actuaciones procesales" description="Registro cronológico global de actuaciones judiciales y administrativas." action={<Button className="gap-2 bg-[#153b5c]"><Plus className="size-4" /> Nueva actuación</Button>} /><div className="rounded-lg border bg-white"><div className="grid gap-3 border-b p-4 sm:grid-cols-[1fr_auto]"><Input placeholder="Buscar actuación, usuario o número de caso…" /><Button variant="outline" className="gap-2"><Filter className="size-4" /> Filtros</Button></div>{rows.length === 0 ? <EmptyState title="No hay actuaciones" description="Las actuaciones registradas en expedientes aparecerán aquí." icon={<Activity className="size-6" />} /> : <div className="overflow-x-auto"><Table><TableHeader><TableRow className="bg-slate-50"><TableHead>Fecha</TableHead><TableHead>Tipo y descripción</TableHead><TableHead>Número de caso</TableHead><TableHead>Visibilidad</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader><TableBody>{rows.map((item) => { const relatedCase = Array.isArray(item.cases) ? item.cases[0] : item.cases; return <TableRow key={item.id}><TableCell className="whitespace-nowrap text-xs">{formatDateTime(item.action_date)}</TableCell><TableCell><p className="text-sm font-semibold text-[#153553]">{item.action_type}</p><p className="mt-1 max-w-md text-xs text-muted-foreground">{item.description || item.title}</p></TableCell><TableCell className="mono-number text-xs">{relatedCase?.case_number || relatedCase?.internal_number}</TableCell><TableCell><Badge variant="outline" className={item.visibility === "public" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-100"}>{item.visibility}</Badge></TableCell><TableCell><LifecycleActions resource="case_actions" id={item.id} archived={Boolean(item.archived_at)} compact /></TableCell></TableRow>; })}</TableBody></Table></div>}</div></>;
 }
