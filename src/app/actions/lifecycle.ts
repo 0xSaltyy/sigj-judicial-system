@@ -271,6 +271,22 @@ async function deleteCaseAsOwner(caseId: string, confirmation: string, userId: s
   ];
   await removeStorageObjects(admin, storagePaths);
 
+  const { error: complaintPrimaryError } = await admin
+    .from("complaints")
+    .update({ primary_case_id: null, updated_at: new Date().toISOString() })
+    .eq("primary_case_id", caseId);
+  if (complaintPrimaryError) {
+    await admin.from("audit_logs").insert({
+      user_id: userId,
+      action: "DELETE_FAILED",
+      table_name: "cases",
+      record_id: caseId,
+      description: "No fue posible limpiar la relación primaria de denuncias antes de eliminar el Case",
+      metadata: { error: complaintPrimaryError.message },
+    });
+    redirect(`${back}?error=${encodeURIComponent(complaintPrimaryError.message)}`);
+  }
+
   await admin.from("signatures").delete().eq("case_id", caseId);
   await admin.from("signature_requests").delete().eq("case_id", caseId);
 
