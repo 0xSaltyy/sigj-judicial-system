@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, BriefcaseBusiness, Plus } from "lucide-react";
 import { AdminPageHeader, EmptyState } from "@/components/admin-page";
+import { LifecycleActions } from "@/components/lifecycle-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +29,6 @@ export default async function MattersPage() {
   const { data } = supabase ? await supabase
     .from("matters")
     .select("id,matter_number,title,matter_category,matter_type,lead_component,investigating_agency,status,security_classification,opened_at,archived_at")
-    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(50) : { data: null };
   const rows = (data ?? []) as MatterRow[];
@@ -41,7 +41,7 @@ export default async function MattersPage() {
         action={<Button asChild className="gap-2 bg-[#153b5c]"><Link href="/admin/expedientes/nuevo"><Plus className="size-4" /> Abrir Matter</Link></Button>}
       />
       {rows.length === 0 ? (
-        <EmptyState title="No hay Matters abiertos" description="Abra el primer Matter interno para registrar investigaciones, evaluaciones, referrals o trámites administrativos." icon={<BriefcaseBusiness className="size-6" />} />
+        <EmptyState title="No hay Matters registrados" description="Abra el primer Matter interno para registrar investigaciones, evaluaciones, referrals o trámites administrativos." icon={<BriefcaseBusiness className="size-6" />} />
       ) : (
         <div className="grid gap-4">
           {rows.map((matter) => (
@@ -57,9 +57,12 @@ export default async function MattersPage() {
                   <p className="mt-2 text-sm text-muted-foreground">{matter.matter_category || matter.matter_type} · {matter.lead_component || "Lead component pending"} · {matter.investigating_agency || "No agency recorded"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">Opened {formatDate(matter.opened_at)}</p>
                 </div>
-                <Button asChild variant="outline" className="gap-2">
-                  <Link href={`/admin/matters/${matter.id}`}>Ver Matter <ArrowRight className="size-4" /></Link>
-                </Button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button asChild variant="outline" className="gap-2">
+                    <Link href={`/admin/matters/${matter.id}`}>Ver Matter <ArrowRight className="size-4" /></Link>
+                  </Button>
+                  <LifecycleActions resource="matters" id={matter.id} archived={Boolean(matter.archived_at)} compact />
+                </div>
               </CardContent>
             </Card>
           ))}

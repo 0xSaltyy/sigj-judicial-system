@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const redirectByResource: Record<string, string> = {
+  matters: "/admin/matters",
   cases: "/admin/expedientes",
   case_actions: "/admin/actuaciones",
   hearings: "/admin/audiencias",
@@ -29,6 +30,10 @@ export async function manageLifecycle(formData: FormData) {
 
   if (resource === "cases" && operation === "delete") {
     await deleteCaseAsOwner(id, confirmation, user.id, back);
+  }
+
+  if (resource === "matters") {
+    await manageMatterLifecycle(id, operation, confirmation, user.id, back, supabase);
   }
 
   if (resource === "roleplay_applications" && operation === "delete") {
@@ -71,6 +76,140 @@ type CaseDocumentRow = { file_path: string | null };
 type ProceedingRow = { pdf_path: string | null };
 type SignatureRow = { signature_image_path: string | null };
 type ActorRow = { id: string; role: string | null; is_owner: boolean | null; is_active: boolean | null };
+type MatterLifecycleRow = { id: string; matter_number: string; title: string; status: string; archived_at: string | null; closing_date: string | null; closing_reason: string | null };
+
+async function manageMatterLifecycle(
+  matterId: string,
+  operation: string,
+  confirmation: string,
+  userId: string,
+  back: string,
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+): Promise<never> {
+  if (!["archive", "restore", "delete"].includes(operation)) redirect(`${back}?error=${encodeURIComponent("Operación no permitida")}`);
+  if (operation === "delete" && confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`${back}?error=${encodeURIComponent("Confirmación incorrecta")}`);
+
+  const admin = createAdminClient();
+  if (!admin) redirect(`${back}?error=${encodeURIComponent("Servicio administrativo no configurado")}`);
+
+  const { data: actor } = await admin.from("profiles").select("id,role,is_owner,is_active").eq("id", userId).single();
+  const profile = actor as ActorRow | null;
+  const role = String(profile?.role || "");
+  const ownerLevel = Boolean(profile?.is_active && (profile?.is_owner || ["SUPER_ADMIN", "OWNER", "ATTORNEY_GENERAL"].includes(role)));
+  const permissionAction = operation === "delete" ? "hard_delete" : operation;
+  const { data: hasPermission } = await supabase.rpc("has_effective_permission", {
+    p_resource: "matters",
+    p_action: permissionAction,
+  });
+  const allowed = ownerLevel || Boolean(hasPermission);
+
+  if (!allowed) {
+    await admin.from("audit_logs").insert({
+      user_id: userId,
+      action: "MATTER_LIFECYCLE_DENIED",
+      table_name: "matters",
+      record_id: matterId || null,
+      description: "Intento no autorizado de cambiar ciclo de vida de DOJ Matter",
+      metadata: { operation, permission_action: permissionAction },
+    });
+    redirect("/no-autorizado");
+  }
+
+  const { data: matter, error: loadError } = await admin
+    .from("matters")
+    .select("id,matter_number,title,status,archived_at,closing_date,closing_reason")
+    .eq("id", matterId)
+    .single();
+  const record = matter as MatterLifecycleRow | null;
+  if (loadError || !record) redirect(`${back}?error=${encodeURIComponent(loadError?.message || "Matter no encontrado")}`);
+
+  if (operation === "archive") {
+    const { error } = await admin
+      .from("matters")
+      .update({
+        archived_at: new Date().toISOString(),
+        closing_date: new Date().toISOString().slice(0, 10),
+        closing_reason: "Archived from DOJ Matter lifecycle controls",
+        status: "Archivado",
+      })
+      .eq("id", matterId)
+      .is("archived_at", null);
+    if (error) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+    await admin.from("audit_logs").insert({
+      user_id: userId,
+      action: "MATTER_ARCHIVED",
+      table_name: "matters",
+      record_id: matterId,
+      description: "DOJ Matter archivado desde controles de ciclo de vida",
+      metadata: { matter_number: record.matter_number, title: record.title, previous_status: record.status },
+    });
+    redirect(`${back}?updated=1`);
+  }
+
+  if (operation === "restore") {
+    const { error } = await admin
+      .from("matters")
+      .update({
+        archived_at: null,
+        closing_date: null,
+        closing_reason: null,
+        status: record.status === "Archivado" ? "Abierto" : record.status,
+      })
+      .eq("id", matterId);
+    if (error) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
+    await admin.from("audit_logs").insert({
+      user_id: userId,
+      action: "MATTER_RESTORED",
+      table_name: "matters",
+      record_id: matterId,
+      description: "DOJ Matter restaurado desde controles de ciclo de vida",
+      metadata: { matter_number: record.matter_number, title: record.title, previous_archived_at: record.archived_at },
+    });
+    redirect(`${back}?updated=1`);
+  }
+
+  await admin
+    .from("related_records")
+    .update({
+      active: false,
+      inactive_at: new Date().toISOString(),
+      inactive_by: userId,
+      inactive_reason: "Matter permanently deleted",
+    })
+    .or(`and(source_type.eq.matter,source_id.eq.${matterId}),and(target_type.eq.matter,target_id.eq.${matterId})`)
+    .eq("active", true);
+
+  const { error: deleteError } = await admin.from("matters").delete().eq("id", matterId);
+  if (deleteError) {
+    await admin.from("audit_logs").insert({
+      user_id: userId,
+      action: "MATTER_DELETE_FAILED",
+      table_name: "matters",
+      record_id: matterId,
+      description: "No fue posible eliminar definitivamente el DOJ Matter",
+      metadata: { matter_number: record.matter_number, title: record.title, error: deleteError.message },
+    });
+    redirect(`${back}?error=${encodeURIComponent(deleteError.message)}`);
+  }
+
+  await admin.from("audit_logs").insert({
+    user_id: userId,
+    action: "MATTER_PERMANENT_DELETE",
+    table_name: "matters",
+    record_id: matterId,
+    description: "Tombstone: DOJ Matter eliminado permanentemente",
+    metadata: {
+      matter_number: record.matter_number,
+      title: record.title,
+      status: record.status,
+      archived_at: record.archived_at,
+      closing_date: record.closing_date,
+      closing_reason: record.closing_reason,
+    },
+  });
+
+  redirect(`${back}?deleted=1`);
+}
 
 async function deleteCaseAsOwner(caseId: string, confirmation: string, userId: string, back: string): Promise<never> {
   if (confirmation !== "ELIMINAR DEFINITIVAMENTE") redirect(`${back}?error=${encodeURIComponent("Confirmación incorrecta")}`);
