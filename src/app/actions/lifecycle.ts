@@ -179,6 +179,22 @@ async function manageMatterLifecycle(
     .or(`and(source_type.eq.matter,source_id.eq.${matterId}),and(target_type.eq.matter,target_id.eq.${matterId})`)
     .eq("active", true);
 
+  const { error: complaintPrimaryError } = await admin
+    .from("complaints")
+    .update({ primary_matter_id: null, updated_at: new Date().toISOString() })
+    .eq("primary_matter_id", matterId);
+  if (complaintPrimaryError) {
+    await admin.from("audit_logs").insert({
+      user_id: userId,
+      action: "MATTER_DELETE_FAILED",
+      table_name: "matters",
+      record_id: matterId,
+      description: "No fue posible limpiar la relación primaria de denuncias antes de eliminar el DOJ Matter",
+      metadata: { matter_number: record.matter_number, title: record.title, error: complaintPrimaryError.message },
+    });
+    redirect(`${back}?error=${encodeURIComponent(complaintPrimaryError.message)}`);
+  }
+
   const { error: deleteError } = await admin.from("matters").delete().eq("id", matterId);
   if (deleteError) {
     await admin.from("audit_logs").insert({

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, BriefcaseBusiness, Plus } from "lucide-react";
+import { AlertTriangle, ArrowRight, BriefcaseBusiness, Plus } from "lucide-react";
 import { AdminPageHeader, EmptyState } from "@/components/admin-page";
 import { LifecycleActions } from "@/components/lifecycle-actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,8 @@ type MatterRow = {
   archived_at: string | null;
 };
 
-export default async function MattersPage() {
+export default async function MattersPage({ searchParams }: { searchParams: Promise<{ deleted?: string; updated?: string; error?: string }> }) {
+  const query = await searchParams;
   const supabase = await createClient();
   const { data } = supabase ? await supabase
     .from("matters")
@@ -40,6 +42,9 @@ export default async function MattersPage() {
         description="Trabajo interno del Department of Justice separado de los Cases presentados ante tribunales federales."
         action={<Button asChild className="gap-2 bg-[#153b5c]"><Link href="/admin/expedientes/nuevo"><Plus className="size-4" /> Abrir Matter</Link></Button>}
       />
+      {query.deleted ? <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>DOJ Matter eliminado correctamente.</AlertDescription></Alert> : null}
+      {query.updated ? <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>DOJ Matter actualizado correctamente.</AlertDescription></Alert> : null}
+      {query.error ? <Alert variant="destructive" className="mb-5"><AlertTriangle className="size-4" /><AlertDescription>{query.error}</AlertDescription></Alert> : null}
       {rows.length === 0 ? (
         <EmptyState title="No hay Matters registrados" description="Abra el primer Matter interno para registrar investigaciones, evaluaciones, referrals o trámites administrativos." icon={<BriefcaseBusiness className="size-6" />} />
       ) : (
