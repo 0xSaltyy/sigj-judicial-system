@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft, GitBranch, ShieldAlert } from "lucide-react";
-import { linkComplaintToCaseAction, openMatterFromComplaintAction } from "@/app/actions/matter-workflow";
+import { linkComplaintToCaseAction, openMatterFromComplaintAction, transferComplaintAttachmentToEvidenceAction } from "@/app/actions/matter-workflow";
 import { updateComplaint } from "@/app/actions/complaints";
 import { AdminPageHeader } from "@/components/admin-page";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -53,7 +53,20 @@ export default async function ComplaintDecisionPage({ params, searchParams }: { 
             </dl>
             <div className="rounded border bg-slate-50 p-4 text-sm leading-7 whitespace-pre-wrap">{complaint.description}</div>
             <Section title="Adjuntos protegidos" empty="No hay adjuntos.">
-              {attachments.map((file) => <div key={file.id} className="border-b p-3 last:border-b-0 text-sm"><p className="font-medium">{file.original_name}</p><p className="text-xs text-muted-foreground">{file.content_type} · {file.size_bytes} bytes · Storage protegido</p></div>)}
+              {attachments.map((file) => <div key={file.id} className="border-b p-3 last:border-b-0 text-sm">
+                <p className="font-medium">{file.original_name}</p>
+                <p className="text-xs text-muted-foreground">{file.content_type} · {file.size_bytes} bytes · Storage protegido</p>
+                {(complaint.primary_matter_id || complaint.primary_case_id) ? <form action={transferComplaintAttachmentToEvidenceAction} className="mt-3 flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="complaint_id" value={complaint.id} />
+                  <input type="hidden" name="attachment_id" value={file.id} />
+                  <input type="hidden" name="matter_id" value={complaint.primary_matter_id || ""} />
+                  <input type="hidden" name="case_id" value={complaint.primary_case_id || ""} />
+                  <input type="hidden" name="return_to" value={`/admin/denuncias/${complaint.id}`} />
+                  <Input name="title" defaultValue={file.original_name} className="h-9 max-w-xs" />
+                  <Input name="reason" placeholder="Razón de transferencia" required className="h-9 max-w-xs" />
+                  <Button size="sm" variant="outline">Transferir como evidencia</Button>
+                </form> : <p className="mt-2 text-xs text-amber-700">Vincule primero un Matter o Case para transferir este adjunto como evidencia.</p>}
+              </div>)}
             </Section>
           </CardContent>
         </Card>

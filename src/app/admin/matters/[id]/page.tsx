@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowRight, BriefcaseBusiness, Edit3, FileSearch, GitBranch, Gavel, LockKeyhole, Scale } from "lucide-react";
+import { AlertTriangle, Archive, ArrowRight, BriefcaseBusiness, Download, Edit3, FileDown, FileSearch, GitBranch, Gavel, LockKeyhole, Scale, Trash2 } from "lucide-react";
+import { addGrandJuryCountAction, archiveEvidenceAction, closeGrandJuryVoteRoundAction, deleteEvidenceAction, openGrandJuryVoteRoundAction } from "@/app/actions/matter-workflow";
 import { AdminPageHeader, EmptyState } from "@/components/admin-page";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatDateTime, safeText } from "@/lib/display";
 
@@ -46,28 +48,30 @@ type RelatedCaseRow = {
 
 type WorkflowRow = { id: string; title: string; description: string | null; event_code: string; occurred_at: string; new_status: string | null };
 type ComplaintLinkRow = { id: string; relationship_type: string; reason: string | null; complaints: { id: string; tracking_number: string; category: string; status: string; anonymous: boolean; complainant_name: string | null } | { id: string; tracking_number: string; category: string; status: string; anonymous: boolean; complainant_name: string | null }[] | null };
-type EvidenceRow = { id: string; evidence_number: string; title: string; evidence_type: string; access_classification: string; sealed: boolean; grand_jury_status: string; created_at: string };
+type EvidenceRow = { id: string; evidence_number: string; ete_id: string | null; formal_title: string | null; title: string; evidence_type: string; exhibit_designation: string | null; evidence_status: string | null; access_classification: string; sealed: boolean; grand_jury_status: string; sha256_hash: string | null; original_filename: string | null; created_at: string };
 type SubpoenaRow = { id: string; subpoena_number: string; subpoena_type: string; recipient: string; compliance_status: string; grand_jury_secret: boolean };
 type InterviewRow = { id: string; interview_number: string; record_type: string; interviewee: string; access_classification: string; grand_jury_secret: boolean };
 type TaskRow = { id: string; title: string; priority: string; status: string; due_at: string | null };
 type GrandJuryRow = { id: string; grand_jury_number: string; status: string; active_grand_jurors: number; term_start: string | null; term_end: string | null };
+type GrandJuryRoundRow = { id: string; grand_jury_id: string; status: string; title: string; closed_at: string | null };
 
 export default async function MatterDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; updated?: string; evidence?: string; grand_jury?: string; error?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const [matterResult, participantResult, casesResult, workflowResult, complaintsResult, evidenceResult, subpoenasResult, interviewsResult, tasksResult, grandJuryResult] = await Promise.all([
+  const [matterResult, participantResult, casesResult, workflowResult, complaintsResult, evidenceResult, subpoenasResult, interviewsResult, tasksResult, grandJuryResult, grandJuryRoundsResult] = await Promise.all([
     supabase.from("matters").select("id,matter_number,title,summary,matter_category,matter_type,lead_component,participating_components,investigating_agency,referring_agency,referral_date,statutes_under_review,jurisdiction,investigative_district,security_classification,access_restrictions,grand_jury_secret,status,opened_at").eq("id", id).maybeSingle(),
     supabase.from("matter_participants").select("id,role_code,side,participants(legal_name,display_name,sealed,minor,pseudonym)").eq("matter_id", id).order("created_at"),
     supabase.from("matter_case_relationships").select("id,relationship_type,cases(id,case_number,internal_number,case_caption,title)").eq("matter_id", id).order("created_at", { ascending: false }),
     supabase.from("workflow_events").select("id,title,description,event_code,occurred_at,new_status").eq("matter_id", id).order("occurred_at", { ascending: false }).limit(20),
     supabase.from("complaint_matter_links").select("id,relationship_type,reason,complaints(id,tracking_number,category,status,anonymous,complainant_name)").eq("matter_id", id).eq("active", true).order("created_at", { ascending: false }),
-    supabase.from("evidence_items").select("id,evidence_number,title,evidence_type,access_classification,sealed,grand_jury_status,created_at").eq("matter_id", id).is("archived_at", null).order("created_at", { ascending: false }),
+    supabase.from("evidence_items").select("id,evidence_number,ete_id,formal_title,title,evidence_type,exhibit_designation,evidence_status,access_classification,sealed,grand_jury_status,sha256_hash,original_filename,created_at").eq("matter_id", id).is("archived_at", null).is("deleted_at", null).order("created_at", { ascending: false }),
     supabase.from("subpoenas").select("id,subpoena_number,subpoena_type,recipient,compliance_status,grand_jury_secret").eq("matter_id", id).is("archived_at", null).order("created_at", { ascending: false }),
     supabase.from("interview_records").select("id,interview_number,record_type,interviewee,access_classification,grand_jury_secret").eq("matter_id", id).order("created_at", { ascending: false }),
     supabase.from("matter_tasks").select("id,title,priority,status,due_at").eq("matter_id", id).order("due_at", { ascending: true }),
     supabase.from("grand_juries").select("id,grand_jury_number,status,active_grand_jurors,term_start,term_end").eq("primary_matter_id", id).order("created_at", { ascending: false }),
+    supabase.from("grand_jury_voting_rounds").select("id,grand_jury_id,status,title,closed_at").order("opened_at", { ascending: false }).limit(20),
   ]);
   if (!matterResult.data) notFound();
   const matter = matterResult.data as MatterRow;
@@ -80,13 +84,14 @@ export default async function MatterDetailPage({ params, searchParams }: { param
   const interviews = (interviewsResult.data ?? []) as InterviewRow[];
   const tasks = (tasksResult.data ?? []) as TaskRow[];
   const grandJuries = (grandJuryResult.data ?? []) as GrandJuryRow[];
+  const grandJuryRounds = (grandJuryRoundsResult.data ?? []) as GrandJuryRoundRow[];
 
   return (
     <>
       <AdminPageHeader
         title={matter.matter_number}
         description={matter.title}
-        action={<div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="gap-2"><Link href={`/admin/matters/${matter.id}/editar`}><Edit3 className="size-4" /> Editar Matter</Link></Button><Button asChild className="gap-2 bg-[#153b5c]"><Link href={`/admin/matters/${matter.id}/abrir-federal-case`}>Abrir Federal Case a partir de este Matter <ArrowRight className="size-4" /></Link></Button></div>}
+        action={<div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="gap-2"><Link href={`/api/roleplay/matters/${matter.id}/pdf`}><FileDown className="size-4" /> Descargar PDF</Link></Button><Button asChild variant="outline" className="gap-2"><Link href={`/admin/matters/${matter.id}/editar`}><Edit3 className="size-4" /> Editar Matter</Link></Button><Button asChild className="gap-2 bg-[#153b5c]"><Link href={`/admin/matters/${matter.id}/abrir-federal-case`}>Abrir Federal Case a partir de este Matter <ArrowRight className="size-4" /></Link></Button></div>}
       />
       {query.created && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Matter creado correctamente. No se asignó Docket Number porque todavía no es un Case judicial.</AlertDescription></Alert>}
       {query.updated && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Matter actualizado con auditoría.</AlertDescription></Alert>}
@@ -175,10 +180,39 @@ export default async function MatterDetailPage({ params, searchParams }: { param
           })}
         </SectionCard>
         <SectionCard title="Evidence" icon={<Scale className="size-4" />} empty="No Evidence Items have been registered for this Matter.">
-          {evidence.map((item) => <div key={item.id} className="border-b p-4 last:border-b-0"><p className="mono-number text-xs font-semibold text-[#005ea8]">{item.evidence_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{item.title}</p><p className="text-xs text-muted-foreground">{item.evidence_type} · {item.access_classification} · {item.grand_jury_status}{item.sealed ? " · sealed" : ""}</p></div>)}
+          {evidence.map((item) => <div key={item.id} className="border-b p-4 last:border-b-0">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="mono-number text-xs font-semibold text-[#005ea8]">{item.ete_id || item.evidence_number}</p>
+                <p className="mt-1 text-sm font-semibold text-[#153553]">{item.formal_title || item.title}</p>
+                <p className="text-xs text-muted-foreground">{item.exhibit_designation || item.evidence_type} · {item.evidence_status || "received"} · {item.access_classification} · hash {item.sha256_hash ? item.sha256_hash.slice(0, 12) : "pending"}{item.sealed ? " · sealed" : ""}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm"><Link href={`/api/evidence/${item.id}/download`}><Download className="mr-1 size-3" />Download</Link></Button>
+                <form action={archiveEvidenceAction}><input type="hidden" name="evidence_id" value={item.id} /><input type="hidden" name="return_to" value={`/admin/matters/${matter.id}`} /><input type="hidden" name="reason" value="Archived from Matter Evidence Manager" /><Button variant="outline" size="sm"><Archive className="mr-1 size-3" />Archive</Button></form>
+                <form action={deleteEvidenceAction}><input type="hidden" name="evidence_id" value={item.id} /><input type="hidden" name="return_to" value={`/admin/matters/${matter.id}`} /><input type="hidden" name="reason" value="Deleted from Matter Evidence Manager" /><Button variant="outline" size="sm" className="text-red-700"><Trash2 className="mr-1 size-3" />Delete</Button></form>
+              </div>
+            </div>
+          </div>)}
         </SectionCard>
         <SectionCard title="Grand Jury" icon={<Gavel className="size-4" />} empty="No Grand Jury has been created for this Matter.">
-          {grandJuries.map((jury) => <div key={jury.id} className="border-b p-4 last:border-b-0"><p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.grand_jury_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{jury.status}</p><p className="text-xs text-muted-foreground">{jury.active_grand_jurors} active grand jurors · {formatDate(jury.term_start)}–{formatDate(jury.term_end)}</p></div>)}
+          {grandJuries.map((jury) => {
+            const openRound = grandJuryRounds.find((round) => round.grand_jury_id === jury.id && round.status === "Open");
+            return <div key={jury.id} className="border-b p-4 last:border-b-0">
+              <p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.grand_jury_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{jury.status}</p><p className="text-xs text-muted-foreground">{jury.active_grand_jurors} active grand jurors · {formatDate(jury.term_start)}–{formatDate(jury.term_end)}</p>
+              <form action={addGrandJuryCountAction} className="mt-3 grid gap-2 md:grid-cols-4">
+                <input type="hidden" name="grand_jury_id" value={jury.id} /><input type="hidden" name="matter_id" value={matter.id} />
+                <Input name="person_or_entity" placeholder="Person/entity" className="h-9" />
+                <Input name="statute" placeholder="Statute" className="h-9" />
+                <Input name="offense_title" placeholder="Offense title" className="h-9" />
+                <Button size="sm" variant="outline">Add count</Button>
+              </form>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <form action={openGrandJuryVoteRoundAction}><input type="hidden" name="grand_jury_id" value={jury.id} /><input type="hidden" name="return_to" value={`/admin/matters/${matter.id}`} /><Button size="sm" variant="outline">Open secret vote</Button></form>
+                {openRound ? <form action={closeGrandJuryVoteRoundAction} className="flex gap-2"><input type="hidden" name="round_id" value={openRound.id} /><input type="hidden" name="return_to" value={`/admin/matters/${matter.id}`} /><Input name="certification" placeholder="Foreperson certification" className="h-9 max-w-xs" /><Button size="sm" variant="outline">Close / certify</Button></form> : null}
+              </div>
+            </div>;
+          })}
         </SectionCard>
         <SectionCard title="Subpoenas, interviews, tasks and deadlines" icon={<BriefcaseBusiness className="size-4" />} empty="No subpoenas, interviews or tasks recorded.">
           {subpoenas.map((item) => <div key={item.id} className="border-b p-4 last:border-b-0"><p className="mono-number text-xs font-semibold text-[#005ea8]">{item.subpoena_number}</p><p className="text-sm font-semibold">{item.recipient}</p><p className="text-xs text-muted-foreground">{item.subpoena_type} · {item.compliance_status}{item.grand_jury_secret ? " · grand-jury restricted" : ""}</p></div>)}

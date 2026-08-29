@@ -1,11 +1,60 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { buildDojRecordPdf } from "@/lib/doj-record-pdf";
 import { ROLEPLAY_NOTICE } from "@/lib/identity";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
   if (!supabase) return new NextResponse("Supabase no está configurado.", { status: 503 });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const admin = createAdminClient();
+    const [{ data: record }, participants, matterLinks, evidence, docketEntries, actions, hearings, warrants, profile] = await Promise.all([
+      supabase.from("cases").select("*,federal_courts(official_name,abbreviation)").eq("id", id).maybeSingle(),
+      supabase.from("case_participants").select("role_code,side,counsel,participants(display_name,legal_name,sealed)").eq("case_id", id),
+      supabase.from("matter_case_relationships").select("relationship_type,matters(matter_number,title,status)").eq("case_id", id),
+      supabase.from("evidence_items").select("ete_id,formal_title,title,description,sha256_hash,evidence_status,access_classification,grand_jury_status,sealed,created_at").eq("case_id", id).is("archived_at", null).is("deleted_at", null).neq("grand_jury_status", "Grand-jury material").eq("sealed", false).order("created_at"),
+      supabase.from("docket_entries").select("docket_entry_number,filing_timestamp,document_type_code,title,visibility").eq("case_id", id).is("archived_at", null).order("docket_entry_number"),
+      supabase.from("case_actions").select("action_date,action_type,description,visibility").eq("case_id", id).is("archived_at", null).order("action_date"),
+      supabase.from("hearings").select("scheduled_at,title,status").eq("case_id", id).is("archived_at", null).order("scheduled_at"),
+      supabase.from("roleplay_warrants").select("warrant_number,warrant_type,status,confidentiality").eq("case_id", id).is("archived_at", null).order("created_at"),
+      supabase.from("profiles").select("full_name,role").eq("id", user.id).maybeSingle(),
+    ]);
+    if (!record) return new NextResponse("Federal Case no encontrado.", { status: 404 });
+    await admin?.from("pdf_export_audit").insert({ record_type: "case", record_id: id, export_kind: "Federal Case PDF", actor_id: user.id, included_sections: ["overview","matters","participants","docket","evidence","hearings","warrants"], excluded_restricted: true });
+    const court = Array.isArray(record.federal_courts) ? record.federal_courts[0] : record.federal_courts;
+    const pdf = buildDojRecordPdf({
+      title: `Federal Case ${record.case_number || record.internal_number}`,
+      subtitle: record.case_caption || record.title,
+      classification: record.federal_access_level || record.confidentiality_level || "Internal DOJ only",
+      generatedBy: profile.data?.full_name || user.email || "Authorized user",
+      sections: [
+        { title: "Executive summary", rows: [`Case Number: ${record.case_number || record.internal_number}`, `Docket Number: ${record.docket_number || "No Docket Number"}`, `Caption: ${record.case_caption || record.title}`, `Court: ${court?.official_name || "Court pending"}`, `Status: ${record.status}`, `Summary: ${record.summary}`] },
+        { title: "Originating DOJ Matters", rows: (matterLinks.data ?? []).map((row) => {
+          const m = Array.isArray(row.matters) ? row.matters[0] : row.matters;
+          return `${m?.matter_number} - ${m?.title} - ${m?.status} - ${row.relationship_type}`;
+        }) },
+        { title: "Participants", rows: (participants.data ?? []).map((row) => {
+          const p = Array.isArray(row.participants) ? row.participants[0] : row.participants;
+          return `${row.role_code} - ${p?.display_name || p?.legal_name || "Participant"}${row.side ? ` - ${row.side}` : ""}${p?.sealed ? " - sealed" : ""}`;
+        }) },
+        { title: "Docket", rows: (docketEntries.data ?? []).map((item) => `${item.docket_entry_number} - ${item.filing_timestamp} - ${item.document_type_code || "Document"} - ${item.title} - ${item.visibility}`) },
+        { title: "Evidence Index", rows: (evidence.data ?? []).map((item) => `${item.ete_id || "No ETE"} - ${item.formal_title || item.title} - ${item.evidence_status} - hash ${(item.sha256_hash || "").slice(0, 12)} - ${item.access_classification}`) },
+        { title: "Hearings", rows: (hearings.data ?? []).map((item) => `${item.scheduled_at} - ${item.title} - ${item.status}`) },
+        { title: "Warrants", rows: (warrants.data ?? []).map((item) => `${item.warrant_number} - ${item.warrant_type} - ${item.status} - ${item.confidentiality}`) },
+        { title: "Activity", rows: (actions.data ?? []).map((item) => `${item.action_date} - ${item.action_type} - ${item.description} - ${item.visibility}`) },
+      ],
+    });
+    return new NextResponse(pdf, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${record.case_number || record.internal_number}.pdf"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
   const [{ data: record }, participants, docketEntries, actions, proceedings, hearings, warrants] = await Promise.all([
     supabase.from("public_case_lookup").select("*").eq("id", id).maybeSingle(),
     supabase.from("public_case_participants").select("role_label,display_name,side").eq("case_id", id),

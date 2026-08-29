@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { createHash, randomUUID } from "crypto";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 function splitList(value: FormDataEntryValue | null) {
   return String(value || "")
@@ -182,7 +184,30 @@ export async function createEvidenceItemAction(formData: FormData) {
   const matterId = String(formData.get("matter_id") || "");
   const caseId = String(formData.get("case_id") || "");
   const supabase = await clientOrRedirect(matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`);
-  const { error } = await supabase.rpc("create_evidence_item", {
+  const admin = createAdminClient();
+  if (!admin) redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("Supabase service role no está configurado para Storage seguro")}`);
+  const file = formData.get("evidence_file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("Seleccione un archivo probatorio")}`);
+  }
+  if (file.size > 100 * 1024 * 1024) {
+    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("El archivo supera 100 MB")}`);
+  }
+  const allowed = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "video/mp4", "audio/mpeg", "audio/wav", "application/octet-stream"]);
+  const mime = file.type || "application/octet-stream";
+  if (!allowed.has(mime)) {
+    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("Tipo de archivo no permitido para Evidence")}`);
+  }
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(-120) || "evidence.bin";
+  const storagePath = `${matterId ? `matters/${matterId}` : `cases/${caseId || "unassigned"}`}/${randomUUID()}/${safeName}`;
+  const { error: uploadError } = await admin.storage.from("evidence-files").upload(storagePath, bytes, { contentType: mime, upsert: false });
+  if (uploadError) {
+    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent(uploadError.message)}`);
+  }
+
+  const { error } = await supabase.rpc("register_evidence_upload", {
     p_payload: {
       matter_id: matterId,
       case_id: caseId,
@@ -195,22 +220,121 @@ export async function createEvidenceItemAction(formData: FormData) {
       collection_at: String(formData.get("collection_at") || ""),
       collection_location: String(formData.get("collection_location") || ""),
       custodian: String(formData.get("custodian") || ""),
-      sha256_hash: String(formData.get("sha256_hash") || ""),
+      sha256_hash: sha256,
+      storage_bucket: "evidence-files",
+      storage_path: storagePath,
+      original_filename: file.name,
+      mime_type: mime,
+      file_size_bytes: file.size,
+      exhibit_designation: String(formData.get("exhibit_designation") || "Investigative Exhibit"),
+      obtained_from: String(formData.get("obtained_from") || ""),
+      collection_method: String(formData.get("collection_method") || ""),
       access_classification: String(formData.get("access_classification") || "Internal DOJ only"),
       privilege_status: String(formData.get("privilege_status") || "Not privileged"),
       grand_jury_status: String(formData.get("grand_jury_status") || "Not grand-jury material"),
       sealed: checked(formData, "sealed"),
+      contains_sensitive_information: checked(formData, "contains_sensitive_information"),
+      evidence_status: String(formData.get("evidence_status") || "received"),
       relevance: String(formData.get("relevance") || ""),
       authenticity_status: String(formData.get("authenticity_status") || "Unverified"),
-      admissibility_status: String(formData.get("admissibility_status") || "Internal evidence item"),
+      admissibility_status: String(formData.get("admissibility_status") || "Pending review"),
       tags: splitList(formData.get("tags")),
       notes: String(formData.get("notes") || ""),
       condition: String(formData.get("condition") || ""),
+      reason: String(formData.get("reason") || ""),
     },
   });
-  if (error) redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent(error.message)}`);
+  if (error) {
+    await admin.storage.from("evidence-files").remove([storagePath]);
+    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent(error.message)}`);
+  }
   const id = matterId || caseId;
   redirect(matterId ? `/admin/matters/${id}?evidence=1` : `/admin/expedientes/${id}?evidence=1`);
+}
+
+export async function archiveEvidenceAction(formData: FormData) {
+  const evidenceId = String(formData.get("evidence_id") || "");
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("archive_evidence_item", { p_evidence_id: evidenceId, p_reason: String(formData.get("reason") || "") });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?evidence=archived`);
+}
+
+export async function deleteEvidenceAction(formData: FormData) {
+  const evidenceId = String(formData.get("evidence_id") || "");
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const reason = String(formData.get("reason") || "");
+  const supabase = await clientOrRedirect(returnTo);
+  const admin = createAdminClient();
+  if (!admin) redirect(`${returnTo}?error=${encodeURIComponent("Supabase service role no está configurado")}`);
+  const { data: evidence } = await supabase.from("evidence_items").select("storage_bucket,storage_path").eq("id", evidenceId).maybeSingle();
+  const { error } = await supabase.rpc("mark_evidence_deleted", { p_evidence_id: evidenceId, p_reason: reason });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  if (evidence?.storage_bucket && evidence.storage_path) {
+    await admin.storage.from(evidence.storage_bucket).remove([evidence.storage_path]);
+  }
+  redirect(`${returnTo}?evidence=deleted`);
+}
+
+export async function linkEvidenceAction(formData: FormData) {
+  const evidenceId = String(formData.get("evidence_id") || "");
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("link_evidence_to_record", {
+    p_evidence_id: evidenceId,
+    p_record_type: String(formData.get("record_type") || ""),
+    p_record_id: String(formData.get("record_id") || ""),
+    p_relationship_type: String(formData.get("relationship_type") || "related evidence"),
+    p_reason: String(formData.get("reason") || ""),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?evidence=linked`);
+}
+
+export async function transferComplaintAttachmentToEvidenceAction(formData: FormData) {
+  const complaintId = String(formData.get("complaint_id") || "");
+  const attachmentId = String(formData.get("attachment_id") || "");
+  const matterId = String(formData.get("matter_id") || "");
+  const caseId = String(formData.get("case_id") || "");
+  const returnTo = String(formData.get("return_to") || `/admin/denuncias/${complaintId}`);
+  const supabase = await clientOrRedirect(returnTo);
+  const admin = createAdminClient();
+  if (!admin) redirect(`${returnTo}?error=${encodeURIComponent("Supabase service role no está configurado")}`);
+  const { data: attachment, error: attachmentError } = await supabase
+    .from("complaint_attachments")
+    .select("id,complaint_id,file_path,original_name,content_type,size_bytes")
+    .eq("id", attachmentId)
+    .eq("complaint_id", complaintId)
+    .maybeSingle();
+  if (attachmentError || !attachment) redirect(`${returnTo}?error=${encodeURIComponent("Adjunto de denuncia no encontrado")}`);
+  const { data: blob, error: downloadError } = await admin.storage.from("complaint-files").download(attachment.file_path);
+  if (downloadError || !blob) redirect(`${returnTo}?error=${encodeURIComponent(downloadError?.message ?? "No fue posible leer el adjunto protegido")}`);
+  const bytes = Buffer.from(await blob.arrayBuffer());
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const { error } = await supabase.rpc("register_evidence_upload", {
+    p_payload: {
+      matter_id: matterId,
+      case_id: caseId,
+      complaint_id: complaintId,
+      title: String(formData.get("title") || attachment.original_name || "Complaint attachment evidence"),
+      description: "Evidence item derived from protected Public Complaint attachment without duplicating the original file.",
+      evidence_type: "Documento",
+      exhibit_designation: "Investigative Exhibit",
+      storage_bucket: "complaint-files",
+      storage_path: attachment.file_path,
+      original_filename: attachment.original_name,
+      mime_type: attachment.content_type,
+      file_size_bytes: attachment.size_bytes,
+      sha256_hash: sha256,
+      source: "Public Complaint attachment",
+      access_classification: "Internal DOJ only",
+      evidence_status: "received",
+      reason: String(formData.get("reason") || "Transferred complaint attachment to Evidence Manager"),
+    },
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?evidence=transferred`);
 }
 
 export async function createGrandJuryAction(formData: FormData) {
@@ -234,4 +358,75 @@ export async function createTrialJuryAction(formData: FormData) {
   });
   if (error) redirect(`/admin/expedientes/${caseId}/trial-jury/nuevo?error=${encodeURIComponent(error.message)}`);
   redirect(`/admin/expedientes/${caseId}?trial_jury=1`);
+}
+
+export async function addGrandJuryCountAction(formData: FormData) {
+  const grandJuryId = String(formData.get("grand_jury_id") || "");
+  const matterId = String(formData.get("matter_id") || "");
+  const returnTo = `/admin/matters/${matterId}`;
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("add_grand_jury_count", {
+    p_grand_jury_id: grandJuryId,
+    p_payload: Object.fromEntries(formData),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?grand_jury=count`);
+}
+
+export async function openGrandJuryVoteRoundAction(formData: FormData) {
+  const grandJuryId = String(formData.get("grand_jury_id") || "");
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("open_grand_jury_vote_round", {
+    p_grand_jury_id: grandJuryId,
+    p_title: String(formData.get("title") || "Grand Jury vote"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?grand_jury=vote-opened`);
+}
+
+export async function closeGrandJuryVoteRoundAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("close_grand_jury_vote_round", {
+    p_round_id: String(formData.get("round_id") || ""),
+    p_certification: String(formData.get("certification") || ""),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?grand_jury=certified`);
+}
+
+export async function addTrialVerdictQuestionAction(formData: FormData) {
+  const trialJuryId = String(formData.get("trial_jury_id") || "");
+  const caseId = String(formData.get("case_id") || "");
+  const returnTo = `/admin/expedientes/${caseId}`;
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("add_trial_verdict_question", {
+    p_trial_jury_id: trialJuryId,
+    p_payload: Object.fromEntries(formData),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?trial_jury=question`);
+}
+
+export async function openTrialJuryVoteRoundAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("open_trial_jury_vote_round", {
+    p_trial_jury_id: String(formData.get("trial_jury_id") || ""),
+    p_title: String(formData.get("title") || "Trial Jury vote"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?trial_jury=vote-opened`);
+}
+
+export async function closeTrialJuryVoteRoundAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("close_trial_jury_vote_round", {
+    p_round_id: String(formData.get("round_id") || ""),
+    p_certification: String(formData.get("certification") || ""),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  redirect(`${returnTo}?trial_jury=certified`);
 }
