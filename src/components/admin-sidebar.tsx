@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Users,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export const adminNavGroups = [
       { label: "Hearings", href: "/admin/audiencias", icon: CalendarDays },
       { label: "Warrants", href: "/admin/warrants", icon: ScrollText },
       { label: "Court notices", href: "/admin/estados", icon: ClipboardList },
+      { label: "Utilities", href: "/admin/utilidades", icon: Wrench },
     ],
   },
   {

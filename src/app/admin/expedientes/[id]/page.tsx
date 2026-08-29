@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, CalendarPlus, Download, Edit3, FileDown, FilePlus2, Gavel, LockKeyhole, Plus, Printer, ShieldCheck, Trash2, Upload, UserPlus, UserRoundPlus } from "lucide-react";
-import { addTrialJuryMemberAction, addTrialVerdictQuestionAction, archiveEvidenceAction, closeTrialJuryVoteRoundAction, deleteEvidenceAction, openTrialJuryVoteRoundAction, recordTrialJuryForepersonAction, removeTrialJuryMemberAction } from "@/app/actions/matter-workflow";
+import { Archive, CalendarPlus, Download, Edit3, FileDown, FilePlus2, Gavel, GitBranch, LockKeyhole, Plus, Printer, ShieldCheck, Trash2, Upload, UserPlus, UserRoundPlus } from "lucide-react";
+import { addParticipantToCaseAction, addTrialJuryMemberAction, addTrialVerdictQuestionAction, archiveEvidenceAction, closeTrialJuryVoteRoundAction, createParticipantForCaseAction, deleteEvidenceAction, linkComplaintToCaseAction, openTrialJuryVoteRoundAction, recordTrialJuryForepersonAction, removeCaseParticipantAction, removeTrialJuryMemberAction, unlinkComplaintCaseAction, updateCaseParticipantRoleAction, updateParticipantMasterAction } from "@/app/actions/matter-workflow";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin-page";
+import { FormRecovery } from "@/components/form-recovery";
 import { CaseStatusBadge, ConfidentialityBadge } from "@/components/status-badges";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { formatDate, formatDateTime, safeText } from "@/lib/display";
@@ -46,8 +48,19 @@ type ParticipantRow = {
   role_code: string;
   side: string | null;
   counsel: string | null;
-  participants: { legal_name: string; display_name: string | null; sealed: boolean; minor: boolean; pseudonym: boolean } | { legal_name: string; display_name: string | null; sealed: boolean; minor: boolean; pseudonym: boolean }[] | null;
+  notes: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  active: boolean;
+  relationship_description: string | null;
+  lead_designation: boolean | null;
+  representation: string | null;
+  service_status: string | null;
+  witness_status: string | null;
+  confidentiality: string | null;
+  participants: ParticipantMaster | ParticipantMaster[] | null;
 };
+type ParticipantMaster = { id: string; person_or_organization: string; legal_name: string; display_name: string | null; aliases?: string[] | null; date_of_birth?: string | null; internal_identifier?: string | null; contact_info: string | null; address: string | null; organization?: string | null; agency?: string | null; government_agency: string | null; attorney_information?: string | null; notes: string | null; record_status?: string | null; sealed: boolean; minor: boolean; pseudonym: boolean };
 type ActionRow = { id: string; action_type: string; title: string; description: string; action_date: string; visibility: string };
 type HearingRow = { id: string; title: string; hearing_type: string; scheduled_at: string; room: string; courtroom: string | null; status: string; result: string | null };
 type ProceedingRow = { id: string; title: string; providence_number: string; type: string; status: string };
@@ -63,15 +76,18 @@ type TrialJuryPanelRow = { id: string; trial_jury_id: string; juror_user_id: str
 type JurorProfileRow = { id: string; full_name: string; role: string; institutional_email: string | null };
 type GrandJuryReturnRow = { id: string; return_type: string; returned_at: string; sealed: boolean; grand_juries: { grand_jury_number: string } | { grand_jury_number: string }[] | null };
 type EvidenceRow = { id: string; evidence_number: string; ete_id: string | null; formal_title: string | null; title: string; evidence_type: string; exhibit_designation: string | null; evidence_status: string | null; access_classification: string; sealed: boolean; grand_jury_status: string; sha256_hash: string | null };
+type RoleRow = { code: string; display_label_es: string; official_label: string };
+type ComplaintLinkRow = { id: string; relationship_type: string; reason: string | null; created_at: string; complaints: { id: string; tracking_number: string; category: string; status: string; complainant_name: string | null; anonymous: boolean } | { id: string; tracking_number: string; category: string; status: string; complainant_name: string | null; anonymous: boolean }[] | null };
+type ComplaintSearchRow = { id: string; tracking_number: string; category: string; status: string; complainant_name: string | null; anonymous: boolean };
 
-export default async function CaseDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; disposition?: string }> }) {
+export default async function CaseDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; disposition?: string; updated?: string; evidence?: string; error?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const [caseResult, participantResult, actionsResult, hearingsResult, proceedingsResult, docketResult, filingsResult, motionsResult, ordersResult, workflowResult, matterLinksResult, trialJuryResult, grandJuryReturnResult, evidenceResult, trialRoundsResult, trialPanelsResult, trialJurorProfilesResult] = await Promise.all([
+  const [caseResult, participantResult, actionsResult, hearingsResult, proceedingsResult, docketResult, filingsResult, motionsResult, ordersResult, workflowResult, matterLinksResult, trialJuryResult, grandJuryReturnResult, evidenceResult, trialRoundsResult, trialPanelsResult, trialJurorProfilesResult, allParticipantsResult, rolesResult, complaintLinksResult, availableComplaintsResult] = await Promise.all([
     supabase.from("cases").select("id,case_number,docket_number,internal_number,judicial_number,filing_status,title,status,filed_at,confidentiality_level,summary,public_visibility,case_category,case_caption,federal_access_level,sealed,grand_jury_restricted,originating_court_or_agency,originating_case_number,originating_docket_number,appellate_docket_number,federal_courts(official_name,abbreviation,court_system,district,state_or_territory),civil_case_details(nature_of_suit_code,cause_of_action,basis_of_jurisdiction,origin_code,jury_demand,class_action,multidistrict_litigation_indicator),criminal_case_details(charging_instrument,offense_statutes,offense_level,grand_jury_status,prosecuting_office,lead_ausa),appeal_details(notice_of_appeal_date,appellate_basis,cross_appeal,agency_review,supreme_court_petition_status)").eq("id", id).maybeSingle(),
-    supabase.from("case_participants").select("id,role_code,side,counsel,participants(legal_name,display_name,sealed,minor,pseudonym)").eq("case_id", id).order("created_at"),
+    supabase.from("case_participants").select("id,role_code,side,counsel,notes,start_date,end_date,active,relationship_description,lead_designation,representation,service_status,witness_status,confidentiality,participants(id,person_or_organization,legal_name,display_name,aliases,date_of_birth,internal_identifier,contact_info,address,organization,agency,government_agency,attorney_information,notes,record_status,sealed,minor,pseudonym)").eq("case_id", id).eq("active", true).order("created_at"),
     supabase.from("case_actions").select("id,action_type,title,description,action_date,visibility").eq("case_id", id).is("archived_at", null).order("action_date", { ascending: false }),
     supabase.from("hearings").select("id,title,hearing_type,scheduled_at,room,courtroom,status,result").eq("case_id", id).is("archived_at", null).order("scheduled_at", { ascending: true }),
     supabase.from("proceedings").select("id,title,providence_number,type,status").eq("case_id", id).is("archived_at", null).order("created_at", { ascending: false }),
@@ -87,6 +103,10 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
     supabase.from("trial_jury_voting_rounds").select("id,trial_jury_id,status,title,closed_at").order("opened_at", { ascending: false }).limit(20),
     supabase.from("trial_jury_panels").select("id,trial_jury_id,juror_user_id,juror_participant_number,display_name,panel_sequence,member_type,attendance_status,qualification_status,removed_at").order("panel_sequence"),
     supabase.from("profiles").select("id,full_name,role,institutional_email").eq("is_active", true).eq("role", "TRIAL_JUROR").order("full_name"),
+    supabase.from("participants").select("id,legal_name,display_name,internal_identifier,record_status").is("archived_at", null).order("legal_name").limit(200),
+    supabase.from("participant_role_catalog").select("code,display_label_es,official_label").eq("active", true).order("sort_order"),
+    supabase.from("complaint_case_links").select("id,relationship_type,reason,created_at,complaints(id,tracking_number,category,status,complainant_name,anonymous)").eq("case_id", id).eq("active", true).order("created_at", { ascending: false }),
+    supabase.from("complaints").select("id,tracking_number,category,status,complainant_name,anonymous").is("archived_at", null).order("submitted_at", { ascending: false }).limit(100),
   ]);
   if (!caseResult.data) notFound();
 
@@ -108,6 +128,10 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
   const trialRounds = (trialRoundsResult.data ?? []) as TrialRoundRow[];
   const trialPanels = (trialPanelsResult.data ?? []) as TrialJuryPanelRow[];
   const trialJurorProfiles = (trialJurorProfilesResult.data ?? []) as JurorProfileRow[];
+  const allParticipants = (allParticipantsResult.data ?? []) as Array<Pick<ParticipantMaster, "id" | "legal_name" | "display_name" | "internal_identifier" | "record_status">>;
+  const roleCatalog = (rolesResult.data ?? []) as RoleRow[];
+  const complaintLinks = (complaintLinksResult.data ?? []) as ComplaintLinkRow[];
+  const availableComplaints = (availableComplaintsResult.data ?? []) as ComplaintSearchRow[];
   const civilDetails = caseItem.civil_case_details?.[0];
   const criminalDetails = caseItem.criminal_case_details?.[0];
   const appealDetails = caseItem.appeal_details?.[0];
@@ -192,10 +216,73 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
         </TabsContent>
 
         <TabsContent value="participants">
-          <Card><CardHeader><CardTitle className="text-base text-[#153553]">Structured participants</CardTitle></CardHeader><CardContent className="divide-y p-0">{participants.length === 0 ? <EmptyInline text="No structured participants recorded." /> : participants.map((item) => {
+          <Card><CardHeader><CardTitle className="text-base text-[#153553]">People & Participants</CardTitle></CardHeader><CardContent className="space-y-4">
+            <form id="case-add-participant" action={addParticipantToCaseAction} className="grid gap-3 rounded border bg-slate-50 p-3 md:grid-cols-2">
+              <input type="hidden" name="case_id" value={caseItem.id} />
+              <input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} />
+              <FormRecovery formId="case-add-participant" storageKey={`case:${caseItem.id}:add-participant`} clearSignal={query.updated} />
+              <select name="participant_id" required className="h-10 rounded-md border bg-white px-3 text-sm"><option value="">Añadir persona existente…</option>{allParticipants.map((person) => <option key={person.id} value={person.id}>{person.display_name || person.legal_name} {person.internal_identifier ? `· ${person.internal_identifier}` : ""}</option>)}</select>
+              <RoleSelect roles={roleCatalog} />
+              <Input name="side" placeholder="Side / Parte" />
+              <Input name="counsel" placeholder="Counsel / abogado" />
+              <Textarea name="role_notes" placeholder="Notas de rol en este Case" className="md:col-span-2" />
+              <Button className="bg-[#153b5c] md:col-span-2">Añadir a este Case</Button>
+            </form>
+            <details className="rounded border bg-white p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-[#153553]">Crear persona nueva y vincularla</summary>
+              <form id="case-create-participant" action={createParticipantForCaseAction} className="mt-3 grid gap-3 md:grid-cols-2">
+                <input type="hidden" name="case_id" value={caseItem.id} />
+                <input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} />
+                <FormRecovery formId="case-create-participant" storageKey={`case:${caseItem.id}:create-participant`} clearSignal={query.updated} />
+                <ParticipantMasterFields person={undefined} />
+                <RoleSelect roles={roleCatalog} />
+                <Input name="side" placeholder="Side / Parte" />
+                <Input name="counsel" placeholder="Counsel / abogado" />
+                <Textarea name="relationship_description" placeholder="Descripción específica en este Case" className="md:col-span-2" />
+                <Button className="bg-[#153b5c] md:col-span-2">Crear y vincular</Button>
+              </form>
+            </details>
+            <div className="divide-y rounded border">{participants.length === 0 ? <EmptyInline text="No structured participants recorded." /> : participants.map((item) => {
             const participant = Array.isArray(item.participants) ? item.participants[0] : item.participants;
-            return <div key={item.id} className="grid gap-2 p-4 md:grid-cols-[1fr_auto]"><div><p className="text-sm font-semibold text-[#153553]">{participant?.display_name || participant?.legal_name}</p><p className="mt-1 text-xs text-muted-foreground">{item.role_code} · {item.side || "No side"} · {item.counsel || "No counsel recorded"}</p></div>{participant?.sealed || participant?.minor || participant?.pseudonym ? <ConfidentialityBadge level="Restricted" /> : null}</div>;
-          })}</CardContent></Card>
+            return <details key={item.id} className="p-4">
+              <summary className="cursor-pointer"><span className="text-sm font-semibold text-[#153553]">{participant?.display_name || participant?.legal_name}</span><span className="ml-2 text-xs text-muted-foreground">{item.role_code} · {item.side || "No side"} · {item.counsel || "No counsel recorded"}</span>{participant?.sealed || participant?.minor || participant?.pseudonym ? <ConfidentialityBadge level="Restricted" /> : null}</summary>
+              {participant ? <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                <form action={updateParticipantMasterAction} className="grid gap-3 rounded border bg-slate-50 p-3 md:grid-cols-2">
+                  <input type="hidden" name="participant_id" value={participant.id} />
+                  <input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} />
+                  <p className="text-xs font-semibold uppercase tracking-[.12em] text-slate-500 md:col-span-2">Edit person</p>
+                  <ParticipantMasterFields person={participant} />
+                  <Input name="reason" placeholder="Razón de edición" className="md:col-span-2" />
+                  <Button variant="outline" className="md:col-span-2">Guardar persona</Button>
+                </form>
+                <form action={updateCaseParticipantRoleAction} className="grid gap-3 rounded border bg-slate-50 p-3 md:grid-cols-2">
+                  <input type="hidden" name="link_id" value={item.id} />
+                  <input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} />
+                  <p className="text-xs font-semibold uppercase tracking-[.12em] text-slate-500 md:col-span-2">Edit role in this Case</p>
+                  <RoleSelect roles={roleCatalog} defaultValue={item.role_code} />
+                  <Input name="side" defaultValue={item.side || ""} placeholder="Side / Parte" />
+                  <Input name="counsel" defaultValue={item.counsel || ""} placeholder="Counsel / abogado" />
+                  <Input name="start_date" type="date" defaultValue={item.start_date || ""} />
+                  <Input name="end_date" type="date" defaultValue={item.end_date || ""} />
+                  <Input name="representation" defaultValue={item.representation || ""} placeholder="Representation" />
+                  <Input name="service_status" defaultValue={item.service_status || ""} placeholder="Service status" />
+                  <Input name="witness_status" defaultValue={item.witness_status || ""} placeholder="Witness status" />
+                  <Input name="confidentiality" defaultValue={item.confidentiality || "Internal DOJ only"} placeholder="Confidentiality" />
+                  <Textarea name="relationship_description" defaultValue={item.relationship_description || ""} placeholder="Relationship description" className="md:col-span-2" />
+                  <Textarea name="role_notes" defaultValue={item.notes || ""} placeholder="Notes specific to this Case" className="md:col-span-2" />
+                  <label className="text-sm"><input type="checkbox" name="lead_designation" defaultChecked={Boolean(item.lead_designation)} className="mr-2" />Lead / primary</label>
+                  <Input name="reason" placeholder="Razón de edición" />
+                  <Button variant="outline" className="md:col-span-2">Guardar rol en Case</Button>
+                </form>
+                <form action={removeCaseParticipantAction} className="flex flex-wrap items-center gap-2 rounded border bg-white p-3 xl:col-span-2">
+                  <input type="hidden" name="link_id" value={item.id} />
+                  <input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} />
+                  <Input name="reason" required placeholder="Razón para remover relación sin borrar persona" className="max-w-md" />
+                  <Button variant="outline" className="text-red-700">Remove from this Case</Button>
+                </form>
+              </div> : null}
+            </details>;
+          })}</div></CardContent></Card>
         </TabsContent>
 
         <TabsContent value="docket">
@@ -223,10 +310,26 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
         </TabsContent>
 
         <TabsContent value="related">
+          <div className="grid gap-5 xl:grid-cols-2">
           <Card><CardHeader><CardTitle className="text-base text-[#153553]">Originating DOJ Matters</CardTitle></CardHeader><CardContent className="divide-y p-0">{matterLinks.length === 0 ? <EmptyInline text="No originating DOJ Matters linked." /> : matterLinks.map((link) => {
             const matter = Array.isArray(link.matters) ? link.matters[0] : link.matters;
             return <Link key={link.id} href={`/admin/matters/${matter?.id}`} className="block p-4 hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{matter?.matter_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{matter?.title}</p><p className="mt-1 text-xs text-muted-foreground">{link.relationship_type} · {matter?.status}</p></Link>;
           })}</CardContent></Card>
+          <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base text-[#153553]"><GitBranch className="size-4" />Related Complaints</CardTitle></CardHeader><CardContent className="p-0">
+            <form action={linkComplaintToCaseAction} className="grid gap-2 border-b bg-slate-50 p-4 md:grid-cols-2">
+              <input type="hidden" name="case_id" value={caseItem.id} />
+              <input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} />
+              <select name="complaint_id" required className="h-9 rounded-md border bg-white px-2 text-xs"><option value="">Link existing complaint…</option>{availableComplaints.map((complaint) => <option key={complaint.id} value={complaint.id}>{complaint.tracking_number} · {complaint.category} · {complaint.status}</option>)}</select>
+              <select name="relationship_type" className="h-9 rounded-md border bg-white px-2 text-xs"><option value="related_complaint">Related complaint</option><option value="originating_complaint">Originating complaint</option><option value="supplemental_complaint">Supplemental complaint</option><option value="evidence_source">Evidence source</option><option value="referral">Referral</option><option value="consolidated_matter">Consolidated matter</option><option value="other">Other</option></select>
+              <Input name="reason" required placeholder="Relationship note" className="h-9 md:col-span-2" />
+              <Button size="sm" variant="outline" className="md:col-span-2">Link existing complaint</Button>
+            </form>
+            {complaintLinks.length === 0 ? <EmptyInline text="No public complaints linked to this Federal Case." /> : complaintLinks.map((link) => {
+              const complaint = Array.isArray(link.complaints) ? link.complaints[0] : link.complaints;
+              return <div key={link.id} className="border-b p-4 last:border-b-0"><Link href={`/admin/denuncias/${complaint?.id}`} className="block hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{complaint?.tracking_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{complaint?.category}</p><p className="text-xs text-muted-foreground">{link.relationship_type} · {complaint?.status} · {formatDateTime(link.created_at)}</p>{link.reason ? <p className="mt-1 text-xs text-slate-600">{link.reason}</p> : null}</Link><form action={unlinkComplaintCaseAction} className="mt-2 flex flex-wrap gap-2"><input type="hidden" name="link_id" value={link.id} /><input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} /><Input name="reason" required placeholder="Razón para desvincular" className="h-8 max-w-xs" /><Button size="sm" variant="outline" className="text-red-700">Unlink</Button></form></div>;
+            })}
+          </CardContent></Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="juries" className="grid gap-5 lg:grid-cols-2">
@@ -314,4 +417,44 @@ function ActionButton({ icon, label, href }: { icon: React.ReactNode; label: str
 
 function EmptyInline({ text }: { text: string }) {
   return <div className="p-5 text-sm text-slate-600">{text}</div>;
+}
+
+function RoleSelect({ roles, defaultValue = "witness" }: { roles: RoleRow[]; defaultValue?: string }) {
+  return (
+    <select name="role_code" defaultValue={defaultValue} className="h-10 rounded-md border bg-white px-3 text-sm">
+      {roles.map((role) => <option key={role.code} value={role.code}>{role.display_label_es || role.official_label}</option>)}
+    </select>
+  );
+}
+
+function ParticipantMasterFields({ person }: { person?: ParticipantMaster }) {
+  return (
+    <>
+      <select name="person_or_organization" defaultValue={person?.person_or_organization || "person"} className="h-10 rounded-md border bg-white px-3 text-sm">
+        <option value="person">Person</option>
+        <option value="organization">Organization</option>
+        <option value="agency">Agency</option>
+      </select>
+      <Input name="legal_name" defaultValue={person?.legal_name || ""} placeholder="Full legal name" required />
+      <Input name="display_name" defaultValue={person?.display_name || ""} placeholder="Preferred/display name" />
+      <Input name="aliases" defaultValue={(person?.aliases ?? []).join(", ")} placeholder="Aliases, comma separated" />
+      <Input name="date_of_birth" type="date" defaultValue={person?.date_of_birth || ""} />
+      <Input name="internal_identifier" defaultValue={person?.internal_identifier || ""} placeholder="Internal identifier" />
+      <Input name="contact_info" defaultValue={person?.contact_info || ""} placeholder="Contact information" />
+      <Input name="address" defaultValue={person?.address || ""} placeholder="Address" />
+      <Input name="organization" defaultValue={person?.organization || ""} placeholder="Organization" />
+      <Input name="agency" defaultValue={person?.agency || person?.government_agency || ""} placeholder="Agency" />
+      <Input name="attorney_information" defaultValue={person?.attorney_information || ""} placeholder="Attorney information" />
+      <select name="record_status" defaultValue={person?.record_status || "active"} className="h-10 rounded-md border bg-white px-3 text-sm">
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+        <option value="duplicate_candidate">Duplicate candidate</option>
+        <option value="merged">Merged</option>
+      </select>
+      <label className="text-sm"><input type="checkbox" name="sealed" defaultChecked={Boolean(person?.sealed)} className="mr-2" />Sealed</label>
+      <label className="text-sm"><input type="checkbox" name="minor" defaultChecked={Boolean(person?.minor)} className="mr-2" />Minor</label>
+      <label className="text-sm"><input type="checkbox" name="pseudonym" defaultChecked={Boolean(person?.pseudonym)} className="mr-2" />Pseudonym</label>
+      <Textarea name="notes" defaultValue={person?.notes || ""} placeholder="Internal notes" className="md:col-span-2" />
+    </>
+  );
 }

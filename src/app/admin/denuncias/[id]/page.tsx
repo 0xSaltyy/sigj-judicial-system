@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowLeft, GitBranch, ShieldAlert } from "lucide-react";
-import { linkComplaintToCaseAction, openMatterFromComplaintAction, transferComplaintAttachmentToEvidenceAction } from "@/app/actions/matter-workflow";
+import { AlertTriangle, ArrowLeft, GitBranch, Search, ShieldAlert, Unlink } from "lucide-react";
+import { linkComplaintToCaseAction, linkComplaintToMatterAction, openMatterFromComplaintAction, transferComplaintAttachmentToEvidenceAction, unlinkComplaintCaseAction, unlinkComplaintMatterAction } from "@/app/actions/matter-workflow";
 import { updateComplaint } from "@/app/actions/complaints";
 import { AdminPageHeader } from "@/components/admin-page";
+import { FormRecovery } from "@/components/form-recovery";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,20 +16,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime, safeText } from "@/lib/display";
 
-export default async function ComplaintDecisionPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; updated?: string }> }) {
+const relationshipTypes = [
+  ["originating_complaint", "Originating complaint"],
+  ["related_complaint", "Related complaint"],
+  ["supplemental_complaint", "Supplemental complaint"],
+  ["evidence_source", "Evidence source"],
+  ["referral", "Referral"],
+  ["consolidated_matter", "Consolidated matter"],
+  ["other", "Other"],
+];
+
+export default async function ComplaintDecisionPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; updated?: string; q?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
+  const q = query.q?.trim() ?? "";
   const supabase = await createClient();
   if (!supabase) notFound();
-  const [complaintResult, casesResult, matterLinksResult, caseLinksResult, attachmentsResult] = await Promise.all([
+  const matterQuery = supabase.from("matters").select("id,matter_number,title,status,lead_component").is("archived_at", null).order("created_at", { ascending: false }).limit(100);
+  const caseQuery = supabase.from("cases").select("id,case_number,internal_number,docket_number,case_caption,title,status").is("archived_at", null).order("created_at", { ascending: false }).limit(100);
+  if (q) {
+    matterQuery.or(`matter_number.ilike.%${q}%,title.ilike.%${q}%,status.ilike.%${q}%,lead_component.ilike.%${q}%`);
+    caseQuery.or(`case_number.ilike.%${q}%,internal_number.ilike.%${q}%,docket_number.ilike.%${q}%,case_caption.ilike.%${q}%,title.ilike.%${q}%,status.ilike.%${q}%`);
+  }
+  const [complaintResult, mattersResult, casesResult, matterLinksResult, caseLinksResult, attachmentsResult] = await Promise.all([
     supabase.from("complaints").select("*").eq("id", id).maybeSingle(),
-    supabase.from("cases").select("id,case_number,internal_number,case_caption,title,status").is("archived_at", null).order("created_at", { ascending: false }).limit(100),
-    supabase.from("complaint_matter_links").select("id,relationship_type,reason,matters(id,matter_number,title,status)").eq("complaint_id", id).eq("active", true),
-    supabase.from("complaint_case_links").select("id,relationship_type,reason,cases(id,case_number,internal_number,case_caption,title,status)").eq("complaint_id", id).eq("active", true),
+    matterQuery,
+    caseQuery,
+    supabase.from("complaint_matter_links").select("id,relationship_type,reason,created_at,matters(id,matter_number,title,status)").eq("complaint_id", id).eq("active", true).order("created_at", { ascending: false }),
+    supabase.from("complaint_case_links").select("id,relationship_type,reason,created_at,cases(id,case_number,internal_number,case_caption,title,status)").eq("complaint_id", id).eq("active", true).order("created_at", { ascending: false }),
     supabase.from("complaint_attachments").select("id,original_name,content_type,size_bytes,created_at").eq("complaint_id", id).order("created_at", { ascending: false }),
   ]);
   if (!complaintResult.data) notFound();
   const complaint = complaintResult.data;
+  const matters = mattersResult.data ?? [];
   const cases = casesResult.data ?? [];
   const matterLinks = matterLinksResult.data ?? [];
   const caseLinks = caseLinksResult.data ?? [];
@@ -91,6 +111,46 @@ export default async function ComplaintDecisionPage({ params, searchParams }: { 
         </Card>
       </div>
 
+      <Card className="mt-5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><GitBranch className="size-4" /> Link to Matter or Case</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <form className="flex flex-col gap-2 sm:flex-row" action={`/admin/denuncias/${complaint.id}`}>
+            <Input name="q" defaultValue={q} placeholder="Buscar Matter/Case por número, docket, título, persona o estado…" className="rounded-none" />
+            <Button variant="outline" className="gap-2 rounded-none"><Search className="size-4" />Buscar</Button>
+          </form>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <form id="link-complaint-matter" action={linkComplaintToMatterAction} className="space-y-3 rounded border bg-slate-50 p-4">
+              <input type="hidden" name="complaint_id" value={complaint.id} />
+              <input type="hidden" name="return_to" value={`/admin/denuncias/${complaint.id}`} />
+              <FormRecovery formId="link-complaint-matter" storageKey={`complaint:${complaint.id}:matter-link`} clearSignal={query.updated} />
+              <Label htmlFor="matter_id">Existing DOJ Matter</Label>
+              <select id="matter_id" name="matter_id" required className="h-10 w-full rounded-md border bg-white px-3 text-sm">
+                <option value="">Seleccione Matter…</option>
+                {matters.map((item) => <option key={item.id} value={item.id}>{item.matter_number} · {item.title} · {item.status}</option>)}
+              </select>
+              <RelationshipSelect />
+              <Textarea name="reason" required placeholder="Relationship note / razón de vinculación" />
+              <Button className="bg-[#153b5c]">Link existing Matter</Button>
+            </form>
+            <form id="link-complaint-case" action={linkComplaintToCaseAction} className="space-y-3 rounded border bg-slate-50 p-4">
+              <input type="hidden" name="complaint_id" value={complaint.id} />
+              <input type="hidden" name="return_to" value={`/admin/denuncias/${complaint.id}`} />
+              <FormRecovery formId="link-complaint-case" storageKey={`complaint:${complaint.id}:case-link`} clearSignal={query.updated} />
+              <Label htmlFor="case_id">Existing Federal Case</Label>
+              <select id="case_id" name="case_id" required className="h-10 w-full rounded-md border bg-white px-3 text-sm">
+                <option value="">Seleccione Case…</option>
+                {cases.map((item) => <option key={item.id} value={item.id}>{item.case_number || item.internal_number} · {item.docket_number || "No docket"} · {item.case_caption || item.title}</option>)}
+              </select>
+              <RelationshipSelect />
+              <Textarea name="reason" required placeholder="Relationship note. La denuncia no se convierte automáticamente en evidencia admitida." />
+              <Button className="bg-[#153b5c]">Link existing Case</Button>
+            </form>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Abrir DOJ Matter</CardTitle></CardHeader>
@@ -135,13 +195,13 @@ export default async function ComplaintDecisionPage({ params, searchParams }: { 
         <Section title="Related DOJ Matters" empty="No hay Matters relacionados.">
           {matterLinks.map((link) => {
             const matter = Array.isArray(link.matters) ? link.matters[0] : link.matters;
-            return <Link key={link.id} href={`/admin/matters/${matter?.id}`} className="block border-b p-3 last:border-b-0 hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{matter?.matter_number}</p><p className="text-sm font-semibold">{matter?.title}</p><p className="text-xs text-muted-foreground">{link.relationship_type} · {matter?.status}</p></Link>;
+            return <div key={link.id} className="border-b p-3 last:border-b-0"><Link href={`/admin/matters/${matter?.id}`} className="block hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{matter?.matter_number}</p><p className="text-sm font-semibold">{matter?.title}</p><p className="text-xs text-muted-foreground">{link.relationship_type} · {matter?.status} · {formatDateTime(link.created_at)}</p>{link.reason ? <p className="mt-1 text-xs text-slate-600">{link.reason}</p> : null}</Link><form action={unlinkComplaintMatterAction} className="mt-2 flex flex-wrap items-center gap-2"><input type="hidden" name="link_id" value={link.id} /><input type="hidden" name="return_to" value={`/admin/denuncias/${complaint.id}`} /><Input name="reason" required placeholder="Razón para desvincular" className="h-8 max-w-xs" /><Button size="sm" variant="outline" className="gap-1 text-red-700"><Unlink className="size-3" />Unlink</Button></form></div>;
           })}
         </Section>
         <Section title="Related Federal Cases" empty="No hay Federal Cases relacionados.">
           {caseLinks.map((link) => {
             const item = Array.isArray(link.cases) ? link.cases[0] : link.cases;
-            return <Link key={link.id} href={`/admin/expedientes/${item?.id}`} className="block border-b p-3 last:border-b-0 hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{item?.case_number || item?.internal_number}</p><p className="text-sm font-semibold">{item?.case_caption || item?.title}</p><p className="text-xs text-muted-foreground">{link.relationship_type} · {item?.status}</p></Link>;
+            return <div key={link.id} className="border-b p-3 last:border-b-0"><Link href={`/admin/expedientes/${item?.id}`} className="block hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{item?.case_number || item?.internal_number}</p><p className="text-sm font-semibold">{item?.case_caption || item?.title}</p><p className="text-xs text-muted-foreground">{link.relationship_type} · {item?.status} · {formatDateTime(link.created_at)}</p>{link.reason ? <p className="mt-1 text-xs text-slate-600">{link.reason}</p> : null}</Link><form action={unlinkComplaintCaseAction} className="mt-2 flex flex-wrap items-center gap-2"><input type="hidden" name="link_id" value={link.id} /><input type="hidden" name="return_to" value={`/admin/denuncias/${complaint.id}`} /><Input name="reason" required placeholder="Razón para desvincular" className="h-8 max-w-xs" /><Button size="sm" variant="outline" className="gap-1 text-red-700"><Unlink className="size-3" />Unlink</Button></form></div>;
           })}
         </Section>
       </div>
@@ -152,6 +212,17 @@ export default async function ComplaintDecisionPage({ params, searchParams }: { 
 
 function Field({ name, label, defaultValue }: { name: string; label: string; defaultValue?: string }) {
   return <div className="space-y-2"><Label htmlFor={name}>{label}</Label><Input id={name} name={name} defaultValue={defaultValue} /></div>;
+}
+
+function RelationshipSelect() {
+  return (
+    <>
+      <Label htmlFor="relationship_type">Tipo de relación</Label>
+      <select id="relationship_type" name="relationship_type" className="h-10 w-full rounded-md border bg-white px-3 text-sm">
+        {relationshipTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
+    </>
+  );
 }
 
 function Info({ label, value }: { label: string; value: string }) {

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { createEvidenceItemAction } from "@/app/actions/matter-workflow";
 import { AdminPageHeader } from "@/components/admin-page";
+import { FormRecovery } from "@/components/form-recovery";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,15 +25,16 @@ export default async function NewEvidenceForMatterPage({ params, searchParams }:
     <>
       <AdminPageHeader title="Add Evidence Item" description={`${matter.matter_number} · ${matter.title}`} action={<Button asChild variant="outline"><Link href={`/admin/matters/${matter.id}`}><ArrowLeft className="mr-2 size-4" /> Volver</Link></Button>} />
       {query.error ? <Alert variant="destructive" className="mb-5"><AlertTriangle className="size-4" /><AlertDescription>{query.error}</AlertDescription></Alert> : null}
-      <form action={createEvidenceItemAction}>
+      <form id="matter-evidence-upload" action={createEvidenceItemAction}>
         <input type="hidden" name="matter_id" value={matter.id} />
         <Card>
           <CardHeader><CardTitle>Evidence metadata and custody</CardTitle></CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2"><FormRecovery formId="matter-evidence-upload" storageKey={`matter:${matter.id}:evidence-upload`} /></div>
             <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed bg-slate-50 p-6 text-center transition hover:bg-slate-100 md:col-span-2">
               <span className="text-sm font-semibold text-[#153553]">Cargar archivo probatorio</span>
               <span className="mt-1 text-xs text-muted-foreground">Arrastre y suelte aquí o seleccione un archivo. PDF, imagen, audio, video, texto o binario seguro · máximo 100 MB.</span>
-              <Input name="evidence_file" type="file" required accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt,.mp4,.mov,.webm,.mp3,.wav,.m4a,.aac,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp,text/plain,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/wav,audio/wave,audio/x-wav,audio/mp4,audio/aac,application/octet-stream" className="mt-4 max-w-md bg-white" />
+              <Input name="evidence_file" type="file" required accept=".pdf,.doc,.docx,.txt,.csv,.png,.jpg,.jpeg,.webp,.gif,.mp4,.mov,.webm,.m4v,.mp3,.wav,.m4a,.aac,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/csv,image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v,audio/mpeg,audio/wav,audio/wave,audio/x-wav,audio/mp4,audio/aac,application/octet-stream" className="mt-4 max-w-md bg-white" />
             </label>
             <Field name="title" label="Title" required />
             <div className="space-y-2"><Label htmlFor="evidence_type">Evidence type</Label><select id="evidence_type" name="evidence_type" className="h-10 w-full rounded-md border bg-white px-3 text-sm">{evidenceTypes.map((type) => <option key={type}>{type}</option>)}</select></div>

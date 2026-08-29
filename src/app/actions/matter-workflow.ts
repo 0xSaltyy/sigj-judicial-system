@@ -177,15 +177,222 @@ export async function openMatterFromComplaintAction(formData: FormData) {
 
 export async function linkComplaintToCaseAction(formData: FormData) {
   const complaintId = String(formData.get("complaint_id") || "");
+  const returnTo = String(formData.get("return_to") || `/admin/denuncias/${complaintId}`);
   const supabase = await clientOrRedirect(`/admin/denuncias/${complaintId}`);
   const { error } = await supabase.rpc("link_complaint_to_case", {
     p_complaint_id: complaintId,
     p_case_id: String(formData.get("case_id") || ""),
-    p_relationship_type: String(formData.get("relationship_type") || "related_public_complaint"),
+    p_relationship_type: String(formData.get("relationship_type") || "related_complaint"),
     p_reason: String(formData.get("reason") || ""),
   });
-  if (error) redirect(`/admin/denuncias/${complaintId}?error=${encodeURIComponent(error.message)}`);
-  redirect(`/admin/denuncias/${complaintId}?updated=1`);
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function linkComplaintToMatterAction(formData: FormData) {
+  const complaintId = String(formData.get("complaint_id") || "");
+  const returnTo = String(formData.get("return_to") || `/admin/denuncias/${complaintId}`);
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("link_complaint_to_matter", {
+    p_complaint_id: complaintId,
+    p_matter_id: String(formData.get("matter_id") || ""),
+    p_relationship_type: String(formData.get("relationship_type") || "related_complaint"),
+    p_reason: String(formData.get("reason") || ""),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function unlinkComplaintMatterAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/denuncias");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("unlink_complaint_matter_link", {
+    p_link_id: String(formData.get("link_id") || ""),
+    p_reason: String(formData.get("reason") || "Incorrect relationship removed by authorized user"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function unlinkComplaintCaseAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/denuncias");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("unlink_complaint_case_link", {
+    p_link_id: String(formData.get("link_id") || ""),
+    p_reason: String(formData.get("reason") || "Incorrect relationship removed by authorized user"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+function boolPayload(formData: FormData, name: string) {
+  return checked(formData, name);
+}
+
+function participantPayload(formData: FormData) {
+  return {
+    person_or_organization: String(formData.get("person_or_organization") || "person"),
+    legal_name: String(formData.get("legal_name") || ""),
+    display_name: String(formData.get("display_name") || ""),
+    aliases: splitList(formData.get("aliases")),
+    date_of_birth: String(formData.get("date_of_birth") || ""),
+    internal_identifier: String(formData.get("internal_identifier") || ""),
+    contact_info: String(formData.get("contact_info") || ""),
+    address: String(formData.get("address") || ""),
+    organization: String(formData.get("organization") || ""),
+    agency: String(formData.get("agency") || ""),
+    attorney_information: String(formData.get("attorney_information") || ""),
+    notes: String(formData.get("notes") || ""),
+    record_status: String(formData.get("record_status") || "active"),
+    sealed: boolPayload(formData, "sealed"),
+    minor: boolPayload(formData, "minor"),
+    pseudonym: boolPayload(formData, "pseudonym"),
+  };
+}
+
+function participantRolePayload(formData: FormData) {
+  return {
+    role_code: String(formData.get("role_code") || "witness"),
+    side: String(formData.get("side") || ""),
+    counsel: String(formData.get("counsel") || ""),
+    relationship_description: String(formData.get("relationship_description") || ""),
+    start_date: String(formData.get("start_date") || ""),
+    end_date: String(formData.get("end_date") || ""),
+    lead_designation: boolPayload(formData, "lead_designation"),
+    representation: String(formData.get("representation") || ""),
+    service_status: String(formData.get("service_status") || ""),
+    witness_status: String(formData.get("witness_status") || ""),
+    confidentiality: String(formData.get("confidentiality") || "Internal DOJ only"),
+    notes: String(formData.get("role_notes") || formData.get("notes") || ""),
+    active: !boolPayload(formData, "inactive"),
+  };
+}
+
+export async function updateParticipantMasterAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("update_participant_master", {
+    p_participant_id: String(formData.get("participant_id") || ""),
+    p_payload: participantPayload(formData),
+    p_reason: String(formData.get("reason") || "Updated from People & Participants"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function updateMatterParticipantRoleAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/matters");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("update_matter_participant_role", {
+    p_link_id: String(formData.get("link_id") || ""),
+    p_payload: participantRolePayload(formData),
+    p_reason: String(formData.get("reason") || "Matter participant role updated"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function updateCaseParticipantRoleAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/expedientes");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("update_case_participant_role", {
+    p_link_id: String(formData.get("link_id") || ""),
+    p_payload: participantRolePayload(formData),
+    p_reason: String(formData.get("reason") || "Case participant role updated"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function addParticipantToMatterAction(formData: FormData) {
+  const matterId = String(formData.get("matter_id") || "");
+  const returnTo = String(formData.get("return_to") || `/admin/matters/${matterId}`);
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("add_existing_participant_to_matter", {
+    p_matter_id: matterId,
+    p_participant_id: String(formData.get("participant_id") || ""),
+    p_payload: participantRolePayload(formData),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function addParticipantToCaseAction(formData: FormData) {
+  const caseId = String(formData.get("case_id") || "");
+  const returnTo = String(formData.get("return_to") || `/admin/expedientes/${caseId}`);
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("add_existing_participant_to_case", {
+    p_case_id: caseId,
+    p_participant_id: String(formData.get("participant_id") || ""),
+    p_payload: participantRolePayload(formData),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function createParticipantForMatterAction(formData: FormData) {
+  const matterId = String(formData.get("matter_id") || "");
+  const returnTo = String(formData.get("return_to") || `/admin/matters/${matterId}`);
+  const supabase = await clientOrRedirect(returnTo);
+  const { data, error } = await supabase.from("participants").insert(participantPayload(formData)).select("id").single();
+  if (error || !data) redirect(`${returnTo}?error=${encodeURIComponent(error?.message || "No fue posible crear la persona")}`);
+  const { error: linkError } = await supabase.rpc("add_existing_participant_to_matter", {
+    p_matter_id: matterId,
+    p_participant_id: data.id,
+    p_payload: participantRolePayload(formData),
+  });
+  if (linkError) redirect(`${returnTo}?error=${encodeURIComponent(linkError.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function createParticipantForCaseAction(formData: FormData) {
+  const caseId = String(formData.get("case_id") || "");
+  const returnTo = String(formData.get("return_to") || `/admin/expedientes/${caseId}`);
+  const supabase = await clientOrRedirect(returnTo);
+  const { data, error } = await supabase.from("participants").insert(participantPayload(formData)).select("id").single();
+  if (error || !data) redirect(`${returnTo}?error=${encodeURIComponent(error?.message || "No fue posible crear la persona")}`);
+  const { error: linkError } = await supabase.rpc("add_existing_participant_to_case", {
+    p_case_id: caseId,
+    p_participant_id: data.id,
+    p_payload: participantRolePayload(formData),
+  });
+  if (linkError) redirect(`${returnTo}?error=${encodeURIComponent(linkError.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function removeMatterParticipantAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/matters");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("remove_matter_participant_link", {
+    p_link_id: String(formData.get("link_id") || ""),
+    p_reason: String(formData.get("reason") || "Removed from Matter"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
+}
+
+export async function removeCaseParticipantAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/expedientes");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("remove_case_participant_link", {
+    p_link_id: String(formData.get("link_id") || ""),
+    p_reason: String(formData.get("reason") || "Removed from Case"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?updated=1`);
 }
 
 export async function createEvidenceItemAction(formData: FormData) {
@@ -209,10 +416,13 @@ export async function createEvidenceItemAction(formData: FormData) {
     "image/png",
     "image/jpeg",
     "image/webp",
+    "image/gif",
     "text/plain",
+    "text/csv",
     "video/mp4",
     "video/quicktime",
     "video/webm",
+    "video/x-m4v",
     "audio/mpeg",
     "audio/wav",
     "audio/wave",
