@@ -18,6 +18,14 @@ function checked(formData: FormData, name: string) {
   return formData.get(name) === "on";
 }
 
+function evidenceFormPath(matterId: string, caseId: string) {
+  return matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}/evidence/nuevo`;
+}
+
+function evidenceReturnPath(matterId: string, caseId: string) {
+  return matterId ? `/admin/matters/${matterId}` : `/admin/expedientes/${caseId}`;
+}
+
 async function clientOrRedirect(path: string) {
   const supabase = await createClient();
   if (!supabase) redirect(`${path}?error=${encodeURIComponent("Supabase no está configurado")}`);
@@ -183,20 +191,39 @@ export async function linkComplaintToCaseAction(formData: FormData) {
 export async function createEvidenceItemAction(formData: FormData) {
   const matterId = String(formData.get("matter_id") || "");
   const caseId = String(formData.get("case_id") || "");
-  const supabase = await clientOrRedirect(matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`);
+  const formPath = evidenceFormPath(matterId, caseId);
+  const supabase = await clientOrRedirect(formPath);
   const admin = createAdminClient();
-  if (!admin) redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("Supabase service role no está configurado para Storage seguro")}`);
+  if (!admin) redirect(`${formPath}?error=${encodeURIComponent("Supabase service role no está configurado para Storage seguro")}`);
   const file = formData.get("evidence_file");
   if (!(file instanceof File) || file.size === 0) {
-    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("Seleccione un archivo probatorio")}`);
+    redirect(`${formPath}?error=${encodeURIComponent("Seleccione un archivo probatorio")}`);
   }
   if (file.size > 100 * 1024 * 1024) {
-    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("El archivo supera 100 MB")}`);
+    redirect(`${formPath}?error=${encodeURIComponent("El archivo supera 100 MB")}`);
   }
-  const allowed = new Set(["application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "video/mp4", "audio/mpeg", "audio/wav", "application/octet-stream"]);
+  const allowed = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "text/plain",
+    "video/mp4",
+    "video/quicktime",
+    "video/webm",
+    "audio/mpeg",
+    "audio/wav",
+    "audio/wave",
+    "audio/x-wav",
+    "audio/mp4",
+    "audio/aac",
+    "application/octet-stream",
+  ]);
   const mime = file.type || "application/octet-stream";
   if (!allowed.has(mime)) {
-    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent("Tipo de archivo no permitido para Evidence")}`);
+    redirect(`${formPath}?error=${encodeURIComponent(`Tipo de archivo no permitido para Evidence: ${mime}`)}`);
   }
   const bytes = Buffer.from(await file.arrayBuffer());
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -204,7 +231,7 @@ export async function createEvidenceItemAction(formData: FormData) {
   const storagePath = `${matterId ? `matters/${matterId}` : `cases/${caseId || "unassigned"}`}/${randomUUID()}/${safeName}`;
   const { error: uploadError } = await admin.storage.from("evidence-files").upload(storagePath, bytes, { contentType: mime, upsert: false });
   if (uploadError) {
-    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent(uploadError.message)}`);
+    redirect(`${formPath}?error=${encodeURIComponent(uploadError.message)}`);
   }
 
   const { error } = await supabase.rpc("register_evidence_upload", {
@@ -246,10 +273,10 @@ export async function createEvidenceItemAction(formData: FormData) {
   });
   if (error) {
     await admin.storage.from("evidence-files").remove([storagePath]);
-    redirect(`${matterId ? `/admin/matters/${matterId}/evidence/nuevo` : `/admin/expedientes/${caseId}`}?error=${encodeURIComponent(error.message)}`);
+    redirect(`${formPath}?error=${encodeURIComponent(error.message)}`);
   }
-  const id = matterId || caseId;
-  redirect(matterId ? `/admin/matters/${id}?evidence=1` : `/admin/expedientes/${id}?evidence=1`);
+  revalidatePath(evidenceReturnPath(matterId, caseId));
+  redirect(`${evidenceReturnPath(matterId, caseId)}?evidence=1`);
 }
 
 export async function archiveEvidenceAction(formData: FormData) {
