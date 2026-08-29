@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, CalendarPlus, FilePlus2, LockKeyhole, Plus, Printer, ShieldCheck, Upload, UserRoundPlus } from "lucide-react";
+import { Archive, CalendarPlus, Edit3, FilePlus2, Gavel, LockKeyhole, Plus, Printer, ShieldCheck, Upload, UserRoundPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin-page";
 import { CaseStatusBadge, ConfidentialityBadge } from "@/components/status-badges";
@@ -53,13 +53,16 @@ type FilingRow = { id: string; filing_type: string; title: string; filed_by: str
 type MotionRow = { id: string; motion_type: string; status: string; filed_at: string | null; disposition: string | null };
 type OrderRow = { id: string; order_type: string; signed_at: string | null; entered_at: string | null; effect: string | null; visibility: string };
 type WorkflowRow = { id: string; title: string; description: string | null; event_code: string; occurred_at: string; previous_status: string | null; new_status: string | null };
+type MatterLinkRow = { id: string; relationship_type: string; matters: { id: string; matter_number: string; title: string; status: string } | { id: string; matter_number: string; title: string; status: string }[] | null };
+type TrialJuryRow = { id: string; trial_jury_number: string; status: string; jury_type: string; required_jury_size: number | null; jury_selection_date: string | null; trial_start_date: string | null; deliberation_status: string };
+type GrandJuryReturnRow = { id: string; return_type: string; returned_at: string; sealed: boolean; grand_juries: { grand_jury_number: string } | { grand_jury_number: string }[] | null };
 
 export default async function CaseDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; disposition?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const [caseResult, participantResult, actionsResult, hearingsResult, proceedingsResult, docketResult, filingsResult, motionsResult, ordersResult, workflowResult] = await Promise.all([
+  const [caseResult, participantResult, actionsResult, hearingsResult, proceedingsResult, docketResult, filingsResult, motionsResult, ordersResult, workflowResult, matterLinksResult, trialJuryResult, grandJuryReturnResult] = await Promise.all([
     supabase.from("cases").select("id,case_number,docket_number,internal_number,judicial_number,filing_status,title,status,filed_at,confidentiality_level,summary,public_visibility,case_category,case_caption,federal_access_level,sealed,grand_jury_restricted,originating_court_or_agency,originating_case_number,originating_docket_number,appellate_docket_number,federal_courts(official_name,abbreviation,court_system,district,state_or_territory),civil_case_details(nature_of_suit_code,cause_of_action,basis_of_jurisdiction,origin_code,jury_demand,class_action,multidistrict_litigation_indicator),criminal_case_details(charging_instrument,offense_statutes,offense_level,grand_jury_status,prosecuting_office,lead_ausa),appeal_details(notice_of_appeal_date,appellate_basis,cross_appeal,agency_review,supreme_court_petition_status)").eq("id", id).maybeSingle(),
     supabase.from("case_participants").select("id,role_code,side,counsel,participants(legal_name,display_name,sealed,minor,pseudonym)").eq("case_id", id).order("created_at"),
     supabase.from("case_actions").select("id,action_type,title,description,action_date,visibility").eq("case_id", id).is("archived_at", null).order("action_date", { ascending: false }),
@@ -70,6 +73,9 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
     supabase.from("motions").select("id,motion_type,status,filed_at,disposition").eq("case_id", id).is("archived_at", null).order("created_at", { ascending: false }),
     supabase.from("orders").select("id,order_type,signed_at,entered_at,effect,visibility").eq("case_id", id).is("archived_at", null).order("entered_at", { ascending: false }),
     supabase.from("workflow_events").select("id,title,description,event_code,occurred_at,previous_status,new_status").eq("case_id", id).order("occurred_at", { ascending: false }).limit(20),
+    supabase.from("matter_case_relationships").select("id,relationship_type,matters(id,matter_number,title,status)").eq("case_id", id).order("created_at", { ascending: false }),
+    supabase.from("trial_juries").select("id,trial_jury_number,status,jury_type,required_jury_size,jury_selection_date,trial_start_date,deliberation_status").eq("case_id", id).order("created_at", { ascending: false }),
+    supabase.from("grand_jury_returns").select("id,return_type,returned_at,sealed,grand_juries(grand_jury_number)").eq("resulting_case_id", id).order("returned_at", { ascending: false }),
   ]);
   if (!caseResult.data) notFound();
 
@@ -84,6 +90,9 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
   const motions = (motionsResult.data ?? []) as MotionRow[];
   const orders = (ordersResult.data ?? []) as OrderRow[];
   const workflow = (workflowResult.data ?? []) as WorkflowRow[];
+  const matterLinks = (matterLinksResult.data ?? []) as MatterLinkRow[];
+  const trialJuries = (trialJuryResult.data ?? []) as TrialJuryRow[];
+  const grandJuryReturns = (grandJuryReturnResult.data ?? []) as GrandJuryReturnRow[];
   const civilDetails = caseItem.civil_case_details?.[0];
   const criminalDetails = caseItem.criminal_case_details?.[0];
   const appealDetails = caseItem.appeal_details?.[0];
@@ -95,7 +104,7 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
       <AdminPageHeader
         title={displayCaseNumber}
         description={caseItem.case_caption || caseItem.title}
-        action={<div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="gap-2"><Link href={`/admin/expedientes/${caseItem.id}/constancia`}><Printer className="size-4" /> Opening certificate</Link></Button><Button className="gap-2 bg-[#153b5c]"><Plus className="size-4" /> Add docket/event</Button></div>}
+        action={<div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="gap-2"><Link href={`/admin/expedientes/${caseItem.id}/editar`}><Edit3 className="size-4" /> Editar Federal Case</Link></Button><Button asChild variant="outline" className="gap-2"><Link href={`/admin/expedientes/${caseItem.id}/constancia`}><Printer className="size-4" /> Opening certificate</Link></Button><Button className="gap-2 bg-[#153b5c]"><Plus className="size-4" /> Add docket/event</Button></div>}
       />
       {query.created && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Federal Case created. Case Number was generated server-side; Docket Number remains separate.</AlertDescription></Alert>}
       {query.disposition && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Final criminal disposition recorded and linked to the Person criminal-history summary.</AlertDescription></Alert>}
@@ -134,6 +143,7 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
         <ActionButton icon={<CalendarPlus />} label="Schedule hearing" />
         <ActionButton icon={<FilePlus2 />} label="Create order" href="/admin/providencias/nueva" />
         {(caseItem.case_category === "Criminal" || caseItem.case_category === "Magistrate Judge proceeding") ? <ActionButton icon={<ShieldCheck />} label="Registrar disposición final" href={`/admin/expedientes/${caseItem.id}/disposicion-final`} /> : null}
+        {(caseItem.case_category === "Criminal" || caseItem.case_category === "Civil") ? <ActionButton icon={<Gavel />} label="Create Trial Jury" href={`/admin/expedientes/${caseItem.id}/trial-jury/nuevo`} /> : null}
         <ActionButton icon={<UserRoundPlus />} label="Assign attorney or judge" />
         <ActionButton icon={<Archive />} label="Archive" />
       </div>
@@ -148,6 +158,8 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
             <TabsTrigger value="motions">Motions</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="hearings">Hearings</TabsTrigger>
+            <TabsTrigger value="related">Related Records</TabsTrigger>
+            <TabsTrigger value="juries">Juries</TabsTrigger>
             <TabsTrigger value="workflow">Workflow</TabsTrigger>
           </TabsList>
         </div>
@@ -187,6 +199,21 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
 
         <TabsContent value="hearings">
           <Card><CardHeader><CardTitle className="text-base text-[#153553]">Hearings</CardTitle></CardHeader><CardContent className="grid gap-3">{hearings.length === 0 ? <EmptyInline text="No hearings scheduled." /> : hearings.map((h) => <div key={h.id} className="rounded border p-4"><p className="text-sm font-semibold">{h.title}</p><p className="mt-1 text-xs text-muted-foreground">{h.hearing_type} · {formatDateTime(h.scheduled_at)} · {h.courtroom || h.room} · {h.status}</p>{h.result && <p className="mt-2 text-sm text-slate-700">{h.result}</p>}</div>)}</CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="related">
+          <Card><CardHeader><CardTitle className="text-base text-[#153553]">Originating DOJ Matters</CardTitle></CardHeader><CardContent className="divide-y p-0">{matterLinks.length === 0 ? <EmptyInline text="No originating DOJ Matters linked." /> : matterLinks.map((link) => {
+            const matter = Array.isArray(link.matters) ? link.matters[0] : link.matters;
+            return <Link key={link.id} href={`/admin/matters/${matter?.id}`} className="block p-4 hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{matter?.matter_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{matter?.title}</p><p className="mt-1 text-xs text-muted-foreground">{link.relationship_type} · {matter?.status}</p></Link>;
+          })}</CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="juries" className="grid gap-5 lg:grid-cols-2">
+          <Card><CardHeader><CardTitle className="text-base text-[#153553]">Trial Jury</CardTitle></CardHeader><CardContent className="divide-y p-0">{trialJuries.length === 0 ? <EmptyInline text="No Trial Jury workflow has been opened for this Case." /> : trialJuries.map((jury) => <div key={jury.id} className="p-4"><p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.trial_jury_number}</p><p className="mt-1 text-sm font-semibold">{jury.jury_type} · {jury.status}</p><p className="text-xs text-muted-foreground">Size {jury.required_jury_size || "pending"} · selection {formatDate(jury.jury_selection_date)} · trial {formatDate(jury.trial_start_date)} · {jury.deliberation_status}</p></div>)}</CardContent></Card>
+          <Card><CardHeader><CardTitle className="text-base text-[#153553]">Grand Jury History</CardTitle></CardHeader><CardContent className="divide-y p-0">{grandJuryReturns.length === 0 ? <EmptyInline text="No indictment or Grand Jury return linked to this Case." /> : grandJuryReturns.map((item) => {
+            const jury = Array.isArray(item.grand_juries) ? item.grand_juries[0] : item.grand_juries;
+            return <div key={item.id} className="p-4"><p className="text-sm font-semibold">{item.return_type}</p><p className="text-xs text-muted-foreground">{formatDateTime(item.returned_at)} · {item.sealed ? "sealed" : "public-safe"} · {jury?.grand_jury_number || "Grand Jury restricted"}</p></div>;
+          })}</CardContent></Card>
         </TabsContent>
 
         <TabsContent value="workflow">

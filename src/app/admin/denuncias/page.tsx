@@ -1,4 +1,5 @@
 import { ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { AdminPageHeader, EmptyState } from "@/components/admin-page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ export default async function AdminComplaintsPage({ searchParams }: { searchPara
               <Textarea name="internal_notes" defaultValue={item.internal_notes || ""} placeholder="Notas internas — no visibles al público" className="min-h-24 rounded-none" />
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" className="rounded-none bg-[#005ea8] hover:bg-[#1a4480]">Guardar cambios</Button>
+                <Button asChild variant="outline" className="rounded-none"><Link href={`/admin/denuncias/${item.id}`}>Revisar relaciones</Link></Button>
                 <LifecycleActions resource="complaints" id={item.id} archived={Boolean(item.archived_at)} compact />
               </div>
             </form>

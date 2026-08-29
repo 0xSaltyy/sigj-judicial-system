@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowRight, BriefcaseBusiness, GitBranch, LockKeyhole } from "lucide-react";
-import { createCaseFromMatter } from "@/app/actions/cases";
+import { AlertTriangle, ArrowRight, BriefcaseBusiness, Edit3, FileSearch, GitBranch, Gavel, LockKeyhole, Scale } from "lucide-react";
 import { AdminPageHeader, EmptyState } from "@/components/admin-page";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatDateTime, safeText } from "@/lib/display";
 
@@ -48,35 +45,53 @@ type RelatedCaseRow = {
 };
 
 type WorkflowRow = { id: string; title: string; description: string | null; event_code: string; occurred_at: string; new_status: string | null };
-type CourtRow = { id: string; official_name: string; abbreviation: string; accepted_case_categories: string[] | null };
+type ComplaintLinkRow = { id: string; relationship_type: string; reason: string | null; complaints: { id: string; tracking_number: string; category: string; status: string; anonymous: boolean; complainant_name: string | null } | { id: string; tracking_number: string; category: string; status: string; anonymous: boolean; complainant_name: string | null }[] | null };
+type EvidenceRow = { id: string; evidence_number: string; title: string; evidence_type: string; access_classification: string; sealed: boolean; grand_jury_status: string; created_at: string };
+type SubpoenaRow = { id: string; subpoena_number: string; subpoena_type: string; recipient: string; compliance_status: string; grand_jury_secret: boolean };
+type InterviewRow = { id: string; interview_number: string; record_type: string; interviewee: string; access_classification: string; grand_jury_secret: boolean };
+type TaskRow = { id: string; title: string; priority: string; status: string; due_at: string | null };
+type GrandJuryRow = { id: string; grand_jury_number: string; status: string; active_grand_jurors: number; term_start: string | null; term_end: string | null };
 
-export default async function MatterDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; error?: string }> }) {
+export default async function MatterDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; updated?: string; evidence?: string; grand_jury?: string; error?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const [matterResult, participantResult, casesResult, workflowResult, courtsResult] = await Promise.all([
+  const [matterResult, participantResult, casesResult, workflowResult, complaintsResult, evidenceResult, subpoenasResult, interviewsResult, tasksResult, grandJuryResult] = await Promise.all([
     supabase.from("matters").select("id,matter_number,title,summary,matter_category,matter_type,lead_component,participating_components,investigating_agency,referring_agency,referral_date,statutes_under_review,jurisdiction,investigative_district,security_classification,access_restrictions,grand_jury_secret,status,opened_at").eq("id", id).maybeSingle(),
     supabase.from("matter_participants").select("id,role_code,side,participants(legal_name,display_name,sealed,minor,pseudonym)").eq("matter_id", id).order("created_at"),
     supabase.from("matter_case_relationships").select("id,relationship_type,cases(id,case_number,internal_number,case_caption,title)").eq("matter_id", id).order("created_at", { ascending: false }),
     supabase.from("workflow_events").select("id,title,description,event_code,occurred_at,new_status").eq("matter_id", id).order("occurred_at", { ascending: false }).limit(20),
-    supabase.from("federal_courts").select("id,official_name,abbreviation,accepted_case_categories").eq("active", true).order("official_name"),
+    supabase.from("complaint_matter_links").select("id,relationship_type,reason,complaints(id,tracking_number,category,status,anonymous,complainant_name)").eq("matter_id", id).eq("active", true).order("created_at", { ascending: false }),
+    supabase.from("evidence_items").select("id,evidence_number,title,evidence_type,access_classification,sealed,grand_jury_status,created_at").eq("matter_id", id).is("archived_at", null).order("created_at", { ascending: false }),
+    supabase.from("subpoenas").select("id,subpoena_number,subpoena_type,recipient,compliance_status,grand_jury_secret").eq("matter_id", id).is("archived_at", null).order("created_at", { ascending: false }),
+    supabase.from("interview_records").select("id,interview_number,record_type,interviewee,access_classification,grand_jury_secret").eq("matter_id", id).order("created_at", { ascending: false }),
+    supabase.from("matter_tasks").select("id,title,priority,status,due_at").eq("matter_id", id).order("due_at", { ascending: true }),
+    supabase.from("grand_juries").select("id,grand_jury_number,status,active_grand_jurors,term_start,term_end").eq("primary_matter_id", id).order("created_at", { ascending: false }),
   ]);
   if (!matterResult.data) notFound();
   const matter = matterResult.data as MatterRow;
   const participants = (participantResult.data ?? []) as ParticipantRow[];
   const relatedCases = (casesResult.data ?? []) as RelatedCaseRow[];
   const workflow = (workflowResult.data ?? []) as WorkflowRow[];
-  const courts = (courtsResult.data ?? []) as CourtRow[];
+  const complaintLinks = (complaintsResult.data ?? []) as ComplaintLinkRow[];
+  const evidence = (evidenceResult.data ?? []) as EvidenceRow[];
+  const subpoenas = (subpoenasResult.data ?? []) as SubpoenaRow[];
+  const interviews = (interviewsResult.data ?? []) as InterviewRow[];
+  const tasks = (tasksResult.data ?? []) as TaskRow[];
+  const grandJuries = (grandJuryResult.data ?? []) as GrandJuryRow[];
 
   return (
     <>
       <AdminPageHeader
         title={matter.matter_number}
         description={matter.title}
-        action={<Button asChild variant="outline" className="gap-2"><Link href="/admin/expedientes/nuevo">Abrir otro registro <ArrowRight className="size-4" /></Link></Button>}
+        action={<div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="gap-2"><Link href={`/admin/matters/${matter.id}/editar`}><Edit3 className="size-4" /> Editar Matter</Link></Button><Button asChild className="gap-2 bg-[#153b5c]"><Link href={`/admin/matters/${matter.id}/abrir-federal-case`}>Abrir Federal Case a partir de este Matter <ArrowRight className="size-4" /></Link></Button></div>}
       />
       {query.created && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Matter creado correctamente. No se asignó Docket Number porque todavía no es un Case judicial.</AlertDescription></Alert>}
+      {query.updated && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Matter actualizado con auditoría.</AlertDescription></Alert>}
+      {query.evidence && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Evidence Item registrado con chain of custody inicial.</AlertDescription></Alert>}
+      {query.grand_jury && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Grand Jury creado y protegido dentro del Matter.</AlertDescription></Alert>}
       {query.error && <Alert variant="destructive" className="mb-5"><AlertTriangle className="size-4" /><AlertDescription>{query.error}</AlertDescription></Alert>}
       <Card className="overflow-hidden py-0">
         <div className="border-b-4 border-[#b38a3c] bg-[#102d49] p-6 text-white">
@@ -116,37 +131,16 @@ export default async function MatterDetailPage({ params, searchParams }: { param
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base text-[#153553]"><GitBranch className="size-4" /> Abrir Case desde este Matter</CardTitle></CardHeader>
-          <CardContent>
-            <form action={createCaseFromMatter} className="space-y-4">
-              <input type="hidden" name="matter_id" value={matter.id} />
-              <div className="space-y-2">
-                <Label htmlFor="court_id">Federal court</Label>
-                <select id="court_id" name="court_id" required className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm">
-                  <option value="">Select court…</option>
-                  {courts.map((court) => <option key={court.id} value={court.id}>{court.official_name} ({court.abbreviation})</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="case_category">Case Category</Label>
-                <select id="case_category" name="case_category" className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm">
-                  <option>Criminal</option>
-                  <option>Civil</option>
-                  <option>Magistrate Judge proceeding</option>
-                  <option>Miscellaneous</option>
-                  <option>Appeal</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="case_caption">Case caption</Label>
-                <Input id="case_caption" name="case_caption" placeholder="United States v. Doe" />
-              </div>
-              <label className="flex items-start gap-2 rounded border bg-amber-50 p-3 text-xs leading-5 text-amber-950">
-                <input type="checkbox" name="confidentiality_reviewed" className="mt-1" />
-                I reviewed sealed, grand-jury and internal Matter material. Only public-safe selected information should be copied to the court Case.
-              </label>
-              <Button type="submit" className="w-full gap-2 bg-[#153b5c]">Abrir Case judicial <ArrowRight className="size-4" /></Button>
-            </form>
+          <CardHeader><CardTitle className="flex items-center gap-2 text-base text-[#153553]"><GitBranch className="size-4" /> Related Records</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <InfoRow label="Originating Complaint" value={complaintLinks[0] ? (Array.isArray(complaintLinks[0].complaints) ? complaintLinks[0].complaints[0]?.tracking_number : complaintLinks[0].complaints?.tracking_number) || "Linked complaint" : "None"} />
+            <InfoRow label="Related Federal Cases" value={String(relatedCases.length)} />
+            <InfoRow label="Evidence Items" value={String(evidence.length)} />
+            <InfoRow label="Warrants / subpoenas" value={`${subpoenas.length} subpoenas recorded`} />
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button asChild variant="outline" size="sm"><Link href={`/admin/matters/${matter.id}/evidence/nuevo`}>Add Evidence</Link></Button>
+              <Button asChild variant="outline" size="sm"><Link href={`/admin/matters/${matter.id}/grand-jury/nuevo`}>Create Grand Jury</Link></Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -163,7 +157,7 @@ export default async function MatterDetailPage({ params, searchParams }: { param
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base text-[#153553]">Related Cases</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base text-[#153553]">Related Federal Cases</CardTitle></CardHeader>
           <CardContent className="divide-y p-0">
             {relatedCases.length === 0 ? <div className="p-5 text-sm text-muted-foreground">No court Cases have been opened from this Matter.</div> : relatedCases.map((item) => {
               const relatedCase = Array.isArray(item.cases) ? item.cases[0] : item.cases;
@@ -171,6 +165,26 @@ export default async function MatterDetailPage({ params, searchParams }: { param
             })}
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <SectionCard title="Public Complaints" icon={<FileSearch className="size-4" />} empty="No public complaints are linked to this Matter.">
+          {complaintLinks.map((link) => {
+            const complaint = Array.isArray(link.complaints) ? link.complaints[0] : link.complaints;
+            return <Link key={link.id} href={`/admin/denuncias/${complaint?.id}`} className="block border-b p-4 last:border-b-0 hover:bg-slate-50"><p className="mono-number text-xs font-semibold text-[#005ea8]">{complaint?.tracking_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{complaint?.category}</p><p className="text-xs text-muted-foreground">{link.relationship_type} · {complaint?.status}</p></Link>;
+          })}
+        </SectionCard>
+        <SectionCard title="Evidence" icon={<Scale className="size-4" />} empty="No Evidence Items have been registered for this Matter.">
+          {evidence.map((item) => <div key={item.id} className="border-b p-4 last:border-b-0"><p className="mono-number text-xs font-semibold text-[#005ea8]">{item.evidence_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{item.title}</p><p className="text-xs text-muted-foreground">{item.evidence_type} · {item.access_classification} · {item.grand_jury_status}{item.sealed ? " · sealed" : ""}</p></div>)}
+        </SectionCard>
+        <SectionCard title="Grand Jury" icon={<Gavel className="size-4" />} empty="No Grand Jury has been created for this Matter.">
+          {grandJuries.map((jury) => <div key={jury.id} className="border-b p-4 last:border-b-0"><p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.grand_jury_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{jury.status}</p><p className="text-xs text-muted-foreground">{jury.active_grand_jurors} active grand jurors · {formatDate(jury.term_start)}–{formatDate(jury.term_end)}</p></div>)}
+        </SectionCard>
+        <SectionCard title="Subpoenas, interviews, tasks and deadlines" icon={<BriefcaseBusiness className="size-4" />} empty="No subpoenas, interviews or tasks recorded.">
+          {subpoenas.map((item) => <div key={item.id} className="border-b p-4 last:border-b-0"><p className="mono-number text-xs font-semibold text-[#005ea8]">{item.subpoena_number}</p><p className="text-sm font-semibold">{item.recipient}</p><p className="text-xs text-muted-foreground">{item.subpoena_type} · {item.compliance_status}{item.grand_jury_secret ? " · grand-jury restricted" : ""}</p></div>)}
+          {interviews.map((item) => <div key={item.id} className="border-b p-4 last:border-b-0"><p className="mono-number text-xs font-semibold text-[#005ea8]">{item.interview_number}</p><p className="text-sm font-semibold">{item.interviewee}</p><p className="text-xs text-muted-foreground">{item.record_type} · {item.access_classification}</p></div>)}
+          {tasks.map((item) => <div key={item.id} className="border-b p-4 last:border-b-0"><p className="text-sm font-semibold">{item.title}</p><p className="text-xs text-muted-foreground">{item.priority} · {item.status} · due {formatDate(item.due_at)}</p></div>)}
+        </SectionCard>
       </div>
 
       <Card className="mt-5">
@@ -189,4 +203,10 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return <div><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-1.5 text-sm font-medium">{value}</p></div>;
+}
+
+function SectionCard({ title, icon, empty, children }: { title: string; icon: React.ReactNode; empty: string; children: React.ReactNode }) {
+  const list = Array.isArray(children) ? children.filter(Boolean) : children;
+  const isEmpty = Array.isArray(list) ? list.length === 0 : !list;
+  return <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base text-[#153553]">{icon}{title}</CardTitle></CardHeader><CardContent className="p-0">{isEmpty ? <div className="p-5 text-sm text-muted-foreground">{empty}</div> : children}</CardContent></Card>;
 }
