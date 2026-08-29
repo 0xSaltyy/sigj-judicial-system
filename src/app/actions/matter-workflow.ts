@@ -503,14 +503,68 @@ export async function deleteEvidenceAction(formData: FormData) {
   const returnTo = String(formData.get("return_to") || "/admin/dashboard");
   const reason = String(formData.get("reason") || "");
   const supabase = await clientOrRedirect(returnTo);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
   const admin = createAdminClient();
   if (!admin) redirect(`${returnTo}?error=${encodeURIComponent("Supabase service role no está configurado")}`);
-  const { data: evidence } = await supabase.from("evidence_items").select("storage_bucket,storage_path").eq("id", evidenceId).maybeSingle();
-  const { error } = await supabase.rpc("mark_evidence_deleted", { p_evidence_id: evidenceId, p_reason: reason });
-  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  if (!evidenceId) redirect(`${returnTo}?error=${encodeURIComponent("Evidence Item no especificado")}`);
+  if (!reason.trim()) redirect(`${returnTo}?error=${encodeURIComponent("Indique una razón para eliminar el Evidence Item")}`);
+
+  const { data: actor } = await admin.from("profiles").select("id,role,is_owner,is_active").eq("id", user.id).single();
+  const actorRole = String(actor?.role || "");
+  const privileged = Boolean(actor?.is_active && (actor?.is_owner || ["SUPER_ADMIN", "OWNER", "ATTORNEY_GENERAL"].includes(actorRole)));
+  const { data: hasPermission } = await supabase.rpc("has_effective_permission", { p_resource: "evidence", p_action: "hard_delete" });
+  if (!privileged && !hasPermission) {
+    await admin.from("audit_logs").insert({
+      user_id: user.id,
+      action: "EVIDENCE_DELETE_DENIED",
+      table_name: "evidence_items",
+      record_id: evidenceId,
+      description: "Intento no autorizado de eliminar Evidence Item",
+      metadata: { return_to: returnTo },
+    });
+    redirect("/no-autorizado");
+  }
+
+  const { data: evidence, error: loadError } = await admin
+    .from("evidence_items")
+    .select("id,evidence_number,ete_id,formal_title,title,storage_bucket,storage_path,deleted_at")
+    .eq("id", evidenceId)
+    .maybeSingle();
+  if (loadError || !evidence) redirect(`${returnTo}?error=${encodeURIComponent(loadError?.message || "Evidence Item no encontrado")}`);
+
+  if (!evidence.deleted_at) {
+    const { error: deleteError } = await admin
+      .from("evidence_items")
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: user.id,
+        deletion_reason: reason,
+        evidence_status: "deleted",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", evidenceId);
+    if (deleteError) redirect(`${returnTo}?error=${encodeURIComponent(deleteError.message)}`);
+  }
+
   if (evidence?.storage_bucket && evidence.storage_path) {
     await admin.storage.from(evidence.storage_bucket).remove([evidence.storage_path]);
   }
+  await admin.from("audit_logs").insert({
+    user_id: user.id,
+    action: "evidence_deleted",
+    table_name: "evidence_items",
+    record_id: evidenceId,
+    description: "Evidence Item marked deleted from server-side Matter/Case Evidence Manager flow.",
+    metadata: {
+      reason,
+      evidence_number: evidence.evidence_number,
+      ete_id: evidence.ete_id,
+      title: evidence.formal_title || evidence.title,
+      storage_object_removed: Boolean(evidence.storage_bucket && evidence.storage_path),
+    },
+  });
+  revalidatePath(returnTo);
   redirect(`${returnTo}?evidence=deleted`);
 }
 

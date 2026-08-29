@@ -125,7 +125,9 @@ export default async function MatterDetailPage({ params, searchParams }: { param
       />
       {query.created && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Matter creado correctamente. No se asignó Docket Number porque todavía no es un Case judicial.</AlertDescription></Alert>}
       {query.updated && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Matter actualizado con auditoría.</AlertDescription></Alert>}
-      {query.evidence && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Evidence Item registrado con chain of custody inicial.</AlertDescription></Alert>}
+      {query.evidence === "deleted" && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Evidence Item eliminado correctamente del Matter.</AlertDescription></Alert>}
+      {query.evidence === "archived" && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Evidence Item archivado correctamente.</AlertDescription></Alert>}
+      {query.evidence && !["deleted", "archived"].includes(query.evidence) && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Evidence Item registrado con chain of custody inicial.</AlertDescription></Alert>}
       {query.grand_jury && <Alert className="mb-5 border-emerald-200 bg-emerald-50"><AlertDescription>Grand Jury creado y protegido dentro del Matter.</AlertDescription></Alert>}
       {query.error && <Alert variant="destructive" className="mb-5"><AlertTriangle className="size-4" /><AlertDescription>{query.error}</AlertDescription></Alert>}
       <Card className="overflow-hidden py-0">
