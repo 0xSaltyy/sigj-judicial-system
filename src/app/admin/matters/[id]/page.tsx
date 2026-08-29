@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, Archive, ArrowRight, BriefcaseBusiness, Download, Edit3, FileDown, FileSearch, GitBranch, Gavel, LockKeyhole, Scale, Trash2 } from "lucide-react";
-import { addGrandJuryCountAction, archiveEvidenceAction, closeGrandJuryVoteRoundAction, deleteEvidenceAction, openGrandJuryVoteRoundAction } from "@/app/actions/matter-workflow";
+import { AlertTriangle, Archive, ArrowRight, BriefcaseBusiness, Download, Edit3, FileDown, FileSearch, GitBranch, Gavel, LockKeyhole, Scale, Trash2, UserPlus } from "lucide-react";
+import { addGrandJuryCountAction, addGrandJuryMemberAction, archiveEvidenceAction, closeGrandJuryVoteRoundAction, deleteEvidenceAction, designateGrandJuryForepersonAction, openGrandJuryVoteRoundAction, removeGrandJuryMemberAction } from "@/app/actions/matter-workflow";
 import { AdminPageHeader, EmptyState } from "@/components/admin-page";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -52,15 +52,17 @@ type EvidenceRow = { id: string; evidence_number: string; ete_id: string | null;
 type SubpoenaRow = { id: string; subpoena_number: string; subpoena_type: string; recipient: string; compliance_status: string; grand_jury_secret: boolean };
 type InterviewRow = { id: string; interview_number: string; record_type: string; interviewee: string; access_classification: string; grand_jury_secret: boolean };
 type TaskRow = { id: string; title: string; priority: string; status: string; due_at: string | null };
-type GrandJuryRow = { id: string; grand_jury_number: string; status: string; active_grand_jurors: number; term_start: string | null; term_end: string | null };
+type GrandJuryRow = { id: string; grand_jury_number: string; panel_name: string | null; proceeding_number: string | null; status: string; active_grand_jurors: number; selected_panel_size: number; term_start: string | null; term_end: string | null; district: string | null; foreperson_member_id: string | null; deputy_foreperson_member_id: string | null; foreperson_selection_method: string | null };
 type GrandJuryRoundRow = { id: string; grand_jury_id: string; status: string; title: string; closed_at: string | null };
+type GrandJuryMemberRow = { id: string; grand_jury_id: string; juror_user_id: string | null; juror_participant_number: string; display_name: string | null; seat_sequence: number | null; member_type: string; status: string; attendance_status: string; is_foreperson: boolean; is_deputy_foreperson: boolean; removed_at: string | null };
+type JurorProfileRow = { id: string; full_name: string; role: string; institutional_email: string | null };
 
 export default async function MatterDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; updated?: string; evidence?: string; grand_jury?: string; error?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const [matterResult, participantResult, casesResult, workflowResult, complaintsResult, evidenceResult, subpoenasResult, interviewsResult, tasksResult, grandJuryResult, grandJuryRoundsResult] = await Promise.all([
+  const [matterResult, participantResult, casesResult, workflowResult, complaintsResult, evidenceResult, subpoenasResult, interviewsResult, tasksResult, grandJuryResult, grandJuryRoundsResult, grandJuryMembersResult, jurorProfilesResult] = await Promise.all([
     supabase.from("matters").select("id,matter_number,title,summary,matter_category,matter_type,lead_component,participating_components,investigating_agency,referring_agency,referral_date,statutes_under_review,jurisdiction,investigative_district,security_classification,access_restrictions,grand_jury_secret,status,opened_at").eq("id", id).maybeSingle(),
     supabase.from("matter_participants").select("id,role_code,side,participants(legal_name,display_name,sealed,minor,pseudonym)").eq("matter_id", id).order("created_at"),
     supabase.from("matter_case_relationships").select("id,relationship_type,cases(id,case_number,internal_number,case_caption,title)").eq("matter_id", id).order("created_at", { ascending: false }),
@@ -70,8 +72,10 @@ export default async function MatterDetailPage({ params, searchParams }: { param
     supabase.from("subpoenas").select("id,subpoena_number,subpoena_type,recipient,compliance_status,grand_jury_secret").eq("matter_id", id).is("archived_at", null).order("created_at", { ascending: false }),
     supabase.from("interview_records").select("id,interview_number,record_type,interviewee,access_classification,grand_jury_secret").eq("matter_id", id).order("created_at", { ascending: false }),
     supabase.from("matter_tasks").select("id,title,priority,status,due_at").eq("matter_id", id).order("due_at", { ascending: true }),
-    supabase.from("grand_juries").select("id,grand_jury_number,status,active_grand_jurors,term_start,term_end").eq("primary_matter_id", id).order("created_at", { ascending: false }),
+    supabase.from("grand_juries").select("id,grand_jury_number,panel_name,proceeding_number,status,active_grand_jurors,selected_panel_size,term_start,term_end,district,foreperson_member_id,deputy_foreperson_member_id,foreperson_selection_method").eq("primary_matter_id", id).order("created_at", { ascending: false }),
     supabase.from("grand_jury_voting_rounds").select("id,grand_jury_id,status,title,closed_at").order("opened_at", { ascending: false }).limit(20),
+    supabase.from("grand_jury_members").select("id,grand_jury_id,juror_user_id,juror_participant_number,display_name,seat_sequence,member_type,status,attendance_status,is_foreperson,is_deputy_foreperson,removed_at").order("seat_sequence"),
+    supabase.from("profiles").select("id,full_name,role,institutional_email").eq("is_active", true).eq("role", "GRAND_JUROR").order("full_name"),
   ]);
   if (!matterResult.data) notFound();
   const matter = matterResult.data as MatterRow;
@@ -85,6 +89,8 @@ export default async function MatterDetailPage({ params, searchParams }: { param
   const tasks = (tasksResult.data ?? []) as TaskRow[];
   const grandJuries = (grandJuryResult.data ?? []) as GrandJuryRow[];
   const grandJuryRounds = (grandJuryRoundsResult.data ?? []) as GrandJuryRoundRow[];
+  const grandJuryMembers = (grandJuryMembersResult.data ?? []) as GrandJuryMemberRow[];
+  const grandJurorProfiles = (jurorProfilesResult.data ?? []) as JurorProfileRow[];
 
   return (
     <>
@@ -198,8 +204,49 @@ export default async function MatterDetailPage({ params, searchParams }: { param
         <SectionCard title="Grand Jury" icon={<Gavel className="size-4" />} empty="No Grand Jury has been created for this Matter.">
           {grandJuries.map((jury) => {
             const openRound = grandJuryRounds.find((round) => round.grand_jury_id === jury.id && round.status === "Open");
+            const latestCertifiedRound = grandJuryRounds.find((round) => round.grand_jury_id === jury.id && round.status === "Certified");
+            const members = grandJuryMembers.filter((member) => member.grand_jury_id === jury.id);
+            const activeMembers = members.filter((member) => member.member_type === "juror" && !member.removed_at && ["present", "active", "Present", "Active", "Impaneled", "impaneled"].includes(member.status) && ["present", "active", "Present", "Active", "Impaneled", "impaneled"].includes(member.attendance_status));
+            const alternates = members.filter((member) => member.member_type === "alternate" && !member.removed_at);
+            const canChangeMembers = !grandJuryRounds.some((round) => round.grand_jury_id === jury.id);
             return <div key={jury.id} className="border-b p-4 last:border-b-0">
-              <p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.grand_jury_number}</p><p className="mt-1 text-sm font-semibold text-[#153553]">{jury.status}</p><p className="text-xs text-muted-foreground">{jury.active_grand_jurors} active grand jurors · {formatDate(jury.term_start)}–{formatDate(jury.term_end)}</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.grand_jury_number}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#153553]">{jury.panel_name || "Grand Jury proceeding"}</p>
+                  <p className="text-xs text-muted-foreground">{jury.proceeding_number || "No proceeding number"} · {jury.district || "District pending"} · {jury.status}</p>
+                  <p className="mt-1 text-xs text-slate-600">Panel size {jury.selected_panel_size || jury.active_grand_jurors || 9} · present eligible {activeMembers.length} · threshold {Math.ceil(((jury.selected_panel_size || jury.active_grand_jurors || 9) * 2) / 3)} True Bill votes</p>
+                  <p className="mt-1 text-xs text-slate-600">Foreperson: {members.find((member) => member.id === jury.foreperson_member_id)?.display_name || "Not designated"} · Deputy: {members.find((member) => member.id === jury.deputy_foreperson_member_id)?.display_name || "Not designated"}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild variant="outline" size="sm"><Link href={`/jury/proceedings/${jury.id}`}>Juror panel URL</Link></Button>
+                  {latestCertifiedRound ? <Button asChild variant="outline" size="sm"><Link href={`/api/roleplay/grand-jury/vote-record/${latestCertifiedRound.id}/pdf`}><FileDown className="mr-1 size-3" />Vote Record PDF</Link></Button> : null}
+                </div>
+              </div>
+              <div className="mt-4 rounded border bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[.12em] text-slate-600">Jury Members</p>
+                {members.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No members assigned. Create juror accounts with role GRAND_JUROR, then assign them here.</p> : <div className="mt-2 grid gap-2">{members.map((member) => <div key={member.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-white p-2 text-xs">
+                  <span><span className="font-semibold">{member.juror_participant_number}</span> · {member.display_name || "Unnamed juror"} · {member.member_type} · {member.status}/{member.attendance_status}{member.is_foreperson ? " · Foreperson" : ""}{member.is_deputy_foreperson ? " · Deputy" : ""}{member.removed_at ? " · removed" : ""}</span>
+                  {!member.removed_at && canChangeMembers ? <form action={removeGrandJuryMemberAction} className="flex gap-1"><input type="hidden" name="member_id" value={member.id} /><input type="hidden" name="return_to" value={`/admin/matters/${matter.id}`} /><input type="hidden" name="status" value="discharged" /><input type="hidden" name="reason" value="Removed before impaneling/vote" /><Button variant="outline" size="sm">Remove</Button></form> : null}
+                </div>)}</div>}
+                {canChangeMembers ? <form action={addGrandJuryMemberAction} className="mt-3 grid gap-2 md:grid-cols-5">
+                  <input type="hidden" name="grand_jury_id" value={jury.id} /><input type="hidden" name="return_to" value={`/admin/matters/${matter.id}`} />
+                  <select name="juror_user_id" required className="h-9 rounded-md border bg-white px-2 text-xs"><option value="">Add GRAND_JUROR account…</option>{grandJurorProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}</select>
+                  <Input name="juror_participant_number" placeholder="Juror number" className="h-9" />
+                  <select name="member_type" className="h-9 rounded-md border bg-white px-2 text-xs"><option value="juror">Juror</option><option value="alternate">Alternate</option></select>
+                  <Input name="seat_sequence" placeholder="Seat #" type="number" className="h-9" />
+                  <Button size="sm" variant="outline"><UserPlus className="mr-1 size-3" />Add member</Button>
+                </form> : <p className="mt-3 text-xs text-amber-800">Members are locked after the first voting round opens. Alternates require a formal replacement record.</p>}
+                {activeMembers.length >= (jury.selected_panel_size || 9) ? <Badge className="mt-3 bg-emerald-50 text-emerald-800">Compact quorum complete</Badge> : <Badge className="mt-3 bg-amber-50 text-amber-900">Minimum/quorum incomplete</Badge>}
+                <p className="mt-2 text-xs text-muted-foreground">Alternates assigned: {alternates.length}. Alternates do not vote until formally substituted as jurors.</p>
+              </div>
+              <form action={designateGrandJuryForepersonAction} className="mt-3 grid gap-2 md:grid-cols-4">
+                <input type="hidden" name="grand_jury_id" value={jury.id} /><input type="hidden" name="return_to" value={`/admin/matters/${matter.id}`} />
+                <select name="member_id" required className="h-9 rounded-md border bg-white px-2 text-xs"><option value="">Foreperson member…</option>{activeMembers.map((member) => <option key={member.id} value={member.id}>{member.display_name || member.juror_participant_number}</option>)}</select>
+                <select name="deputy_member_id" className="h-9 rounded-md border bg-white px-2 text-xs"><option value="">Deputy optional…</option>{activeMembers.map((member) => <option key={member.id} value={member.id}>{member.display_name || member.juror_participant_number}</option>)}</select>
+                <Input name="order_reference" placeholder="Court order/reference" className="h-9" />
+                <Button size="sm" variant="outline">Designate foreperson</Button>
+              </form>
               <form action={addGrandJuryCountAction} className="mt-3 grid gap-2 md:grid-cols-4">
                 <input type="hidden" name="grand_jury_id" value={jury.id} /><input type="hidden" name="matter_id" value={matter.id} />
                 <Input name="person_or_entity" placeholder="Person/entity" className="h-9" />

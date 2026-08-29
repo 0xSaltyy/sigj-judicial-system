@@ -349,6 +349,47 @@ export async function createGrandJuryAction(formData: FormData) {
   redirect(`/admin/matters/${matterId}?grand_jury=1`);
 }
 
+export async function addGrandJuryMemberAction(formData: FormData) {
+  const grandJuryId = String(formData.get("grand_jury_id") || "");
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("add_grand_jury_member", {
+    p_grand_jury_id: grandJuryId,
+    p_juror_user_id: String(formData.get("juror_user_id") || ""),
+    p_payload: Object.fromEntries(formData),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?grand_jury=member-added`);
+}
+
+export async function removeGrandJuryMemberAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("remove_grand_jury_member", {
+    p_member_id: String(formData.get("member_id") || ""),
+    p_status: String(formData.get("status") || "discharged"),
+    p_reason: String(formData.get("reason") || "Removed from panel"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?grand_jury=member-removed`);
+}
+
+export async function designateGrandJuryForepersonAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("designate_grand_jury_foreperson", {
+    p_grand_jury_id: String(formData.get("grand_jury_id") || ""),
+    p_member_id: String(formData.get("member_id") || ""),
+    p_deputy_member_id: String(formData.get("deputy_member_id") || "") || null,
+    p_order_reference: String(formData.get("order_reference") || ""),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?grand_jury=foreperson`);
+}
+
 export async function createTrialJuryAction(formData: FormData) {
   const caseId = String(formData.get("case_id") || "");
   const supabase = await clientOrRedirect(`/admin/expedientes/${caseId}/trial-jury/nuevo`);
@@ -358,6 +399,46 @@ export async function createTrialJuryAction(formData: FormData) {
   });
   if (error) redirect(`/admin/expedientes/${caseId}/trial-jury/nuevo?error=${encodeURIComponent(error.message)}`);
   redirect(`/admin/expedientes/${caseId}?trial_jury=1`);
+}
+
+export async function addTrialJuryMemberAction(formData: FormData) {
+  const trialJuryId = String(formData.get("trial_jury_id") || "");
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("add_trial_jury_member", {
+    p_trial_jury_id: trialJuryId,
+    p_juror_user_id: String(formData.get("juror_user_id") || ""),
+    p_payload: Object.fromEntries(formData),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?trial_jury=member-added`);
+}
+
+export async function removeTrialJuryMemberAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("remove_trial_jury_member", {
+    p_panel_id: String(formData.get("panel_id") || ""),
+    p_status: String(formData.get("status") || "discharged"),
+    p_reason: String(formData.get("reason") || "Removed from panel"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?trial_jury=member-removed`);
+}
+
+export async function recordTrialJuryForepersonAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const supabase = await clientOrRedirect(returnTo);
+  const { error } = await supabase.rpc("record_trial_jury_foreperson_selection", {
+    p_trial_jury_id: String(formData.get("trial_jury_id") || ""),
+    p_panel_id: String(formData.get("panel_id") || ""),
+    p_method: String(formData.get("method") || "Selected by the jury"),
+  });
+  if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?trial_jury=foreperson`);
 }
 
 export async function addGrandJuryCountAction(formData: FormData) {
@@ -429,4 +510,32 @@ export async function closeTrialJuryVoteRoundAction(formData: FormData) {
   });
   if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
   redirect(`${returnTo}?trial_jury=certified`);
+}
+
+export async function submitGrandJuryBallotAction(formData: FormData) {
+  const proceedingId = String(formData.get("proceeding_id") || "");
+  const supabase = await clientOrRedirect(`/jury/proceedings/${proceedingId}`);
+  const { error } = await supabase.rpc("submit_grand_jury_ballot", {
+    p_round_id: String(formData.get("round_id") || ""),
+    p_count_id: String(formData.get("count_id") || ""),
+    p_member_id: String(formData.get("member_id") || ""),
+    p_ballot_value: String(formData.get("ballot_value") || ""),
+  });
+  if (error) redirect(`/jury/proceedings/${proceedingId}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/jury/proceedings/${proceedingId}`);
+  redirect(`/jury/proceedings/${proceedingId}?voted=1`);
+}
+
+export async function submitTrialJuryBallotAction(formData: FormData) {
+  const proceedingId = String(formData.get("proceeding_id") || "");
+  const supabase = await clientOrRedirect(`/jury/proceedings/${proceedingId}`);
+  const { error } = await supabase.rpc("submit_trial_jury_ballot", {
+    p_round_id: String(formData.get("round_id") || ""),
+    p_question_id: String(formData.get("question_id") || ""),
+    p_panel_id: String(formData.get("panel_id") || ""),
+    p_ballot_value: String(formData.get("ballot_value") || ""),
+  });
+  if (error) redirect(`/jury/proceedings/${proceedingId}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/jury/proceedings/${proceedingId}`);
+  redirect(`/jury/proceedings/${proceedingId}?voted=1`);
 }

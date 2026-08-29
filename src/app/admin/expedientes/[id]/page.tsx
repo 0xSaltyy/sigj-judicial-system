@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, CalendarPlus, Download, Edit3, FileDown, FilePlus2, Gavel, LockKeyhole, Plus, Printer, ShieldCheck, Trash2, Upload, UserRoundPlus } from "lucide-react";
-import { addTrialVerdictQuestionAction, archiveEvidenceAction, closeTrialJuryVoteRoundAction, deleteEvidenceAction, openTrialJuryVoteRoundAction } from "@/app/actions/matter-workflow";
+import { Archive, CalendarPlus, Download, Edit3, FileDown, FilePlus2, Gavel, LockKeyhole, Plus, Printer, ShieldCheck, Trash2, Upload, UserPlus, UserRoundPlus } from "lucide-react";
+import { addTrialJuryMemberAction, addTrialVerdictQuestionAction, archiveEvidenceAction, closeTrialJuryVoteRoundAction, deleteEvidenceAction, openTrialJuryVoteRoundAction, recordTrialJuryForepersonAction, removeTrialJuryMemberAction } from "@/app/actions/matter-workflow";
 import { createClient } from "@/lib/supabase/server";
 import { AdminPageHeader } from "@/components/admin-page";
 import { CaseStatusBadge, ConfidentialityBadge } from "@/components/status-badges";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -56,8 +57,10 @@ type MotionRow = { id: string; motion_type: string; status: string; filed_at: st
 type OrderRow = { id: string; order_type: string; signed_at: string | null; entered_at: string | null; effect: string | null; visibility: string };
 type WorkflowRow = { id: string; title: string; description: string | null; event_code: string; occurred_at: string; previous_status: string | null; new_status: string | null };
 type MatterLinkRow = { id: string; relationship_type: string; matters: { id: string; matter_number: string; title: string; status: string } | { id: string; matter_number: string; title: string; status: string }[] | null };
-type TrialJuryRow = { id: string; trial_jury_number: string; status: string; jury_type: string; required_jury_size: number | null; jury_selection_date: string | null; trial_start_date: string | null; deliberation_status: string };
+type TrialJuryRow = { id: string; trial_jury_number: string; panel_name: string | null; proceeding_number: string | null; status: string; jury_type: string; required_jury_size: number | null; selected_panel_size: number; jury_selection_date: string | null; trial_start_date: string | null; deliberation_status: string; district: string | null; foreperson_panel_id: string | null; foreperson_selection_method: string | null };
 type TrialRoundRow = { id: string; trial_jury_id: string; status: string; title: string; closed_at: string | null };
+type TrialJuryPanelRow = { id: string; trial_jury_id: string; juror_user_id: string | null; juror_participant_number: string; display_name: string | null; panel_sequence: number; member_type: string; attendance_status: string; qualification_status: string | null; removed_at: string | null };
+type JurorProfileRow = { id: string; full_name: string; role: string; institutional_email: string | null };
 type GrandJuryReturnRow = { id: string; return_type: string; returned_at: string; sealed: boolean; grand_juries: { grand_jury_number: string } | { grand_jury_number: string }[] | null };
 type EvidenceRow = { id: string; evidence_number: string; ete_id: string | null; formal_title: string | null; title: string; evidence_type: string; exhibit_designation: string | null; evidence_status: string | null; access_classification: string; sealed: boolean; grand_jury_status: string; sha256_hash: string | null };
 
@@ -66,7 +69,7 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
   const query = await searchParams;
   const supabase = await createClient();
   if (!supabase) notFound();
-  const [caseResult, participantResult, actionsResult, hearingsResult, proceedingsResult, docketResult, filingsResult, motionsResult, ordersResult, workflowResult, matterLinksResult, trialJuryResult, grandJuryReturnResult, evidenceResult, trialRoundsResult] = await Promise.all([
+  const [caseResult, participantResult, actionsResult, hearingsResult, proceedingsResult, docketResult, filingsResult, motionsResult, ordersResult, workflowResult, matterLinksResult, trialJuryResult, grandJuryReturnResult, evidenceResult, trialRoundsResult, trialPanelsResult, trialJurorProfilesResult] = await Promise.all([
     supabase.from("cases").select("id,case_number,docket_number,internal_number,judicial_number,filing_status,title,status,filed_at,confidentiality_level,summary,public_visibility,case_category,case_caption,federal_access_level,sealed,grand_jury_restricted,originating_court_or_agency,originating_case_number,originating_docket_number,appellate_docket_number,federal_courts(official_name,abbreviation,court_system,district,state_or_territory),civil_case_details(nature_of_suit_code,cause_of_action,basis_of_jurisdiction,origin_code,jury_demand,class_action,multidistrict_litigation_indicator),criminal_case_details(charging_instrument,offense_statutes,offense_level,grand_jury_status,prosecuting_office,lead_ausa),appeal_details(notice_of_appeal_date,appellate_basis,cross_appeal,agency_review,supreme_court_petition_status)").eq("id", id).maybeSingle(),
     supabase.from("case_participants").select("id,role_code,side,counsel,participants(legal_name,display_name,sealed,minor,pseudonym)").eq("case_id", id).order("created_at"),
     supabase.from("case_actions").select("id,action_type,title,description,action_date,visibility").eq("case_id", id).is("archived_at", null).order("action_date", { ascending: false }),
@@ -78,10 +81,12 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
     supabase.from("orders").select("id,order_type,signed_at,entered_at,effect,visibility").eq("case_id", id).is("archived_at", null).order("entered_at", { ascending: false }),
     supabase.from("workflow_events").select("id,title,description,event_code,occurred_at,previous_status,new_status").eq("case_id", id).order("occurred_at", { ascending: false }).limit(20),
     supabase.from("matter_case_relationships").select("id,relationship_type,matters(id,matter_number,title,status)").eq("case_id", id).order("created_at", { ascending: false }),
-    supabase.from("trial_juries").select("id,trial_jury_number,status,jury_type,required_jury_size,jury_selection_date,trial_start_date,deliberation_status").eq("case_id", id).order("created_at", { ascending: false }),
+    supabase.from("trial_juries").select("id,trial_jury_number,panel_name,proceeding_number,status,jury_type,required_jury_size,selected_panel_size,jury_selection_date,trial_start_date,deliberation_status,district,foreperson_panel_id,foreperson_selection_method").eq("case_id", id).order("created_at", { ascending: false }),
     supabase.from("grand_jury_returns").select("id,return_type,returned_at,sealed,grand_juries(grand_jury_number)").eq("resulting_case_id", id).order("returned_at", { ascending: false }),
     supabase.from("evidence_items").select("id,evidence_number,ete_id,formal_title,title,evidence_type,exhibit_designation,evidence_status,access_classification,sealed,grand_jury_status,sha256_hash").eq("case_id", id).is("archived_at", null).is("deleted_at", null).order("created_at", { ascending: false }),
     supabase.from("trial_jury_voting_rounds").select("id,trial_jury_id,status,title,closed_at").order("opened_at", { ascending: false }).limit(20),
+    supabase.from("trial_jury_panels").select("id,trial_jury_id,juror_user_id,juror_participant_number,display_name,panel_sequence,member_type,attendance_status,qualification_status,removed_at").order("panel_sequence"),
+    supabase.from("profiles").select("id,full_name,role,institutional_email").eq("is_active", true).eq("role", "TRIAL_JUROR").order("full_name"),
   ]);
   if (!caseResult.data) notFound();
 
@@ -101,6 +106,8 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
   const grandJuryReturns = (grandJuryReturnResult.data ?? []) as GrandJuryReturnRow[];
   const evidence = (evidenceResult.data ?? []) as EvidenceRow[];
   const trialRounds = (trialRoundsResult.data ?? []) as TrialRoundRow[];
+  const trialPanels = (trialPanelsResult.data ?? []) as TrialJuryPanelRow[];
+  const trialJurorProfiles = (trialJurorProfilesResult.data ?? []) as JurorProfileRow[];
   const civilDetails = caseItem.civil_case_details?.[0];
   const criminalDetails = caseItem.criminal_case_details?.[0];
   const appealDetails = caseItem.appeal_details?.[0];
@@ -225,7 +232,45 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
         <TabsContent value="juries" className="grid gap-5 lg:grid-cols-2">
           <Card><CardHeader><CardTitle className="text-base text-[#153553]">Trial Jury</CardTitle></CardHeader><CardContent className="divide-y p-0">{trialJuries.length === 0 ? <EmptyInline text="No Trial Jury workflow has been opened for this Case." /> : trialJuries.map((jury) => {
             const openRound = trialRounds.find((round) => round.trial_jury_id === jury.id && round.status === "Open");
-            return <div key={jury.id} className="p-4"><p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.trial_jury_number}</p><p className="mt-1 text-sm font-semibold">{jury.jury_type} · {jury.status}</p><p className="text-xs text-muted-foreground">Size {jury.required_jury_size || "pending"} · selection {formatDate(jury.jury_selection_date)} · trial {formatDate(jury.trial_start_date)} · {jury.deliberation_status}</p>
+            const panels = trialPanels.filter((member) => member.trial_jury_id === jury.id);
+            const activeMembers = panels.filter((member) => member.member_type === "juror" && !member.removed_at && ["present", "active", "Present", "Active", "Impaneled", "impaneled"].includes(member.attendance_status));
+            const alternates = panels.filter((member) => member.member_type === "alternate" && !member.removed_at);
+            const canChangeMembers = !trialRounds.some((round) => round.trial_jury_id === jury.id);
+            const certifiedRound = trialRounds.find((round) => round.trial_jury_id === jury.id && round.status !== "Open" && Boolean(round.closed_at));
+            return <div key={jury.id} className="p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="mono-number text-xs font-semibold text-[#005ea8]">{jury.trial_jury_number}</p>
+                  <p className="mt-1 text-sm font-semibold">{jury.panel_name || jury.jury_type} · {jury.status}</p>
+                  <p className="text-xs text-muted-foreground">{jury.proceeding_number || "No proceeding number"} · {jury.district || "District pending"} · trial {formatDate(jury.trial_start_date)} · {jury.deliberation_status}</p>
+                  <p className="mt-1 text-xs text-slate-600">Panel size {jury.selected_panel_size || jury.required_jury_size || 9} · eligible deliberating {activeMembers.length} · unanimity required</p>
+                  <p className="mt-1 text-xs text-slate-600">Foreperson: {panels.find((member) => member.id === jury.foreperson_panel_id)?.display_name || "Not selected"} · {jury.foreperson_selection_method || "Selected by the jury"}</p>
+                </div>
+                <Button asChild variant="outline" size="sm"><Link href={`/jury/proceedings/${jury.id}`}>Juror panel URL</Link></Button>
+              </div>
+              <div className="mt-4 rounded border bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[.12em] text-slate-600">Jury Members</p>
+                {panels.length === 0 ? <p className="mt-2 text-xs text-muted-foreground">No members assigned. Create juror accounts with role TRIAL_JUROR, then assign them here.</p> : <div className="mt-2 grid gap-2">{panels.map((member) => <div key={member.id} className="flex flex-wrap items-center justify-between gap-2 rounded bg-white p-2 text-xs">
+                  <span><span className="font-semibold">{member.juror_participant_number}</span> · {member.display_name || "Unnamed juror"} · {member.member_type} · {member.qualification_status || "Qualified"}/{member.attendance_status}{member.id === jury.foreperson_panel_id ? " · Foreperson" : ""}{member.removed_at ? " · removed" : ""}</span>
+                  {!member.removed_at && canChangeMembers ? <form action={removeTrialJuryMemberAction} className="flex gap-1"><input type="hidden" name="panel_id" value={member.id} /><input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} /><input type="hidden" name="status" value="Discharged" /><input type="hidden" name="reason" value="Removed before deliberation/vote" /><Button variant="outline" size="sm">Remove</Button></form> : null}
+                </div>)}</div>}
+                {canChangeMembers ? <form action={addTrialJuryMemberAction} className="mt-3 grid gap-2 md:grid-cols-5">
+                  <input type="hidden" name="trial_jury_id" value={jury.id} /><input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} />
+                  <select name="juror_user_id" required className="h-9 rounded-md border bg-white px-2 text-xs"><option value="">Add TRIAL_JUROR account…</option>{trialJurorProfiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}</select>
+                  <Input name="juror_participant_number" placeholder="Juror number" className="h-9" />
+                  <select name="member_type" className="h-9 rounded-md border bg-white px-2 text-xs"><option value="juror">Juror</option><option value="alternate">Alternate</option></select>
+                  <Input name="panel_sequence" placeholder="Seat #" type="number" className="h-9" />
+                  <Button size="sm" variant="outline"><UserPlus className="mr-1 size-3" />Add member</Button>
+                </form> : <p className="mt-3 text-xs text-amber-800">Members are locked after the first voting round opens. Alternates require a formal replacement record.</p>}
+                {activeMembers.length >= (jury.selected_panel_size || jury.required_jury_size || 9) ? <Badge className="mt-3 bg-emerald-50 text-emerald-800">Deliberating panel complete</Badge> : <Badge className="mt-3 bg-amber-50 text-amber-900">Minimum/quorum incomplete</Badge>}
+                <p className="mt-2 text-xs text-muted-foreground">Alternates assigned: {alternates.length}. Alternates do not vote unless formally substituted as deliberating jurors.</p>
+              </div>
+              <form action={recordTrialJuryForepersonAction} className="mt-3 grid gap-2 md:grid-cols-3">
+                <input type="hidden" name="trial_jury_id" value={jury.id} /><input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} /><input type="hidden" name="method" value="Selected by the jury" />
+                <select name="panel_id" required className="h-9 rounded-md border bg-white px-2 text-xs"><option value="">Foreperson selected by jury…</option>{activeMembers.map((member) => <option key={member.id} value={member.id}>{member.display_name || member.juror_participant_number}</option>)}</select>
+                <p className="self-center text-xs text-muted-foreground">Must read: Selected by the jury.</p>
+                <Button size="sm" variant="outline">Record foreperson</Button>
+              </form>
               <form action={addTrialVerdictQuestionAction} className="mt-3 grid gap-2 md:grid-cols-4">
                 <input type="hidden" name="trial_jury_id" value={jury.id} /><input type="hidden" name="case_id" value={caseItem.id} />
                 <Input name="defendant_or_party" placeholder="Defendant/party" className="h-9" />
@@ -236,6 +281,7 @@ export default async function CaseDetailPage({ params, searchParams }: { params:
               <div className="mt-2 flex flex-wrap gap-2">
                 <form action={openTrialJuryVoteRoundAction}><input type="hidden" name="trial_jury_id" value={jury.id} /><input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} /><Button size="sm" variant="outline">Open secret vote</Button></form>
                 {openRound ? <form action={closeTrialJuryVoteRoundAction} className="flex gap-2"><input type="hidden" name="round_id" value={openRound.id} /><input type="hidden" name="return_to" value={`/admin/expedientes/${caseItem.id}`} /><Input name="certification" placeholder="Foreperson certification" className="h-9 max-w-xs" /><Button size="sm" variant="outline">Close / certify</Button></form> : null}
+                {certifiedRound ? <Button asChild size="sm" variant="outline"><Link href={`/api/roleplay/trial-jury/verdict/${certifiedRound.id}/pdf`}><FileDown className="mr-1 size-3" />Verdict form PDF</Link></Button> : null}
               </div>
             </div>;
           })}</CardContent></Card>

@@ -32,16 +32,20 @@ export default async function NewGrandJuryPage({ params, searchParams }: { param
         <Card>
           <CardHeader><CardTitle>Grand Jury protected setup</CardTitle></CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
+            <Field name="panel_name" label="Editable jury name" defaultValue={`Grand Jury ${new Date().getFullYear().toString().slice(-2)}-01`} />
+            <Field name="proceeding_number" label="Internal proceeding number" />
             <div className="space-y-2 md:col-span-2"><Label htmlFor="court_id">District Court</Label><select id="court_id" name="court_id" required className="h-10 w-full rounded-md border bg-white px-3 text-sm"><option value="">Seleccione District Court…</option>{courts.map((court: { id: string; display_name?: string; official_name: string; abbreviation: string }) => <option key={court.id} value={court.id}>{court.display_name || court.official_name} ({court.abbreviation})</option>)}</select><p className="text-xs text-muted-foreground">Grand Jury no puede crearse en D.C. Circuit ni Ninth Circuit.</p></div>
+            <Field name="district" label="District" />
             <Field name="jury_division" label="Jury division" />
             <Field name="supervising_judge" label="Supervising / impaneling Judge" />
-            <Field name="foreperson" label="Foreperson" />
-            <Field name="deputy_foreperson" label="Deputy Foreperson" />
-            <Field name="active_grand_jurors" label="Number of active grand jurors" type="number" defaultValue="16" />
-            <Field name="term_start" label="Term start" type="date" />
-            <Field name="term_end" label="Term end" type="date" />
+            <Field name="selected_panel_size" label="Selected compact panel size" type="number" defaultValue="9" />
+            <p className="rounded border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-900 md:col-span-2">Compact server limit: minimum 5, default 9, maximum 15. True Bill threshold is calculated server-side as two thirds rounded up.</p>
+            <Field name="constitution_date" label="Constitution date" type="date" />
+            <Field name="expiration_date" label="Expiration / discharge date" type="date" />
             <Field name="expected_schedule" label="Expected schedule" />
-            <div className="space-y-2"><Label htmlFor="status">Status</Label><select id="status" name="status" className="h-10 w-full rounded-md border bg-white px-3 text-sm">{["Draft","Requested","Summoned","Impaneled","Active","Extended","Indictment returned","No bill","Discharged","Expired"].map((status) => <option key={status}>{status}</option>)}</select></div>
+            <div className="space-y-2"><Label htmlFor="status">Status</Label><select id="status" name="status" className="h-10 w-full rounded-md border bg-white px-3 text-sm">{["Draft","Impaneled","Active","Deliberating","Voting","Returned","Discharged","Sealed"].map((status) => <option key={status}>{status}</option>)}</select></div>
+            <TextareaField name="internal_description" label="Internal description" />
+            <TextareaField name="jury_instructions" label="Jury instructions / confidentiality notice" />
             <TextareaField name="notes" label="Protected notes" />
           </CardContent>
         </Card>
