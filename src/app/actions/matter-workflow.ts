@@ -643,13 +643,104 @@ export async function createGrandJuryAction(formData: FormData) {
 export async function addGrandJuryMemberAction(formData: FormData) {
   const grandJuryId = String(formData.get("grand_jury_id") || "");
   const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const jurorUserId = String(formData.get("juror_user_id") || "");
+  if (!jurorUserId) redirect(`${returnTo}?error=${encodeURIComponent("Seleccione una cuenta/persona para asignar al Grand Jury")}`);
   const supabase = await clientOrRedirect(returnTo);
   const { error } = await supabase.rpc("add_grand_jury_member", {
     p_grand_jury_id: grandJuryId,
-    p_juror_user_id: String(formData.get("juror_user_id") || ""),
+    p_juror_user_id: jurorUserId,
     p_payload: Object.fromEntries(formData),
   });
   if (error) redirect(`${returnTo}?error=${encodeURIComponent(error.message)}`);
+  revalidatePath(returnTo);
+  redirect(`${returnTo}?grand_jury=member-added`);
+}
+
+const jurorAccountSchema = z.object({
+  grand_jury_id: z.string().uuid(),
+  return_to: z.string().min(1),
+  email: z.string().email().refine((value) => value.endsWith(".test"), "Use un correo ficticio terminado en .test"),
+  temporary_password: z.string().min(12, "La contraseña temporal debe tener al menos 12 caracteres"),
+  confirm_password: z.string().min(12),
+  full_name: z.string().min(3, "Indique el nombre completo"),
+  display_name: z.string().optional(),
+  juror_type: z.enum(["GRAND_JUROR", "TRIAL_JUROR"]),
+  account_status: z.enum(["active", "suspended"]).default("active"),
+}).refine((data) => data.temporary_password === data.confirm_password, { message: "Las contraseñas no coinciden", path: ["confirm_password"] });
+
+export async function createAndAssignGrandJuryJurorAccountAction(formData: FormData) {
+  const returnTo = String(formData.get("return_to") || "/admin/dashboard");
+  const parsed = jurorAccountSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect(`${returnTo}?error=${encodeURIComponent(parsed.error.issues[0].message)}`);
+
+  const supabase = await clientOrRedirect(returnTo);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const { data: canEditJuries } = await supabase.rpc("has_effective_permission", { p_resource: "juries", p_action: "edit" });
+  const admin = createAdminClient();
+  if (!admin) redirect(`${returnTo}?error=${encodeURIComponent("Supabase service role no está configurado")}`);
+  const { data: actor } = await admin.from("profiles").select("role,is_owner,is_active").eq("id", user.id).single();
+  const actorRole = String(actor?.role || "");
+  const allowed = Boolean(actor?.is_active && (actor?.is_owner || ["SUPER_ADMIN", "OWNER", "ATTORNEY_GENERAL", "JUDGE", "CLERK"].includes(actorRole) || canEditJuries));
+  if (!allowed) {
+    await admin.from("audit_logs").insert({
+      user_id: user.id,
+      action: "GRAND_JURY_JUROR_CREATE_DENIED",
+      table_name: "grand_jury_members",
+      record_id: parsed.data.grand_jury_id,
+      description: "Intento no autorizado de crear cuenta de jurado desde Grand Jury",
+      metadata: { email_domain: parsed.data.email.split("@").pop() },
+    });
+    redirect("/no-autorizado");
+  }
+
+  const { data, error } = await admin.auth.admin.createUser({
+    email: parsed.data.email,
+    password: parsed.data.temporary_password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: parsed.data.full_name,
+      force_password_change: formData.get("must_change_password") === "on",
+      auth_email: parsed.data.email,
+      juror_type: parsed.data.juror_type,
+    },
+  });
+  if (error || !data.user) redirect(`${returnTo}?error=${encodeURIComponent(error?.message ?? "No fue posible crear la cuenta de jurado")}`);
+
+  const visibleName = parsed.data.display_name?.trim() || parsed.data.full_name;
+  const { error: profileError } = await admin.from("profiles").update({
+    full_name: parsed.data.full_name,
+    public_display_name: visibleName,
+    email: parsed.data.email,
+    institutional_email: null,
+    role: parsed.data.juror_type,
+    position_title: parsed.data.juror_type === "GRAND_JUROR" ? "Grand Juror" : "Trial Juror",
+    is_active: parsed.data.account_status === "active",
+    suspended_at: parsed.data.account_status === "suspended" ? new Date().toISOString() : null,
+    must_change_password: formData.get("must_change_password") === "on",
+    updated_at: new Date().toISOString(),
+  }).eq("id", data.user.id);
+  if (profileError) redirect(`${returnTo}?error=${encodeURIComponent(profileError.message)}`);
+
+  const { error: assignError } = await supabase.rpc("add_grand_jury_member", {
+    p_grand_jury_id: parsed.data.grand_jury_id,
+    p_juror_user_id: data.user.id,
+    p_payload: {
+      ...Object.fromEntries(formData),
+      display_name: visibleName,
+      eligibility_confirmed: true,
+    },
+  });
+  if (assignError) redirect(`${returnTo}?error=${encodeURIComponent(assignError.message)}`);
+
+  await admin.from("audit_logs").insert({
+    user_id: user.id,
+    action: "grand_jury_juror_account_created",
+    table_name: "grand_jury_members",
+    record_id: parsed.data.grand_jury_id,
+    description: "Confirmed juror account created and assigned to Grand Jury without email delivery.",
+    metadata: { created_user_id: data.user.id, juror_type: parsed.data.juror_type, account_status: parsed.data.account_status },
+  });
   revalidatePath(returnTo);
   redirect(`${returnTo}?grand_jury=member-added`);
 }
